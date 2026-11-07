@@ -1,17 +1,5 @@
 import { expect, test } from '@playwright/test'
-
-/** Вход тестовым клиентом через dev-код 1111. */
-async function signInAs(page: import('@playwright/test').Page, phone: string): Promise<void> {
-  await page.goto('http://app.localhost:3000/login/phone')
-  await page.getByLabel('Номер телефона').fill(phone)
-  await page.getByRole('button', { name: 'Получить код' }).click()
-  await expect(page).toHaveURL(/\/login\/code/)
-
-  for (const [index, digit] of ['1', '1', '1', '1'].entries()) {
-    await page.getByLabel(`Цифра ${index + 1} из 4`).fill(digit)
-  }
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 })
-}
+import { signInAs } from './helpers'
 
 test('просроченный клиент: /exercises → /paywall, /progress доступен', async ({ page }) => {
   await signInAs(page, '+79990000015')

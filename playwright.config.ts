@@ -3,6 +3,11 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
+  // e2e меняют одни и те же данные сида — гоняем по одному файлу
+  workers: 1,
+  // dev-сервер компилирует страницы на лету — 30 с не хватает
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   reporter: [['list']],
   use: {
     trace: 'on-first-retry',

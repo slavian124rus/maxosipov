@@ -217,12 +217,12 @@
 - Consumes: `grant`, `freeze`, `unfreeze`, `disable`, `computeAccess`, `assertCan`.
 - Produces: `updateAccessSettings(actor, { trialDays: int 0..90; subscriptionPriceRub: int 0..100000 | null }): Promise<void>` — требует `subscriptions.pricing`.
 
-- [ ] **Шаг 1.** Тест `settings.test.ts`: тренер с `subscriptions.pricing` меняет `trialDays` на 14 → новый клиент получает пробный период 14 дней; актор без права → `ForbiddenError`; `trialDays: 120` → ошибка валидации.
-- [ ] **Шаг 2.** `trainer/layout.tsx` — доступ, только если `can(actor, 'subscriptions.grant')` или `clients.view`, иначе 404.
-- [ ] **Шаг 3.** `/trainer/subscriptions`: поиск по имени/телефону; фильтры-чипы «Все», «Пробные», «Заканчиваются (7 дней)», «Истекли»; строка клиента: имя, телефон, статус и «до 7 декабря» (цвет: `warning` если ≤ 7 дней, `danger` если истекла). По нажатию — лист снизу с кнопками «+1 мес», «+3 мес», «До даты…», «Заморозить»/«Разморозить», «Отключить» (подтверждение в диалоге), поле «Цена, ₽» (подставлена цена из настроек) и «Заметка»; под кнопками — история (`subscription_events`, последние 10).
-- [ ] **Шаг 4.** `/trainer/settings/access`: «Пробный период, дней», «Цена подписки в месяц, ₽» — сохранить.
-- [ ] **Шаг 5.** e2e: вход Максимом (`+79990000002`) → `/trainer/subscriptions` → клиенту 5 «+1 мес» → вход клиентом 5 → открывается `/exercises` (без paywall).
-- [ ] **Шаг 6.** `pnpm verify && pnpm test:e2e`. Коммит: `feat(trainer): subscription management and access settings`.
+- [x] **Шаг 1.** Тест `settings.test.ts`: тренер с `subscriptions.pricing` меняет `trialDays` на 14 → новый клиент получает пробный период 14 дней; актор без права → `ForbiddenError`; `trialDays: 120` → ошибка валидации.
+- [x] **Шаг 2.** `trainer/layout.tsx` — доступ, только если `can(actor, 'subscriptions.grant')` или `clients.view`, иначе 404.
+- [x] **Шаг 3.** `/trainer/subscriptions`: поиск по имени/телефону; фильтры-чипы «Все», «Пробные», «Заканчиваются (7 дней)», «Истекли»; строка клиента: имя, телефон, статус и «до 7 декабря» (цвет: `warning` если ≤ 7 дней, `danger` если истекла). По нажатию — лист снизу с кнопками «+1 мес», «+3 мес», «До даты…», «Заморозить»/«Разморозить», «Отключить» (подтверждение в диалоге), поле «Цена, ₽» (подставлена цена из настроек) и «Заметка»; под кнопками — история (`subscription_events`, последние 10).
+- [x] **Шаг 4.** `/trainer/settings/access`: «Пробный период, дней», «Цена подписки в месяц, ₽» — сохранить.
+- [x] **Шаг 5.** e2e: вход Максимом (`+79990000002`) → `/trainer/subscriptions` → клиенту 5 «+1 мес» → вход клиентом 5 → открывается `/exercises` (без paywall).
+- [x] **Шаг 6.** `pnpm verify && pnpm test:e2e`. Коммит: `feat(trainer): subscription management and access settings`.
 
 ### Задача 9. Отчёт этапа
 

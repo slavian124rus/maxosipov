@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { signInAs } from './helpers'
 
 /** Случайный dev-номер: код всегда 1111, СМС не уходит. */
 function devPhone(): string {
@@ -14,14 +15,7 @@ test('вход по номеру телефона ведёт на анкету',
   await page.getByRole('link', { name: 'Войти по номеру телефона' }).click()
   await expect(page).toHaveURL(/\/login\/phone/)
 
-  await page.getByLabel('Номер телефона').fill(phone)
-  await page.getByRole('button', { name: 'Получить код' }).click()
-
-  await expect(page).toHaveURL(/\/login\/code/)
-
-  for (const [index, digit] of ['1', '1', '1', '1'].entries()) {
-    await page.getByLabel(`Цифра ${index + 1} из 4`).fill(digit)
-  }
+  await signInAs(page, phone)
 
   await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 })
 })

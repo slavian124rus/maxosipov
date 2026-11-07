@@ -22,3 +22,7 @@ export type {
   TrialRegistryRow,
 } from './schema'
 
+export { accessSettingsSchema, updateAccessSettings } from './settings'
+export type { AccessSettingsInput } from './settings'
+
+

@@ -46,14 +46,19 @@ async function countSince(column: typeof otpCodes.phone | typeof otpCodes.ip, va
 
 /** Запрашивает код: проверяет лимиты, пишет хэш в БД и отправляет СМС. */
 export async function requestOtp(phone: string, ip: string): Promise<RequestOtpResult> {
-  if ((await countSince(otpCodes.phone, phone)) >= OTP_MAX_REQUESTS_PER_PHONE) {
-    return { ok: false, reason: 'rate_phone' }
-  }
-  if ((await countSince(otpCodes.ip, ip)) >= OTP_MAX_REQUESTS_PER_IP) {
-    return { ok: false, reason: 'rate_ip' }
+  const dev = isDevPhone(phone)
+
+  // Для тестовых номеров лимит не нужен: код фиксированный, СМС не уходит,
+  // а e2e-прогоны повторяются. В production ветка недостижима.
+  if (!dev) {
+    if ((await countSince(otpCodes.phone, phone)) >= OTP_MAX_REQUESTS_PER_PHONE) {
+      return { ok: false, reason: 'rate_phone' }
+    }
+    if ((await countSince(otpCodes.ip, ip)) >= OTP_MAX_REQUESTS_PER_IP) {
+      return { ok: false, reason: 'rate_ip' }
+    }
   }
 
-  const dev = isDevPhone(phone)
   const code = dev ? DEV_CODE : generateCode()
   const now = new Date()
 
