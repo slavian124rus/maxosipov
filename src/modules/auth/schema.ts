@@ -1,5 +1,5 @@
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import { index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { index, integer, pgTable, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 /**
  * Пользователи. Телефон — главный ключ (E.164, подтверждён).
@@ -105,6 +105,33 @@ export type PendingLinkData = {
   providerUserId: string
   name: string | null
 }
+
+export type ClientGoal = 'strength' | 'mass' | 'fat_loss' | 'health'
+export type ClientExperience = 'novice' | 'intermediate' | 'advanced'
+export type ClientSex = 'male' | 'female'
+
+/** Анкета клиента: одна строка на пользователя. */
+export const clientProfiles = pgTable('client_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  sex: text('sex').$type<ClientSex>().notNull(),
+  birthYear: integer('birth_year').notNull(),
+  heightCm: integer('height_cm').notNull(),
+  weightKg: real('weight_kg').notNull(),
+  goal: text('goal').$type<ClientGoal>().notNull(),
+  experience: text('experience').$type<ClientExperience>().notNull(),
+  sessionsPerWeek: integer('sessions_per_week').notNull(),
+  /** Хранится только при согласии на обработку данных о здоровье. */
+  limitations: text('limitations'),
+  healthConsentAt: timestamp('health_consent_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type ClientProfile = typeof clientProfiles.$inferSelect
 
 
 

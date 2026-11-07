@@ -43,6 +43,13 @@
       "when": 1794053907961,
       "tag": "0005_fast_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794054144837,
+      "tag": "0006_last_morlun",
+      "breakpoints": true
     }
   ]
 }
