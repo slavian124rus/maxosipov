@@ -210,16 +210,16 @@
 **Interfaces:**
 - Produces: `checkHealth(ping: () => Promise<void>, timeoutMs = 2000): Promise<{ ok: boolean; db: 'up' | 'down' }>` (`src/shared/health.ts`); `GET /api/health` → 200 `{ok:true,db:'up'}` или 503 `{ok:false,db:'down'}`; `startWorker(): Promise<void>` с pg-boss и регистрацией задач из `jobs.ts` (сейчас одна: `heartbeat` раз в 10 минут пишет в лог).
 
-- [ ] **Шаг 1.** Падающий тест `health.test.ts`: `checkHealth(async () => {})` → `{ok:true, db:'up'}`; `checkHealth(() => new Promise(() => {}), 50)` → `{ok:false, db:'down'}` (не виснет); `checkHealth(async () => { throw new Error('x') })` → `down`.
-- [ ] **Шаг 2.** Реализуй `checkHealth` через `Promise.race` с таймаутом; route вызывает её с `db.execute(sql\`select 1\`)`. → PASS.
-- [ ] **Шаг 3.** `pnpm add pg-boss`. `src/worker/index.ts`: создать `PgBoss(env.DATABASE_URL)`, `start()`, зарегистрировать задачи, корректно останавливаться по `SIGTERM`. Сверь API с README установленной версии pg-boss (`schedule`, `work`) — не выдумывай.
-- [ ] **Шаг 4.** `docker/Dockerfile` — multi-stage: `deps` (pnpm install --frozen-lockfile), `build` (`pnpm build`), `runner` на `node:22-alpine` с `ffmpeg` (`apk add ffmpeg`) — понадобится worker'у; копирует `.next/standalone`, `.next/static`, `public`, `drizzle`, `src/worker`, `node_modules` нужные для worker (допустимо копировать весь `node_modules` из `deps` — опиши в отчёте размер образа). `CMD` по умолчанию — `node server.js`.
-- [ ] **Шаг 5.** `docker/compose.yml`:
+- [x] **Шаг 1.** Падающий тест `health.test.ts`: `checkHealth(async () => {})` → `{ok:true, db:'up'}`; `checkHealth(() => new Promise(() => {}), 50)` → `{ok:false, db:'down'}` (не виснет); `checkHealth(async () => { throw new Error('x') })` → `down`.
+- [x] **Шаг 2.** Реализуй `checkHealth` через `Promise.race` с таймаутом; route вызывает её с `db.execute(sql\`select 1\`)`. → PASS.
+- [x] **Шаг 3.** `pnpm add pg-boss`. `src/worker/index.ts`: создать `PgBoss(env.DATABASE_URL)`, `start()`, зарегистрировать задачи, корректно останавливаться по `SIGTERM`. Сверь API с README установленной версии pg-boss (`schedule`, `work`) — не выдумывай.
+- [x] **Шаг 4.** `docker/Dockerfile` — multi-stage: `deps` (pnpm install --frozen-lockfile), `build` (`pnpm build`), `runner` на `node:22-alpine` с `ffmpeg` (`apk add ffmpeg`) — понадобится worker'у; копирует `.next/standalone`, `.next/static`, `public`, `drizzle`, `src/worker`, `node_modules` нужные для worker (допустимо копировать весь `node_modules` из `deps` — опиши в отчёте размер образа). `CMD` по умолчанию — `node server.js`.
+- [x] **Шаг 5.** `docker/compose.yml`:
   - `db`: `postgres:17-alpine`, том `/data/postgres`, без публикации порта наружу, healthcheck `pg_isready`;
   - `web`: образ из Dockerfile, `env_file: ../.env`, depends_on db (healthy), команда — перед стартом `pnpm`-независимая миграция: `node scripts/migrate.js` (создай `scripts/migrate.ts` → компилируется в образ; использует `drizzle-orm/postgres-js/migrator`), затем `node server.js`;
   - `worker`: тот же образ, команда `node --import tsx src/worker/index.ts` (или скомпилируй worker отдельно — выбери и опиши в отчёте), том `/data/media`;
   - `caddy`: `caddy:2-alpine`, порты 80/443, тома `caddy_data`, `caddy_config`, `/data/media:/srv/media:ro`, `./Caddyfile:/etc/caddy/Caddyfile`.
-- [ ] **Шаг 6.** `docker/Caddyfile`:
+- [x] **Шаг 6.** `docker/Caddyfile`:
   ```
   maxosipov.ru, app.maxosipov.ru {
     encode zstd gzip
@@ -230,8 +230,8 @@
   }
   ```
   (раздача `/media` с проверкой подписи добавится на этапе 2).
-- [ ] **Шаг 7.** Локально: `docker compose -f docker/compose.yml build` → успешно. Запуск с локальным `.env` → `curl -H 'Host: app.maxosipov.ru' http://localhost/api/health` (через web напрямую, порт 3000 временно опубликуй) → `{"ok":true,"db":"up"}`.
-- [ ] **Шаг 8.** `pnpm verify` → зелёный. Коммит: `feat(infra): health check, worker, docker images, caddy`.
+- [x] **Шаг 7.** Локально: `docker compose -f docker/compose.yml build` → успешно. Запуск с локальным `.env` → `curl -H 'Host: app.maxosipov.ru' http://localhost/api/health` (через web напрямую, порт 3000 временно опубликуй) → `{"ok":true,"db":"up"}`.
+- [x] **Шаг 8.** `pnpm verify` → зелёный. Коммит: `feat(infra): health check, worker, docker images, caddy`.
 
 ### Задача 8. Сервер FirstVPS, деплой, бэкапы
 
@@ -241,7 +241,7 @@
 **Interfaces:**
 - Produces: работающие `https://maxosipov.ru` и `https://app.maxosipov.ru/api/health`; ночной бэкап.
 
-- [ ] **Шаг 1.** `docs/ops/server-setup.md` — пошагово (исполнитель пишет, владелец выполняет на сервере, если у исполнителя нет SSH):
+- [x] **Шаг 1.** `docs/ops/server-setup.md` — пошагово (исполнитель пишет, владелец выполняет на сервере, если у исполнителя нет SSH):
   1. VPS: Ubuntu 24.04 LTS, 4 vCPU, 8 ГБ RAM, 160 ГБ NVMe (ARCHITECTURE §16).
   2. Пользователь `deploy` с sudo, вход по SSH-ключу, `PasswordAuthentication no`.
   3. `ufw allow 22,80,443/tcp && ufw enable`.
@@ -249,19 +249,19 @@
   5. DNS у регистратора: A-записи `@`, `www`, `app` → IP сервера; дождаться применения (`dig +short app.maxosipov.ru`).
   6. Клонировать репозиторий в `/opt/maxosipov`, создать `.env` (продакшн-значения), `mkdir -p /data/postgres /data/media`.
   7. `./scripts/deploy.sh`.
-- [ ] **Шаг 2.** `scripts/deploy.sh`: `set -euo pipefail`; `git pull --ff-only`; `docker compose -f docker/compose.yml build`; `docker compose -f docker/compose.yml up -d`; ожидание `/api/health` до 60 с (curl в цикле к `https://app.maxosipov.ru/api/health`), при неудаче — вывести `docker compose logs --tail=100 web` и выйти с кодом 1.
-- [ ] **Шаг 3.** `scripts/backup.sh`: `pg_dump` из контейнера `db` в `/data/backups/db-$(date +%F).sql.gz`, затем `restic backup /data/backups /data/media` в S3-совместимое хранилище (переменные из `/opt/maxosipov/docker/backup.env`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), затем `restic forget --keep-daily 14 --keep-weekly 8 --prune`; удалить локальные дампы старше 3 дней.
-- [ ] **Шаг 4.** Cron на сервере (`/etc/cron.d/maxosipov-backup`): ежедневно в 03:30 по Красноярску → `scripts/backup.sh >> /var/log/maxosipov-backup.log 2>&1`. Задокументируй в `server-setup.md`.
-- [ ] **Шаг 5.** `scripts/restore-check.sh`: восстанавливает последний дамп во временный контейнер `postgres:17-alpine` и выполняет `select count(*) from users` — для ежемесячной проверки.
-- [ ] **Шаг 6.** Выполнение на сервере (владелец или исполнитель с доступом): деплой → проверки:
+- [x] **Шаг 2.** `scripts/deploy.sh`: `set -euo pipefail`; `git pull --ff-only`; `docker compose -f docker/compose.yml build`; `docker compose -f docker/compose.yml up -d`; ожидание `/api/health` до 60 с (curl в цикле к `https://app.maxosipov.ru/api/health`), при неудаче — вывести `docker compose logs --tail=100 web` и выйти с кодом 1.
+- [x] **Шаг 3.** `scripts/backup.sh`: `pg_dump` из контейнера `db` в `/data/backups/db-$(date +%F).sql.gz`, затем `restic backup /data/backups /data/media` в S3-совместимое хранилище (переменные из `/opt/maxosipov/docker/backup.env`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), затем `restic forget --keep-daily 14 --keep-weekly 8 --prune`; удалить локальные дампы старше 3 дней.
+- [x] **Шаг 4.** Cron на сервере (`/etc/cron.d/maxosipov-backup`): ежедневно в 03:30 по Красноярску → `scripts/backup.sh >> /var/log/maxosipov-backup.log 2>&1`. Задокументируй в `server-setup.md`.
+- [x] **Шаг 5.** `scripts/restore-check.sh`: восстанавливает последний дамп во временный контейнер `postgres:17-alpine` и выполняет `select count(*) from users` — для ежемесячной проверки.
+- [x] **Шаг 6.** Выполнение на сервере (владелец или исполнитель с доступом): деплой → проверки:
   - `curl -sI https://maxosipov.ru` → 200, валидный сертификат;
   - `curl -sI https://www.maxosipov.ru` → 308 на `https://maxosipov.ru/`;
   - `curl -s https://app.maxosipov.ru/api/health` → `{"ok":true,"db":"up"}`;
   - `scripts/backup.sh` вручную → снапшот в `restic snapshots`.
-- [ ] **Шаг 7.** Коммит: `chore(ops): server setup guide, deploy and backup scripts`.
+- [x] **Шаг 7.** Коммит: `chore(ops): server setup guide, deploy and backup scripts`.
 
 ### Задача 9. Отчёт этапа
 
-- [ ] Сид на продакшне **не** запускать с тестовыми номерами: в `scripts/seed.ts` при `NODE_ENV === 'production'` создаются только зал и роли; владелец и Максим — по номерам из переменных `SEED_OWNER_PHONE`, `SEED_TRAINER_PHONE` (добавь в `.env.example`). Тест: `seed` в режиме production без этих переменных не падает и не создаёт пользователей.
-- [ ] `pnpm test:e2e`: один e2e `e2e/smoke.spec.ts` — открывает `http://app.localhost:3000`, видит текст «Приложение МаксИИм — скоро»; открывает `http://localhost:3000`, видит «Максим Осипов».
-- [ ] Отчёт `docs/reports/00-report.md` по шаблону из README. **Стоп — ждать ревью.**
+- [x] Сид на продакшне **не** запускать с тестовыми номерами: в `scripts/seed.ts` при `NODE_ENV === 'production'` создаются только зал и роли; владелец и Максим — по номерам из переменных `SEED_OWNER_PHONE`, `SEED_TRAINER_PHONE` (добавь в `.env.example`). Тест: `seed` в режиме production без этих переменных не падает и не создаёт пользователей.
+- [x] `pnpm test:e2e`: один e2e `e2e/smoke.spec.ts` — открывает `http://app.localhost:3000`, видит текст «Приложение МаксИИм — скоро»; открывает `http://localhost:3000`, видит «Максим Осипов».
+- [x] Отчёт `docs/reports/00-report.md` по шаблону из README. **Стоп — ждать ревью.**
