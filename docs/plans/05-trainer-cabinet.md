@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- Охрана доступа — по ARCHITECTURE.md §8.4: каждая клиентская страница начинается с `requireClientPage('<путь>')`, каждая серверная функция/роут с платными данными вызывает `assertClientAccess`. Очереди pg-boss называются через точку (`media.process`), двоеточие запрещено.
 - Нижнее меню тренера: «Сегодня» · «Клиенты» · «Программы» · «Упражнения» · «Ещё». Тренер переключается в режим клиента (своя тренировка) пунктом «Мои тренировки» в «Ещё».
 - Все экраны — сначала 375 px, касание ≥ 48 px, главное действие внизу.
 - Каждый экран и действие проверяет права через `rbac` (область `own`/`all`). Пункты меню, на которые нет прав, не показываются.
@@ -50,7 +51,7 @@
 - [ ] **Шаг 1.** Тесты `templates.test.ts` (каждый вид — ровно тексты выше) и `notify.test.ts` (мок `web-push`): повтор с тем же `dedupeKey` → одна строка, одна отправка; ответ 410 у одной из двух подписок → она удалена, вторая получила.
 - [ ] **Шаг 2.** Реализация. `scripts/gen-vapid.ts` печатает пару ключей. SW: `push` → `showNotification(title, { body, icon: '/icons/icon-192.png', badge, data: { url } })`; клик → открыть/сфокусировать окно приложения на `url`.
 - [ ] **Шаг 3.** `<PushOptIn>`: карточка «Включи уведомления — напомним о подписке и покажем, когда Максим обновит программу» с кнопкой «Включить»; показывается на «Сегодня» после первой завершённой тренировки и в профиле. На iPhone вне установленного PWA — вместо кнопки подсказка «Сначала установи приложение на экран „Домой“».
-- [ ] **Шаг 4.** Задачи воркера: `reminders:clients` ежедневно 10:00 KRAT — `sub_ends_3d` (dedupe `sub3d:<userId>:<ends_at date>`) и `sub_ended` (dedupe `subend:<userId>:<ends_at date>`); `reminders:trainer` 09:00 — `trainer_daily`. Подключи вызовы: `program_updated` — в `applyProgramPatchAs`, если `actorKind='trainer'`; `client_pain` — уже вызывается из этапа 4; `ai_change_accepted` — в `acceptProposal` для программ тренера; `new_client` — в `signInWithVerifiedPhone` для новых.
+- [ ] **Шаг 4.** Задачи воркера: `reminders.clients` ежедневно 10:00 KRAT — `sub_ends_3d` (dedupe `sub3d:<userId>:<ends_at date>`) и `sub_ended` (dedupe `subend:<userId>:<ends_at date>`); `reminders.trainer` 09:00 — `trainer_daily`. Подключи вызовы: `program_updated` — в `applyProgramPatchAs`, если `actorKind='trainer'`; `client_pain` — уже вызывается из этапа 4; `ai_change_accepted` — в `acceptProposal` для программ тренера; `new_client` — в `signInWithVerifiedPhone` для новых.
 - [ ] **Шаг 5.** `pnpm verify` → коммит `feat(notifications): web push, templates, reminders`.
 
 ### Задача 2. Лента «Сегодня» тренера
@@ -93,7 +94,7 @@
 
 **Files:** Create `src/app/(app)/app/trainer/settings/page.tsx` (меню «Ещё»), `src/app/(app)/app/trainer/settings/ai/page.tsx`, `src/app/(app)/app/trainer/settings/progression/page.tsx`, `src/app/(app)/app/trainer/settings/brand/page.tsx`, `src/app/(app)/app/trainer/settings/contacts/page.tsx`, `src/modules/gym/settings.ts`, `src/modules/gym/settings.test.ts`.
 
-**Interfaces — Produces:** `updateAiSettings(actor, { aiMemo: string ≤ 2000; aiDailyLimit: int 0..200; aiPrices })` (право `settings.ai`); `updateProgressionRules(actor, rules)` (право `settings.progression`; `sessionsToIncrease 1..5`, `failSessionsToDrop 1..5`, `dropPercent 5..30`); `updateBrand(actor, { name, shortName, accent: hex, logoMediaId? })` (право `settings.brand`); `updateContacts(actor, { phone, maxUrl, photoMediaId })` (право `settings.brand`); `getAiSpend(actor, month): Promise<{ byModel: { model; tokensIn; tokensOut; costRub }[]; totalRub }>`.
+**Interfaces — Produces:** `updateAiSettings(actor, { aiMemo: string ≤ 2000; aiDailyLimit: int 0..200; aiPrices })` (право `settings.ai`); `updateProgressionRules(actor, rules)` (право `settings.progression`; `sessionsToIncrease 1..5`, `failSessionsToDrop 1..5`, `dropPercent 5..30`); `updateBrand(actor, { name, shortName, accent: hex, logoMediaId? })` (право `settings.brand`); `updateContacts(actor, { phone, photoMediaId })` (право `settings.brand`); `getAiSpend(actor, month): Promise<{ byModel: { model; tokensIn; tokensOut; costRub }[]; totalRub }>`.
 
 - [ ] Тесты валидации и прав. Экран «Памятка МаксИИма»: большое поле с примером-плейсхолдером «Например: я за технику, а не за вес; новичкам в первый месяц не повышай больше чем на один шаг», счётчик символов. Экран «Правила прогрессии» — объяснение каждого правила одной фразой. Экран расходов — сумма за месяц и по моделям. → коммит `feat(trainer): settings screens`.
 

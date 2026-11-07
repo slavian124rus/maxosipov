@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- Охрана доступа — по ARCHITECTURE.md §8.4: каждая клиентская страница начинается с `requireClientPage('<путь>')`, каждая серверная функция/роут с платными данными вызывает `assertClientAccess`. Очереди pg-boss называются через точку (`media.process`), двоеточие запрещено.
 - Переменные: `AI_BASE_URL=https://plusvibeapi.ru/v1`, `AI_API_KEY`, `AI_MODEL_MAIN`, `AI_MODEL_FAST`, `AI_MODEL_FALLBACK`, `STT_PROVIDER` (`plusvibe` | `yandex`), `STT_MODEL`, `YANDEX_SPEECHKIT_KEY` — на этом этапе обязательны `AI_*`, `STT_PROVIDER` и ключ выбранного STT.
 - **Перед кодом:** открой README установленных `ai` и `@ai-sdk/openai-compatible` в `node_modules` и используй API именно этой версии (`streamText`, `generateText`, `generateObject`, `tool`, ограничение шагов — `maxSteps` или `stopWhen`, в зависимости от версии). Выпиши использованные функции в отчёт.
 - В провайдера ИИ не уходят: телефон, имя, фото, id внешних аккаунтов. Клиент в тексте — «клиент».

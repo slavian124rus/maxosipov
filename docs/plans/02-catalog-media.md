@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- Охрана доступа — по ARCHITECTURE.md §8.4: каждая клиентская страница начинается с `requireClientPage('<путь>')`, каждая серверная функция/роут с платными данными вызывает `assertClientAccess`. Очереди pg-boss называются через точку (`media.process`), двоеточие запрещено.
 - Коды мышц — ровно 27 из `DESIGN.md` §6.3; слои SVG — `id="m-<code>"`, симметричные — `m-<code>-l`, `m-<code>-r`.
 - Видео на выходе: 720×1280 (9:16), H.264 `-preset slow -crf 25 -movflags +faststart`, без звука; WebM VP9 `-crf 36 -b:v 0`; постер `poster.webp` (кадр №3). Ролик 5–12 с, бесшовный.
 - Цветокоррекция (единый стиль): `eq=contrast=1.08:saturation=0.86:gamma=0.97,curves=master='0/0.03 0.5/0.47 1/0.97',vignette=PI/5`.
@@ -66,7 +67,7 @@
 - Таблица `media` (ARCHITECTURE §7) + колонки `size_bytes`, `received_chunks int[]`, `total_chunks int`, `mime`, `processing_options jsonb` (`{ cropX: number 0..1 default 0.5; loopStart?: number; loopEnd?: number }`).
 - `mediaDir(media: { id; createdAt }): string` (относительный путь `yyyy/mm/id`); `safeJoin(root, rel): string` — бросает на `..` и абсолютные пути.
 - `signMediaPath(relPath, ttlSec, now?): string` (готовый URL `/media/...?...`), `verifyMediaRequest(relPath, exp, sig, now?): boolean`.
-- `createUpload(actor, { kind, fileName, sizeBytes, mime }): Promise<{ id; chunkSize: 5242880; totalChunks }>`; `putChunk(id, index, body: ReadableStream | Buffer)`; `completeUpload(id): Promise<void>` (проверяет, что все куски есть, склеивает в `original.<ext>`, ставит `status='uploaded'`, кладёт задачу `media:process` в очередь); `getMediaStatus(id)`.
+- `createUpload(actor, { kind, fileName, sizeBytes, mime }): Promise<{ id; chunkSize: 5242880; totalChunks }>`; `putChunk(id, index, body: ReadableStream | Buffer)`; `completeUpload(id): Promise<void>` (проверяет, что все куски есть, склеивает в `original.<ext>`, ставит `status='uploaded'`, кладёт задачу `media.process` в очередь); `getMediaStatus(id)`.
 - Права: `exercise_video` — `catalog.edit`; `progress_photo` — сам клиент или `clients.measurements` (используется на этапе 3).
 
 - [ ] **Шаг 1.** Тесты `paths.test.ts`, `sign.test.ts` (валидная подпись → true; изменён путь/exp → false; истекло → false; `safeJoin('/data/media','../etc/passwd')` бросает). → реализация → PASS.
@@ -111,7 +112,7 @@
 **Interfaces — Produces:**
 - `buildPipelineCommands(input: { src: string; outDir: string; width: number; height: number; rotation: number; cropX: number; loop: { start: number; end: number } }): string[][]` — чистая функция, возвращает массивы аргументов ffmpeg по порядку (тестируемо без запуска ffmpeg).
 - `find_loop.py <video> → JSON {"start": float, "end": float, "mse": float}`; `probe.py <video> → JSON {"width","height","rotation","duration","fps"}` (rotation из `side_data_list`/`tags.rotate`).
-- Задача `media:process` (`{ mediaId }`): статус `processing` → шаги → `ready` с `processed_paths` или `failed` с `error` (человеческий текст для Максима: «Не получилось обработать видео: …»).
+- Задача `media.process` (`{ mediaId }`): статус `processing` → шаги → `ready` с `processed_paths` или `failed` с `error` (человеческий текст для Максима: «Не получилось обработать видео: …»).
 
 Порядок шагов (значения из пробы, не менять без согласования):
 1. `probe` → если нужно, поворот (`transpose`) по `rotation`.
@@ -124,18 +125,18 @@
 
 - [ ] **Шаг 1.** Тесты `pipeline.test.ts` на `buildPipelineCommands`: вертикальное видео — нет `crop`, есть `scale=720:1280`; горизонтальное 1280×720 при `cropX=0.5` → `crop=404:720:438:0`; `cropX=0` → `crop=404:720:0:0`; `cropX=1` → `crop=404:720:876:0`; rotation 90 → в цепочке есть `transpose=1`. → реализация → PASS.
 - [ ] **Шаг 2.** Интеграционный тест (помечен `@slow`, запускается `pnpm test:media`): прогон обоих роликов-фикстур → длительность выхода 5–12 с, размер 720×1280, число кадров mp4 = webm (±1), постер существует.
-- [ ] **Шаг 3.** Задача в worker, ограничение параллелизма 1 (одно видео за раз), таймаут 15 минут. Очистка исходников: ежедневная задача `media:cleanup` удаляет `original.*` у `ready` старше 30 дней.
+- [ ] **Шаг 3.** Задача в worker, ограничение параллелизма 1 (одно видео за раз), таймаут 15 минут. Очистка исходников: ежедневная задача `media.cleanup` удаляет `original.*` у `ready` старше 30 дней.
 - [ ] **Шаг 4.** `pnpm verify` → коммит `feat(media): video processing pipeline`.
 
 ### Задача 6. Мышцы на видео (worker)
 
-**Files:** Create `media-tools/pose.py`, `media-tools/overlay.py`, `media-tools/profiles.py`, `media-tools/test_profiles.py`, `media-tools/models/` (модель скачивается при сборке образа), `src/worker/jobs/muscle-overlay.ts`; Modify `docker/Dockerfile` (скачать `pose_landmarker_heavy.task` по URL из `prototypes/muscle-overlay/README.md` в `/opt/mt/models/pose_heavy.task`), `src/worker/jobs/process-media.ts` (после шага 7 — если у связанного упражнения `overlay_profile ≠ 'none'`, поставить задачу `media:overlay`; при смене профиля в упражнении — тоже).
+**Files:** Create `media-tools/pose.py`, `media-tools/overlay.py`, `media-tools/profiles.py`, `media-tools/test_profiles.py`, `media-tools/models/` (модель скачивается при сборке образа), `src/worker/jobs/muscle-overlay.ts`; Modify `docker/Dockerfile` (скачать `pose_landmarker_heavy.task` по URL из `prototypes/muscle-overlay/README.md` в `/opt/mt/models/pose_heavy.task`), `src/worker/jobs/process-media.ts` (после шага 7 — если у связанного упражнения `overlay_profile ≠ 'none'`, поставить задачу `media.overlay`; при смене профиля в упражнении — тоже).
 
 **Interfaces — Produces:**
 - `pose.py <video.mp4> <out.npz>` — порт `prototypes/muscle-overlay/pose.py` (параметры из пробы) + запись доли кадров с найденной позой.
 - `overlay.py <video.mp4> <pose.npz> <profile> <out.mp4>` — порт `render.py`, параметризованный профилем; кодирует через ffmpeg pipe (`-preset slow -crf 24`). Выход: то же число кадров, что у `video.mp4`.
 - `profiles.py`: `PROFILES = { 'pull_vertical': {...}, 'pull_horizontal': {...} }` — для каждого: функция основной области, функция помогающей области, «сустав усилия» и направление (сгибание локтя = усилие для обоих тяг).
-- Задача `media:overlay` (`{ mediaId, profile }`): успех → `processed_paths.muscles_mp4`; если поза найдена < 90% кадров → не создавать ролик, записать в лог причину, статус медиа остаётся `ready`.
+- Задача `media.overlay` (`{ mediaId, profile }`): успех → `processed_paths.muscles_mp4`; если поза найдена < 90% кадров → не создавать ролик, записать в лог причину, статус медиа остаётся `ready`.
 
 Правила переноса из пробы (обязательно):
 1. Видимую руку выбирать по средней `visibility` точек локтя (13 vs 14), а не по номеру; плечо/запястье — той же стороны.

@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- Охрана доступа — по ARCHITECTURE.md §8.4: каждая клиентская страница начинается с `requireClientPage('<путь>')`, каждая серверная функция/роут с платными данными вызывает `assertClientAccess`. Очереди pg-boss называются через точку (`media.process`), двоеточие запрещено.
 - Ощущение — на уровне упражнения в тренировке: кнопки «Легко · Отлично · Тяжело» (`easy | good | hard`), значение пишется во все подходы этого упражнения в этой сессии (`set_logs.feeling`).
 - Схема подходов в UI: «3 подхода · 10–12 раз» (кратко), «3 подхода по 10–12 повторений» (полно). Вес: «32,5 кг».
 - Шаг веса упражнения = `machines.weight_step_kg`, для свободных весов — 2,5 кг.
@@ -92,7 +93,7 @@
 - `startSession(userId, { programDayId: string | null, mode: 'free' | 'guided', clientUuid: string, startedAt: Date }): Promise<{ sessionId }>` — идемпотентно по `clientUuid` (колонка `workout_sessions.client_uuid unique`).
 - `syncSets(userId, items: { clientUuid; sessionClientUuid; exerciseId; setIndex; weightKg; reps; feeling?; startedAt?; finishedAt?; loggedOffline: boolean }[]): Promise<{ accepted: string[] }>` — upsert по `client_uuid`; чужая сессия → `ForbiddenError`.
 - `setExerciseFeeling(userId, sessionClientUuid, exerciseId, feeling)`.
-- `finishSession(userId, sessionClientUuid, { finishedAt, comment? })` — ставит задачу `session:summary` (обработчик появится на этапе 4; сейчас задача регистрируется пустой).
+- `finishSession(userId, sessionClientUuid, { finishedAt, comment? })` — ставит задачу `session.summary` (обработчик появится на этапе 4; сейчас задача регистрируется пустой).
 - Таблица `next_weights(user_id, exercise_id, weight_kg, updated_at, pk(user_id, exercise_id))`; `setNextWeight(userId, exerciseId, weightKg)`; предзаполнение степпера «Вес»: `next_weights` → вес последней сессии → пусто.
 - `getHistoryForExercise(userId, exerciseId, limit = 6): Promise<SessionResult[]>`; `getRecommendations(userId, programDayId): Promise<Record<exerciseId, Recommendation & { text: string }>>`.
 - `GET /api/training/program-version?programId` → `{ version: string }` (хэш `updated_at` + число изменений) — для опроса изменений.
@@ -133,7 +134,7 @@
 **Interfaces — Produces:**
 - `addMeasurement(actor, clientId, { date, weightKg?, chestCm?, waistCm?, hipsCm?, bicepsCm?, thighCm? })` (хотя бы одно поле; сам клиент или `clients.measurements`); `listMeasurements(actor, clientId)`.
 - `addProgressPhoto(actor, clientId, { date, pose: 'front'|'side'|'back', mediaId })`; `listProgressPhotos(actor, clientId)` — ссылки подписаны на 10 минут; доступ: сам клиент или `clients.view_photos`.
-- Задача `media:photo`: `sharp` → `photo.webp` (длинная сторона 1600) и `thumb.webp` (400), EXIF удаляется.
+- Задача `media.photo`: `sharp` → `photo.webp` (длинная сторона 1600) и `thumb.webp` (400), EXIF удаляется.
 - `<LineChart points={{x: Date, y: number}[]} unit="кг" />` — SVG, ось дат по-русски («7 нояб»), последнее значение подписано.
 
 - [ ] **Шаг 1.** Тесты `service.test.ts`: пустой замер → ошибка «Заполни хотя бы одно поле»; тренер без `clients.view_photos` не получает фото (`ForbiddenError`); клиент видит только свои.
