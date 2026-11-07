@@ -9,12 +9,18 @@
     "lint": "eslint . && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "verify": "pnpm lint && pnpm test"
+    "verify": "pnpm lint && pnpm test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
+    "postgres": "^4.1.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
@@ -23,11 +29,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^5.1.0",
+    "dotenv": "^18.0.9",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.1.0"
   },

@@ -1,74 +1,74 @@
-# Этап 0. Фундамент — план реализации
+# Р­С‚Р°Рї 0. Р¤СѓРЅРґР°РјРµРЅС‚ вЂ” РїР»Р°РЅ СЂРµР°Р»РёР·Р°С†РёРё
 
-> **Для исполнителя:** работай строго по `docs/plans/README.md`. Задачи по порядку, чекбоксы `- [ ]` → `- [x]`.
+> **Р”Р»СЏ РёСЃРїРѕР»РЅРёС‚РµР»СЏ:** СЂР°Р±РѕС‚Р°Р№ СЃС‚СЂРѕРіРѕ РїРѕ `docs/plans/README.md`. Р—Р°РґР°С‡Рё РїРѕ РїРѕСЂСЏРґРєСѓ, С‡РµРєР±РѕРєСЃС‹ `- [ ]` в†’ `- [x]`.
 
-**Цель:** пустое, но «правильное» приложение: Next.js + PostgreSQL + тема + роли/права + PWA-оболочка, развёрнуто на FirstVPS по HTTPS на `maxosipov.ru` и `app.maxosipov.ru`, с ночными бэкапами.
+**Р¦РµР»СЊ:** РїСѓСЃС‚РѕРµ, РЅРѕ В«РїСЂР°РІРёР»СЊРЅРѕРµВ» РїСЂРёР»РѕР¶РµРЅРёРµ: Next.js + PostgreSQL + С‚РµРјР° + СЂРѕР»Рё/РїСЂР°РІР° + PWA-РѕР±РѕР»РѕС‡РєР°, СЂР°Р·РІС‘СЂРЅСѓС‚Рѕ РЅР° FirstVPS РїРѕ HTTPS РЅР° `maxosipov.ru` Рё `app.maxosipov.ru`, СЃ РЅРѕС‡РЅС‹РјРё Р±СЌРєР°РїР°РјРё.
 
-**Архитектура:** один Next.js-проект, разделение сайта и приложения по `Host` в `middleware.ts`; модули в `src/modules/*` с публичным `index.ts`; Drizzle + PostgreSQL; Docker Compose (`web`, `worker`, `db`, `caddy`).
+**РђСЂС…РёС‚РµРєС‚СѓСЂР°:** РѕРґРёРЅ Next.js-РїСЂРѕРµРєС‚, СЂР°Р·РґРµР»РµРЅРёРµ СЃР°Р№С‚Р° Рё РїСЂРёР»РѕР¶РµРЅРёСЏ РїРѕ `Host` РІ `middleware.ts`; РјРѕРґСѓР»Рё РІ `src/modules/*` СЃ РїСѓР±Р»РёС‡РЅС‹Рј `index.ts`; Drizzle + PostgreSQL; Docker Compose (`web`, `worker`, `db`, `caddy`).
 
-**Стек:** Next.js (App Router), TypeScript strict, pnpm, Tailwind CSS, shadcn/ui, Drizzle ORM + drizzle-kit + `postgres` (postgres.js), Zod, pg-boss, Serwist, Vitest, Playwright, Docker, Caddy, restic.
+**РЎС‚РµРє:** Next.js (App Router), TypeScript strict, pnpm, Tailwind CSS, shadcn/ui, Drizzle ORM + drizzle-kit + `postgres` (postgres.js), Zod, pg-boss, Serwist, Vitest, Playwright, Docker, Caddy, restic.
 
-**Спека:** `ARCHITECTURE.md` §3–§8.3, §12, §17, §18; `DESIGN.md` §2–§5.
+**РЎРїРµРєР°:** `ARCHITECTURE.md` В§3вЂ“В§8.3, В§12, В§17, В§18; `DESIGN.md` В§2вЂ“В§5.
 
 ## Global Constraints
 
-- Node.js 22 LTS, pnpm 9+. Все версии пакетов — актуальные стабильные на момент установки; записать их в отчёт.
+- Node.js 22 LTS, pnpm 9+. Р’СЃРµ РІРµСЂСЃРёРё РїР°РєРµС‚РѕРІ вЂ” Р°РєС‚СѓР°Р»СЊРЅС‹Рµ СЃС‚Р°Р±РёР»СЊРЅС‹Рµ РЅР° РјРѕРјРµРЅС‚ СѓСЃС‚Р°РЅРѕРІРєРё; Р·Р°РїРёСЃР°С‚СЊ РёС… РІ РѕС‚С‡С‘С‚.
 - TypeScript `strict: true`, `noUncheckedIndexedAccess: true`.
-- Импорт из чужого модуля — только `@/modules/<name>` (его `index.ts`). Глубокий импорт `@/modules/<name>/<file>` из другого модуля запрещён линтером.
-- Таблицы — `snake_case`, первичные ключи `uuid` (`defaultRandom()`), у всех `created_at`/`updated_at` (`timestamp with time zone`, default now).
-- Часовой пояс зала: `Asia/Krasnoyarsk`. В БД всё хранится в UTC.
-- Тема только тёмная; цвета и шрифты — ровно из `DESIGN.md` §3–§4. Шрифты локальные, без Google Fonts.
-- Сайт: `maxosipov.ru` (+ `www.` → редирект на без `www`). Приложение: `app.maxosipov.ru`. Локально: `localhost:3000` и `app.localhost:3000`.
-- Папки `Видео для примера как заниматься/`, `ФОТО ЗАЛА/` — не трогать, добавить в `.gitignore`.
+- РРјРїРѕСЂС‚ РёР· С‡СѓР¶РѕРіРѕ РјРѕРґСѓР»СЏ вЂ” С‚РѕР»СЊРєРѕ `@/modules/<name>` (РµРіРѕ `index.ts`). Р“Р»СѓР±РѕРєРёР№ РёРјРїРѕСЂС‚ `@/modules/<name>/<file>` РёР· РґСЂСѓРіРѕРіРѕ РјРѕРґСѓР»СЏ Р·Р°РїСЂРµС‰С‘РЅ Р»РёРЅС‚РµСЂРѕРј.
+- РўР°Р±Р»РёС†С‹ вЂ” `snake_case`, РїРµСЂРІРёС‡РЅС‹Рµ РєР»СЋС‡Рё `uuid` (`defaultRandom()`), Сѓ РІСЃРµС… `created_at`/`updated_at` (`timestamp with time zone`, default now).
+- Р§Р°СЃРѕРІРѕР№ РїРѕСЏСЃ Р·Р°Р»Р°: `Asia/Krasnoyarsk`. Р’ Р‘Р” РІСЃС‘ С…СЂР°РЅРёС‚СЃСЏ РІ UTC.
+- РўРµРјР° С‚РѕР»СЊРєРѕ С‚С‘РјРЅР°СЏ; С†РІРµС‚Р° Рё С€СЂРёС„С‚С‹ вЂ” СЂРѕРІРЅРѕ РёР· `DESIGN.md` В§3вЂ“В§4. РЁСЂРёС„С‚С‹ Р»РѕРєР°Р»СЊРЅС‹Рµ, Р±РµР· Google Fonts.
+- РЎР°Р№С‚: `maxosipov.ru` (+ `www.` в†’ СЂРµРґРёСЂРµРєС‚ РЅР° Р±РµР· `www`). РџСЂРёР»РѕР¶РµРЅРёРµ: `app.maxosipov.ru`. Р›РѕРєР°Р»СЊРЅРѕ: `localhost:3000` Рё `app.localhost:3000`.
+- РџР°РїРєРё `Р’РёРґРµРѕ РґР»СЏ РїСЂРёРјРµСЂР° РєР°Рє Р·Р°РЅРёРјР°С‚СЊСЃСЏ/`, `Р¤РћРўРћ Р—РђР›Рђ/` вЂ” РЅРµ С‚СЂРѕРіР°С‚СЊ, РґРѕР±Р°РІРёС‚СЊ РІ `.gitignore`.
 
 ## Review Focus
 
-1. `Host` с портом, в верхнем регистре или с `www.` — должен корректно определять сайт/приложение (тест в задаче 4).
-2. Приложение стартует без обязательной переменной окружения — должно падать сразу с понятным сообщением, а не в рантайме (тест в задаче 2).
-3. Роль «Владелец» нельзя удалить, переименовать, урезать права и нельзя снять с последнего владельца (тесты в задаче 5).
-4. Миграции на пустой базе и повторный запуск сида — идемпотентны (проверка в задаче 5, шаг «сид дважды»).
-5. Падение `db` — `/api/health` отвечает 503, а не висит (тест в задаче 7).
+1. `Host` СЃ РїРѕСЂС‚РѕРј, РІ РІРµСЂС…РЅРµРј СЂРµРіРёСЃС‚СЂРµ РёР»Рё СЃ `www.` вЂ” РґРѕР»Р¶РµРЅ РєРѕСЂСЂРµРєС‚РЅРѕ РѕРїСЂРµРґРµР»СЏС‚СЊ СЃР°Р№С‚/РїСЂРёР»РѕР¶РµРЅРёРµ (С‚РµСЃС‚ РІ Р·Р°РґР°С‡Рµ 4).
+2. РџСЂРёР»РѕР¶РµРЅРёРµ СЃС‚Р°СЂС‚СѓРµС‚ Р±РµР· РѕР±СЏР·Р°С‚РµР»СЊРЅРѕР№ РїРµСЂРµРјРµРЅРЅРѕР№ РѕРєСЂСѓР¶РµРЅРёСЏ вЂ” РґРѕР»Р¶РЅРѕ РїР°РґР°С‚СЊ СЃСЂР°Р·Сѓ СЃ РїРѕРЅСЏС‚РЅС‹Рј СЃРѕРѕР±С‰РµРЅРёРµРј, Р° РЅРµ РІ СЂР°РЅС‚Р°Р№РјРµ (С‚РµСЃС‚ РІ Р·Р°РґР°С‡Рµ 2).
+3. Р РѕР»СЊ В«Р’Р»Р°РґРµР»РµС†В» РЅРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ, РїРµСЂРµРёРјРµРЅРѕРІР°С‚СЊ, СѓСЂРµР·Р°С‚СЊ РїСЂР°РІР° Рё РЅРµР»СЊР·СЏ СЃРЅСЏС‚СЊ СЃ РїРѕСЃР»РµРґРЅРµРіРѕ РІР»Р°РґРµР»СЊС†Р° (С‚РµСЃС‚С‹ РІ Р·Р°РґР°С‡Рµ 5).
+4. РњРёРіСЂР°С†РёРё РЅР° РїСѓСЃС‚РѕР№ Р±Р°Р·Рµ Рё РїРѕРІС‚РѕСЂРЅС‹Р№ Р·Р°РїСѓСЃРє СЃРёРґР° вЂ” РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹ (РїСЂРѕРІРµСЂРєР° РІ Р·Р°РґР°С‡Рµ 5, С€Р°Рі В«СЃРёРґ РґРІР°Р¶РґС‹В»).
+5. РџР°РґРµРЅРёРµ `db` вЂ” `/api/health` РѕС‚РІРµС‡Р°РµС‚ 503, Р° РЅРµ РІРёСЃРёС‚ (С‚РµСЃС‚ РІ Р·Р°РґР°С‡Рµ 7).
 
 ---
 
-### Задача 1. Создать проект и инструменты качества
+### Р—Р°РґР°С‡Р° 1. РЎРѕР·РґР°С‚СЊ РїСЂРѕРµРєС‚ Рё РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РєР°С‡РµСЃС‚РІР°
 
 **Files:**
-- Create: весь каркас Next.js в корне репозитория, `.gitignore`, `.prettierrc`, `.editorconfig`, `vitest.config.ts`, `playwright.config.ts`, `.env.example`, `tests/smoke.test.ts`
-- Modify: `package.json` (скрипты), `tsconfig.json`
+- Create: РІРµСЃСЊ РєР°СЂРєР°СЃ Next.js РІ РєРѕСЂРЅРµ СЂРµРїРѕР·РёС‚РѕСЂРёСЏ, `.gitignore`, `.prettierrc`, `.editorconfig`, `vitest.config.ts`, `playwright.config.ts`, `.env.example`, `tests/smoke.test.ts`
+- Modify: `package.json` (СЃРєСЂРёРїС‚С‹), `tsconfig.json`
 
 **Interfaces:**
-- Produces: скрипты `pnpm dev | build | start | lint | test | test:e2e | verify`; алиас импорта `@/*` → `src/*`.
+- Produces: СЃРєСЂРёРїС‚С‹ `pnpm dev | build | start | lint | test | test:e2e | verify`; Р°Р»РёР°СЃ РёРјРїРѕСЂС‚Р° `@/*` в†’ `src/*`.
 
-- [ ] **Шаг 1.** В корне: `git init`, ветка `main`. Первый коммит — только существующие `CLAUDE.md`, `ARCHITECTURE.md`, `DESIGN.md`, `docs/`, `prototypes/`.
-- [ ] **Шаг 2.** Каркас создать во временной папке (корень не пустой): `pnpm create next-app@latest _scaffold` — сначала посмотри `--help` и выбери: TypeScript, ESLint, Tailwind, `src/` dir, App Router, import alias `@/*`, pnpm. Перенеси содержимое `_scaffold` в корень (кроме `.git`), удали `_scaffold`, выполни `pnpm install`.
-- [ ] **Шаг 3.** `.gitignore`: добавь `.env`, `.env.*` (кроме `.env.example`), `/data`, `/Видео для примера как заниматься/`, `/ФОТО ЗАЛА/`, `/playwright-report`, `/test-results`.
-- [ ] **Шаг 4.** `tsconfig.json`: `"strict": true`, `"noUncheckedIndexedAccess": true`.
-- [ ] **Шаг 5.** Установи dev-зависимости: `vitest @vitest/coverage-v8 @playwright/test prettier eslint-config-prettier`. `pnpm exec playwright install chromium`.
-- [ ] **Шаг 6.** `vitest.config.ts`: окружение `node`, include `src/**/*.test.ts`, `tests/**/*.test.ts`; алиас `@` → `./src`.
-- [ ] **Шаг 7.** `playwright.config.ts`: `testDir: 'e2e'`, один проект `mobile` с `viewport: {width: 375, height: 812}`, `isMobile: true`, `hasTouch: true`; `webServer: { command: 'pnpm dev', url: 'http://localhost:3000', reuseExistingServer: true }`.
-- [ ] **Шаг 8.** Скрипты в `package.json`:
+- [x] **РЁР°Рі 1.** Р’ РєРѕСЂРЅРµ: `git init`, РІРµС‚РєР° `main`. РџРµСЂРІС‹Р№ РєРѕРјРјРёС‚ вЂ” С‚РѕР»СЊРєРѕ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ `CLAUDE.md`, `ARCHITECTURE.md`, `DESIGN.md`, `docs/`, `prototypes/`.
+- [x] **РЁР°Рі 2.** РљР°СЂРєР°СЃ СЃРѕР·РґР°С‚СЊ РІРѕ РІСЂРµРјРµРЅРЅРѕР№ РїР°РїРєРµ (РєРѕСЂРµРЅСЊ РЅРµ РїСѓСЃС‚РѕР№): `pnpm create next-app@latest _scaffold` вЂ” СЃРЅР°С‡Р°Р»Р° РїРѕСЃРјРѕС‚СЂРё `--help` Рё РІС‹Р±РµСЂРё: TypeScript, ESLint, Tailwind, `src/` dir, App Router, import alias `@/*`, pnpm. РџРµСЂРµРЅРµСЃРё СЃРѕРґРµСЂР¶РёРјРѕРµ `_scaffold` РІ РєРѕСЂРµРЅСЊ (РєСЂРѕРјРµ `.git`), СѓРґР°Р»Рё `_scaffold`, РІС‹РїРѕР»РЅРё `pnpm install`.
+- [x] **РЁР°Рі 3.** `.gitignore`: РґРѕР±Р°РІСЊ `.env`, `.env.*` (РєСЂРѕРјРµ `.env.example`), `/data`, `/Р’РёРґРµРѕ РґР»СЏ РїСЂРёРјРµСЂР° РєР°Рє Р·Р°РЅРёРјР°С‚СЊСЃСЏ/`, `/Р¤РћРўРћ Р—РђР›Рђ/`, `/playwright-report`, `/test-results`.
+- [x] **РЁР°Рі 4.** `tsconfig.json`: `"strict": true`, `"noUncheckedIndexedAccess": true`.
+- [x] **РЁР°Рі 5.** РЈСЃС‚Р°РЅРѕРІРё dev-Р·Р°РІРёСЃРёРјРѕСЃС‚Рё: `vitest @vitest/coverage-v8 @playwright/test prettier eslint-config-prettier`. `pnpm exec playwright install chromium`.
+- [x] **РЁР°Рі 6.** `vitest.config.ts`: РѕРєСЂСѓР¶РµРЅРёРµ `node`, include `src/**/*.test.ts`, `tests/**/*.test.ts`; Р°Р»РёР°СЃ `@` в†’ `./src`.
+- [x] **РЁР°Рі 7.** `playwright.config.ts`: `testDir: 'e2e'`, РѕРґРёРЅ РїСЂРѕРµРєС‚ `mobile` СЃ `viewport: {width: 375, height: 812}`, `isMobile: true`, `hasTouch: true`; `webServer: { command: 'pnpm dev', url: 'http://localhost:3000', reuseExistingServer: true }`.
+- [x] **РЁР°Рі 8.** РЎРєСЂРёРїС‚С‹ РІ `package.json`:
   ```json
   "lint": "eslint . && tsc --noEmit",
   "test": "vitest run",
   "test:e2e": "playwright test",
   "verify": "pnpm lint && pnpm test"
   ```
-- [ ] **Шаг 9.** Тест `tests/smoke.test.ts`: `expect(1 + 1).toBe(2)` — проверка, что Vitest работает. `pnpm verify` → зелёный.
-- [ ] **Шаг 10.** Коммит: `chore: scaffold next.js project with tooling`.
+- [x] **РЁР°Рі 9.** РўРµСЃС‚ `tests/smoke.test.ts`: `expect(1 + 1).toBe(2)` вЂ” РїСЂРѕРІРµСЂРєР°, С‡С‚Рѕ Vitest СЂР°Р±РѕС‚Р°РµС‚. `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№.
+- [x] **РЁР°Рі 10.** РљРѕРјРјРёС‚: `chore: scaffold next.js project with tooling`.
 
-### Задача 2. Переменные окружения и подключение к БД
+### Р—Р°РґР°С‡Р° 2. РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ Рё РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р‘Р”
 
 **Files:**
 - Create: `src/shared/env.ts`, `src/shared/env.test.ts`, `src/shared/db/index.ts`, `src/shared/db/schema.ts`, `drizzle.config.ts`, `docker/compose.dev.yml`, `.env.example`, `src/modules/gym/schema.ts`, `src/modules/gym/index.ts`
 - Modify: `package.json`
 
 **Interfaces:**
-- Produces: `parseEnv(raw: Record<string, string | undefined>): Env` и `env: Env` из `@/shared/env`; `db` (Drizzle, postgres.js) из `@/shared/db`; таблица `gyms` и тип `Gym` из `@/modules/gym`.
+- Produces: `parseEnv(raw: Record<string, string | undefined>): Env` Рё `env: Env` РёР· `@/shared/env`; `db` (Drizzle, postgres.js) РёР· `@/shared/db`; С‚Р°Р±Р»РёС†Р° `gyms` Рё С‚РёРї `Gym` РёР· `@/modules/gym`.
 
-- [ ] **Шаг 1.** Установи: `drizzle-orm postgres zod`; dev: `drizzle-kit tsx dotenv`.
-- [ ] **Шаг 2.** `docker/compose.dev.yml`: сервис `db` — `postgres:17-alpine`, порт `5432:5432`, `POSTGRES_DB=maxosipov`, `POSTGRES_USER=app`, `POSTGRES_PASSWORD=app`, том `pgdata`. Запусти `docker compose -f docker/compose.dev.yml up -d`.
-- [ ] **Шаг 3.** Напиши падающий тест `src/shared/env.test.ts`:
+- [ ] **РЁР°Рі 1.** РЈСЃС‚Р°РЅРѕРІРё: `drizzle-orm postgres zod`; dev: `drizzle-kit tsx dotenv`.
+- [ ] **РЁР°Рі 2.** `docker/compose.dev.yml`: СЃРµСЂРІРёСЃ `db` вЂ” `postgres:17-alpine`, РїРѕСЂС‚ `5432:5432`, `POSTGRES_DB=maxosipov`, `POSTGRES_USER=app`, `POSTGRES_PASSWORD=app`, С‚РѕРј `pgdata`. Р—Р°РїСѓСЃС‚Рё `docker compose -f docker/compose.dev.yml up -d`.
+- [ ] **РЁР°Рі 3.** РќР°РїРёС€Рё РїР°РґР°СЋС‰РёР№ С‚РµСЃС‚ `src/shared/env.test.ts`:
   ```ts
   import { parseEnv } from './env'
   test('throws a readable error when DATABASE_URL is missing', () => {
@@ -80,44 +80,44 @@
     expect(e.SITE_URL).toBe('http://localhost:3000')
   })
   ```
-- [ ] **Шаг 4.** `pnpm test src/shared/env.test.ts` → FAIL (нет модуля).
-- [ ] **Шаг 5.** `src/shared/env.ts`: Zod-схема всех переменных из `ARCHITECTURE.md` §17. Обязательные сейчас: `DATABASE_URL` (url), `AUTH_SECRET` (min 32). `APP_URL` default `http://app.localhost:3000`, `SITE_URL` default `http://localhost:3000`, `NODE_ENV` default `development`. Остальные — `optional()` (их сделают обязательными этапы, которые их используют). `parseEnv` при ошибке бросает `Error` с перечнем имён невалидных переменных. `export const env = parseEnv(process.env)`.
-- [ ] **Шаг 6.** Тест → PASS.
-- [ ] **Шаг 7.** `.env.example` — все переменные §17 с пустыми значениями; локальный `.env` с `DATABASE_URL=postgres://app:app@localhost:5432/maxosipov` и случайным `AUTH_SECRET` (`openssl rand -base64 48`).
-- [ ] **Шаг 8.** `src/modules/gym/schema.ts` — таблица `gyms` по `ARCHITECTURE.md` §7: `id`, `name` text not null, `address` text not null, `timezone` text not null default `'Asia/Krasnoyarsk'`, `brand` jsonb not null, `settings` jsonb not null, timestamps. Типы `GymBrand = { name: string; shortName: string; colors: { accent: string }; logoUrl: string | null }`, `GymSettings = { trialDays: number; subscriptionPriceRub: number | null; aiDailyLimit: number; progressionRules: ProgressionRules; aiMemo: string }`, где `ProgressionRules = { sessionsToIncrease: number; fastTrackOnEasy: boolean; failSessionsToDrop: number; dropPercent: number }` (объяви его здесь, в `gym/schema.ts`; позже его импортирует `progression`). Типизируй jsonb через `.$type<>()`.
-- [ ] **Шаг 9.** `src/shared/db/schema.ts` реэкспортирует схемы модулей (`export * from '@/modules/gym/schema'`) — это единственный файл, которому разрешён прямой импорт `schema.ts` модулей. `src/shared/db/index.ts`: `postgres(env.DATABASE_URL)` + `drizzle(client, { schema })`.
-- [ ] **Шаг 10.** `drizzle.config.ts`: `schema: './src/shared/db/schema.ts'`, `out: './drizzle'`, dialect `postgresql`. Скрипты: `"db:generate": "drizzle-kit generate"`, `"db:migrate": "drizzle-kit migrate"`, `"db:seed": "tsx scripts/seed.ts"`.
-- [ ] **Шаг 11.** `pnpm db:generate && pnpm db:migrate` → в БД есть таблица `gyms` (проверь `docker compose -f docker/compose.dev.yml exec db psql -U app -d maxosipov -c '\dt'`).
-- [ ] **Шаг 12.** `src/modules/gym/index.ts` экспортирует `gyms`, типы и `getGym(): Promise<Gym>` (первый зал; если нет — бросить `Error('Gym not seeded')`).
-- [ ] **Шаг 13.** `pnpm verify` → зелёный. Коммит: `feat(db): env validation, drizzle, gyms table`.
+- [ ] **РЁР°Рі 4.** `pnpm test src/shared/env.test.ts` в†’ FAIL (РЅРµС‚ РјРѕРґСѓР»СЏ).
+- [ ] **РЁР°Рі 5.** `src/shared/env.ts`: Zod-СЃС…РµРјР° РІСЃРµС… РїРµСЂРµРјРµРЅРЅС‹С… РёР· `ARCHITECTURE.md` В§17. РћР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ СЃРµР№С‡Р°СЃ: `DATABASE_URL` (url), `AUTH_SECRET` (min 32). `APP_URL` default `http://app.localhost:3000`, `SITE_URL` default `http://localhost:3000`, `NODE_ENV` default `development`. РћСЃС‚Р°Р»СЊРЅС‹Рµ вЂ” `optional()` (РёС… СЃРґРµР»Р°СЋС‚ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹РјРё СЌС‚Р°РїС‹, РєРѕС‚РѕСЂС‹Рµ РёС… РёСЃРїРѕР»СЊР·СѓСЋС‚). `parseEnv` РїСЂРё РѕС€РёР±РєРµ Р±СЂРѕСЃР°РµС‚ `Error` СЃ РїРµСЂРµС‡РЅРµРј РёРјС‘РЅ РЅРµРІР°Р»РёРґРЅС‹С… РїРµСЂРµРјРµРЅРЅС‹С…. `export const env = parseEnv(process.env)`.
+- [ ] **РЁР°Рі 6.** РўРµСЃС‚ в†’ PASS.
+- [ ] **РЁР°Рі 7.** `.env.example` вЂ” РІСЃРµ РїРµСЂРµРјРµРЅРЅС‹Рµ В§17 СЃ РїСѓСЃС‚С‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё; Р»РѕРєР°Р»СЊРЅС‹Р№ `.env` СЃ `DATABASE_URL=postgres://app:app@localhost:5432/maxosipov` Рё СЃР»СѓС‡Р°Р№РЅС‹Рј `AUTH_SECRET` (`openssl rand -base64 48`).
+- [ ] **РЁР°Рі 8.** `src/modules/gym/schema.ts` вЂ” С‚Р°Р±Р»РёС†Р° `gyms` РїРѕ `ARCHITECTURE.md` В§7: `id`, `name` text not null, `address` text not null, `timezone` text not null default `'Asia/Krasnoyarsk'`, `brand` jsonb not null, `settings` jsonb not null, timestamps. РўРёРїС‹ `GymBrand = { name: string; shortName: string; colors: { accent: string }; logoUrl: string | null }`, `GymSettings = { trialDays: number; subscriptionPriceRub: number | null; aiDailyLimit: number; progressionRules: ProgressionRules; aiMemo: string }`, РіРґРµ `ProgressionRules = { sessionsToIncrease: number; fastTrackOnEasy: boolean; failSessionsToDrop: number; dropPercent: number }` (РѕР±СЉСЏРІРё РµРіРѕ Р·РґРµСЃСЊ, РІ `gym/schema.ts`; РїРѕР·Р¶Рµ РµРіРѕ РёРјРїРѕСЂС‚РёСЂСѓРµС‚ `progression`). РўРёРїРёР·РёСЂСѓР№ jsonb С‡РµСЂРµР· `.$type<>()`.
+- [ ] **РЁР°Рі 9.** `src/shared/db/schema.ts` СЂРµСЌРєСЃРїРѕСЂС‚РёСЂСѓРµС‚ СЃС…РµРјС‹ РјРѕРґСѓР»РµР№ (`export * from '@/modules/gym/schema'`) вЂ” СЌС‚Рѕ РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ С„Р°Р№Р», РєРѕС‚РѕСЂРѕРјСѓ СЂР°Р·СЂРµС€С‘РЅ РїСЂСЏРјРѕР№ РёРјРїРѕСЂС‚ `schema.ts` РјРѕРґСѓР»РµР№. `src/shared/db/index.ts`: `postgres(env.DATABASE_URL)` + `drizzle(client, { schema })`.
+- [ ] **РЁР°Рі 10.** `drizzle.config.ts`: `schema: './src/shared/db/schema.ts'`, `out: './drizzle'`, dialect `postgresql`. РЎРєСЂРёРїС‚С‹: `"db:generate": "drizzle-kit generate"`, `"db:migrate": "drizzle-kit migrate"`, `"db:seed": "tsx scripts/seed.ts"`.
+- [ ] **РЁР°Рі 11.** `pnpm db:generate && pnpm db:migrate` в†’ РІ Р‘Р” РµСЃС‚СЊ С‚Р°Р±Р»РёС†Р° `gyms` (РїСЂРѕРІРµСЂСЊ `docker compose -f docker/compose.dev.yml exec db psql -U app -d maxosipov -c '\dt'`).
+- [ ] **РЁР°Рі 12.** `src/modules/gym/index.ts` СЌРєСЃРїРѕСЂС‚РёСЂСѓРµС‚ `gyms`, С‚РёРїС‹ Рё `getGym(): Promise<Gym>` (РїРµСЂРІС‹Р№ Р·Р°Р»; РµСЃР»Рё РЅРµС‚ вЂ” Р±СЂРѕСЃРёС‚СЊ `Error('Gym not seeded')`).
+- [ ] **РЁР°Рі 13.** `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№. РљРѕРјРјРёС‚: `feat(db): env validation, drizzle, gyms table`.
 
-### Задача 3. Модули-скелеты и граница импортов
+### Р—Р°РґР°С‡Р° 3. РњРѕРґСѓР»Рё-СЃРєРµР»РµС‚С‹ Рё РіСЂР°РЅРёС†Р° РёРјРїРѕСЂС‚РѕРІ
 
 **Files:**
-- Create: `src/modules/{auth,rbac,access,catalog,media,training,progression,coach-ai,trainer,notifications,body,landing}/index.ts` (пустой `export {}`), `src/modules/README.md`
+- Create: `src/modules/{auth,rbac,access,catalog,media,training,progression,coach-ai,trainer,notifications,body,landing}/index.ts` (РїСѓСЃС‚РѕР№ `export {}`), `src/modules/README.md`
 - Modify: `eslint.config.*`
 
 **Interfaces:**
-- Produces: правило линтера, запрещающее глубокие импорты модулей.
+- Produces: РїСЂР°РІРёР»Рѕ Р»РёРЅС‚РµСЂР°, Р·Р°РїСЂРµС‰Р°СЋС‰РµРµ РіР»СѓР±РѕРєРёРµ РёРјРїРѕСЂС‚С‹ РјРѕРґСѓР»РµР№.
 
-- [ ] **Шаг 1.** Создай папки и `index.ts` для всех модулей из `ARCHITECTURE.md` §6. `src/modules/README.md` — одна фраза: «Каждый модуль отдаёт наружу только `index.ts`. См. ARCHITECTURE.md §6».
-- [ ] **Шаг 2.** В ESLint добавь `no-restricted-imports` с `patterns: [{ group: ['@/modules/*/*'], message: 'Импортируй модуль только через @/modules/<name>' }]`. Исключение (`overrides`/`ignores` для этого правила): файлы внутри самого модуля импортируют свои файлы относительным путём `./x` — это не затрагивается; `src/shared/db/schema.ts` — разрешён.
-- [ ] **Шаг 3.** Проверка: временно добавь в `src/modules/access/index.ts` строку `import '@/modules/gym/schema'` → `pnpm lint` должен упасть с этим сообщением. Удали строку → `pnpm lint` зелёный.
-- [ ] **Шаг 4.** Коммит: `chore: module skeletons and import boundary rule`.
+- [ ] **РЁР°Рі 1.** РЎРѕР·РґР°Р№ РїР°РїРєРё Рё `index.ts` РґР»СЏ РІСЃРµС… РјРѕРґСѓР»РµР№ РёР· `ARCHITECTURE.md` В§6. `src/modules/README.md` вЂ” РѕРґРЅР° С„СЂР°Р·Р°: В«РљР°Р¶РґС‹Р№ РјРѕРґСѓР»СЊ РѕС‚РґР°С‘С‚ РЅР°СЂСѓР¶Сѓ С‚РѕР»СЊРєРѕ `index.ts`. РЎРј. ARCHITECTURE.md В§6В».
+- [ ] **РЁР°Рі 2.** Р’ ESLint РґРѕР±Р°РІСЊ `no-restricted-imports` СЃ `patterns: [{ group: ['@/modules/*/*'], message: 'РРјРїРѕСЂС‚РёСЂСѓР№ РјРѕРґСѓР»СЊ С‚РѕР»СЊРєРѕ С‡РµСЂРµР· @/modules/<name>' }]`. РСЃРєР»СЋС‡РµРЅРёРµ (`overrides`/`ignores` РґР»СЏ СЌС‚РѕРіРѕ РїСЂР°РІРёР»Р°): С„Р°Р№Р»С‹ РІРЅСѓС‚СЂРё СЃР°РјРѕРіРѕ РјРѕРґСѓР»СЏ РёРјРїРѕСЂС‚РёСЂСѓСЋС‚ СЃРІРѕРё С„Р°Р№Р»С‹ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Рј РїСѓС‚С‘Рј `./x` вЂ” СЌС‚Рѕ РЅРµ Р·Р°С‚СЂР°РіРёРІР°РµС‚СЃСЏ; `src/shared/db/schema.ts` вЂ” СЂР°Р·СЂРµС€С‘РЅ.
+- [ ] **РЁР°Рі 3.** РџСЂРѕРІРµСЂРєР°: РІСЂРµРјРµРЅРЅРѕ РґРѕР±Р°РІСЊ РІ `src/modules/access/index.ts` СЃС‚СЂРѕРєСѓ `import '@/modules/gym/schema'` в†’ `pnpm lint` РґРѕР»Р¶РµРЅ СѓРїР°СЃС‚СЊ СЃ СЌС‚РёРј СЃРѕРѕР±С‰РµРЅРёРµРј. РЈРґР°Р»Рё СЃС‚СЂРѕРєСѓ в†’ `pnpm lint` Р·РµР»С‘РЅС‹Р№.
+- [ ] **РЁР°Рі 4.** РљРѕРјРјРёС‚: `chore: module skeletons and import boundary rule`.
 
-### Задача 4. Тема, шрифты, UI-кит, маршрутизация сайт/приложение
+### Р—Р°РґР°С‡Р° 4. РўРµРјР°, С€СЂРёС„С‚С‹, UI-РєРёС‚, РјР°СЂС€СЂСѓС‚РёР·Р°С†РёСЏ СЃР°Р№С‚/РїСЂРёР»РѕР¶РµРЅРёРµ
 
 **Files:**
-- Create: `src/shared/fonts/*.woff2`, `src/shared/fonts/index.ts`, `src/app/globals.css` (переписать), `src/shared/surface.ts`, `src/shared/surface.test.ts`, `src/middleware.ts`, `src/app/(site)/page.tsx`, `src/app/(site)/layout.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/app/page.tsx`, `src/app/(app)/app/dev/ui/page.tsx`, `src/components/ui/*` (shadcn)
+- Create: `src/shared/fonts/*.woff2`, `src/shared/fonts/index.ts`, `src/app/globals.css` (РїРµСЂРµРїРёСЃР°С‚СЊ), `src/shared/surface.ts`, `src/shared/surface.test.ts`, `src/middleware.ts`, `src/app/(site)/page.tsx`, `src/app/(site)/layout.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/app/page.tsx`, `src/app/(app)/app/dev/ui/page.tsx`, `src/components/ui/*` (shadcn)
 - Modify: `src/app/layout.tsx`
 
 **Interfaces:**
-- Produces: `resolveSurface(host: string | null): 'site' | 'app'`; CSS-переменные и Tailwind-классы `bg-bg`, `bg-surface-1`, `bg-surface-2`, `border-border`, `text-text`, `text-text-secondary`, `text-text-muted`, `bg-accent`, `text-accent`, `text-gold`, `text-success`, `text-warning`, `text-danger`, шрифты `font-display` (Oswald) и `font-sans` (Manrope). Внутренний путь приложения — префикс `/app` (middleware переписывает `app.maxosipov.ru/x` → `/app/x`).
+- Produces: `resolveSurface(host: string | null): 'site' | 'app'`; CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ Рё Tailwind-РєР»Р°СЃСЃС‹ `bg-bg`, `bg-surface-1`, `bg-surface-2`, `border-border`, `text-text`, `text-text-secondary`, `text-text-muted`, `bg-accent`, `text-accent`, `text-gold`, `text-success`, `text-warning`, `text-danger`, С€СЂРёС„С‚С‹ `font-display` (Oswald) Рё `font-sans` (Manrope). Р’РЅСѓС‚СЂРµРЅРЅРёР№ РїСѓС‚СЊ РїСЂРёР»РѕР¶РµРЅРёСЏ вЂ” РїСЂРµС„РёРєСЃ `/app` (middleware РїРµСЂРµРїРёСЃС‹РІР°РµС‚ `app.maxosipov.ru/x` в†’ `/app/x`).
 
-- [ ] **Шаг 1.** Шрифты: `pnpm add -D @fontsource-variable/oswald @fontsource-variable/manrope`, скопируй из их `files/` в `src/shared/fonts/` файлы `oswald-cyrillic-wght-normal.woff2`, `oswald-latin-wght-normal.woff2`, `manrope-cyrillic-wght-normal.woff2`, `manrope-latin-wght-normal.woff2`; затем удали эти два пакета. `src/shared/fonts/index.ts`: `next/font/local` → `oswald` (variable `--font-display`) и `manrope` (variable `--font-sans`), `display: 'swap'`.
-- [ ] **Шаг 2.** `globals.css`: CSS-переменные всех токенов `DESIGN.md` §3 (имена = имена токенов, например `--surface-1: #17171A`), `html { color-scheme: dark; background: var(--bg) }`. Свяжи с Tailwind (в Tailwind v4 — через `@theme`, в v3 — через `tailwind.config` `extend.colors`; выясни версию в `package.json`). Скругления: `--radius-control: 12px`, `--radius-card: 16px`, `--radius-sheet: 24px`.
-- [ ] **Шаг 3.** `pnpm dlx shadcn@latest init` (стиль по умолчанию, базовый цвет neutral, CSS-переменные — да), затем добавь компоненты: `button input label card sheet dialog sonner tabs switch`. После добавления перекрась их на наши токены (кнопка primary = `bg-accent`, hover `--accent-pressed`; высота кнопки 48px; радиус 12px).
-- [ ] **Шаг 4.** Падающий тест `src/shared/surface.test.ts`:
+- [ ] **РЁР°Рі 1.** РЁСЂРёС„С‚С‹: `pnpm add -D @fontsource-variable/oswald @fontsource-variable/manrope`, СЃРєРѕРїРёСЂСѓР№ РёР· РёС… `files/` РІ `src/shared/fonts/` С„Р°Р№Р»С‹ `oswald-cyrillic-wght-normal.woff2`, `oswald-latin-wght-normal.woff2`, `manrope-cyrillic-wght-normal.woff2`, `manrope-latin-wght-normal.woff2`; Р·Р°С‚РµРј СѓРґР°Р»Рё СЌС‚Рё РґРІР° РїР°РєРµС‚Р°. `src/shared/fonts/index.ts`: `next/font/local` в†’ `oswald` (variable `--font-display`) Рё `manrope` (variable `--font-sans`), `display: 'swap'`.
+- [ ] **РЁР°Рі 2.** `globals.css`: CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ РІСЃРµС… С‚РѕРєРµРЅРѕРІ `DESIGN.md` В§3 (РёРјРµРЅР° = РёРјРµРЅР° С‚РѕРєРµРЅРѕРІ, РЅР°РїСЂРёРјРµСЂ `--surface-1: #17171A`), `html { color-scheme: dark; background: var(--bg) }`. РЎРІСЏР¶Рё СЃ Tailwind (РІ Tailwind v4 вЂ” С‡РµСЂРµР· `@theme`, РІ v3 вЂ” С‡РµСЂРµР· `tailwind.config` `extend.colors`; РІС‹СЏСЃРЅРё РІРµСЂСЃРёСЋ РІ `package.json`). РЎРєСЂСѓРіР»РµРЅРёСЏ: `--radius-control: 12px`, `--radius-card: 16px`, `--radius-sheet: 24px`.
+- [ ] **РЁР°Рі 3.** `pnpm dlx shadcn@latest init` (СЃС‚РёР»СЊ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ, Р±Р°Р·РѕРІС‹Р№ С†РІРµС‚ neutral, CSS-РїРµСЂРµРјРµРЅРЅС‹Рµ вЂ” РґР°), Р·Р°С‚РµРј РґРѕР±Р°РІСЊ РєРѕРјРїРѕРЅРµРЅС‚С‹: `button input label card sheet dialog sonner tabs switch`. РџРѕСЃР»Рµ РґРѕР±Р°РІР»РµРЅРёСЏ РїРµСЂРµРєСЂР°СЃСЊ РёС… РЅР° РЅР°С€Рё С‚РѕРєРµРЅС‹ (РєРЅРѕРїРєР° primary = `bg-accent`, hover `--accent-pressed`; РІС‹СЃРѕС‚Р° РєРЅРѕРїРєРё 48px; СЂР°РґРёСѓСЃ 12px).
+- [ ] **РЁР°Рі 4.** РџР°РґР°СЋС‰РёР№ С‚РµСЃС‚ `src/shared/surface.test.ts`:
   ```ts
   import { resolveSurface } from './surface'
   test.each([
@@ -126,31 +126,31 @@
     ['localhost:3000', 'site'], ['app.localhost:3000', 'app'], [null, 'site'],
   ])('%s -> %s', (host, expected) => expect(resolveSurface(host)).toBe(expected))
   ```
-- [ ] **Шаг 5.** `src/shared/surface.ts`: приводит к нижнему регистру, отрезает порт, `app` если хост начинается с `app.`, иначе `site`. Тест → PASS.
-- [ ] **Шаг 6.** `src/middleware.ts`: если `resolveSurface(host) === 'app'` и путь не начинается с `/app`, `/api`, `/_next`, `/media` и не является файлом (в последнем сегменте пути есть точка: `/sw.js`, `/manifest.webmanifest`, `/icons/icon-192.png`, `/figure/front.svg`) — `NextResponse.rewrite` на `/app` + путь. Добавь эти случаи в тест (вынеси решение в чистую функцию `rewriteTarget(surface, pathname): string | null` в `surface.ts`: `('app','/workouts')→'/app/workouts'`, `('app','/sw.js')→null`, `('app','/media/2026/11/x/video.mp4')→null`, `('app','/api/health')→null`, `('site','/app/x')→'/404'`, `('site','/')→null`). Если хост `www.maxosipov.ru` — 308 редирект на `https://maxosipov.ru` + путь. Если surface `site` и путь начинается с `/app` — 404 (`NextResponse.rewrite('/404')`).
-- [ ] **Шаг 7.** Страницы-заглушки: `(site)/page.tsx` — заголовок «Максим Осипов» шрифтом `font-display`; `(app)/app/page.tsx` — «Приложение МаксИИм — скоро». `(app)/app/dev/ui/page.tsx` — витрина: все цвета токенов плашками с подписями, оба шрифта, кнопки, поле, карточка, лист снизу; страница отдаёт 404 при `NODE_ENV === 'production'` (`notFound()`).
-- [ ] **Шаг 8.** Корневой `layout.tsx`: `lang="ru"`, классы шрифтов, `bg-bg text-text`, `<meta name="theme-color" content="#0E0E10">`.
-- [ ] **Шаг 9.** Руками: `pnpm dev`, открыть `http://localhost:3000` (сайт) и `http://app.localhost:3000` (приложение), `http://app.localhost:3000/dev/ui` (витрина). Сделай скриншоты на 375 px в `docs/reports/assets/00-*.png`.
-- [ ] **Шаг 10.** `pnpm verify` → зелёный. Коммит: `feat(ui): theme tokens, fonts, shadcn kit, host-based routing`.
+- [ ] **РЁР°Рі 5.** `src/shared/surface.ts`: РїСЂРёРІРѕРґРёС‚ Рє РЅРёР¶РЅРµРјСѓ СЂРµРіРёСЃС‚СЂСѓ, РѕС‚СЂРµР·Р°РµС‚ РїРѕСЂС‚, `app` РµСЃР»Рё С…РѕСЃС‚ РЅР°С‡РёРЅР°РµС‚СЃСЏ СЃ `app.`, РёРЅР°С‡Рµ `site`. РўРµСЃС‚ в†’ PASS.
+- [ ] **РЁР°Рі 6.** `src/middleware.ts`: РµСЃР»Рё `resolveSurface(host) === 'app'` Рё РїСѓС‚СЊ РЅРµ РЅР°С‡РёРЅР°РµС‚СЃСЏ СЃ `/app`, `/api`, `/_next`, `/media` Рё РЅРµ СЏРІР»СЏРµС‚СЃСЏ С„Р°Р№Р»РѕРј (РІ РїРѕСЃР»РµРґРЅРµРј СЃРµРіРјРµРЅС‚Рµ РїСѓС‚Рё РµСЃС‚СЊ С‚РѕС‡РєР°: `/sw.js`, `/manifest.webmanifest`, `/icons/icon-192.png`, `/figure/front.svg`) вЂ” `NextResponse.rewrite` РЅР° `/app` + РїСѓС‚СЊ. Р”РѕР±Р°РІСЊ СЌС‚Рё СЃР»СѓС‡Р°Рё РІ С‚РµСЃС‚ (РІС‹РЅРµСЃРё СЂРµС€РµРЅРёРµ РІ С‡РёСЃС‚СѓСЋ С„СѓРЅРєС†РёСЋ `rewriteTarget(surface, pathname): string | null` РІ `surface.ts`: `('app','/workouts')в†’'/app/workouts'`, `('app','/sw.js')в†’null`, `('app','/media/2026/11/x/video.mp4')в†’null`, `('app','/api/health')в†’null`, `('site','/app/x')в†’'/404'`, `('site','/')в†’null`). Р•СЃР»Рё С…РѕСЃС‚ `www.maxosipov.ru` вЂ” 308 СЂРµРґРёСЂРµРєС‚ РЅР° `https://maxosipov.ru` + РїСѓС‚СЊ. Р•СЃР»Рё surface `site` Рё РїСѓС‚СЊ РЅР°С‡РёРЅР°РµС‚СЃСЏ СЃ `/app` вЂ” 404 (`NextResponse.rewrite('/404')`).
+- [ ] **РЁР°Рі 7.** РЎС‚СЂР°РЅРёС†С‹-Р·Р°РіР»СѓС€РєРё: `(site)/page.tsx` вЂ” Р·Р°РіРѕР»РѕРІРѕРє В«РњР°РєСЃРёРј РћСЃРёРїРѕРІВ» С€СЂРёС„С‚РѕРј `font-display`; `(app)/app/page.tsx` вЂ” В«РџСЂРёР»РѕР¶РµРЅРёРµ РњР°РєСЃРРРј вЂ” СЃРєРѕСЂРѕВ». `(app)/app/dev/ui/page.tsx` вЂ” РІРёС‚СЂРёРЅР°: РІСЃРµ С†РІРµС‚Р° С‚РѕРєРµРЅРѕРІ РїР»Р°С€РєР°РјРё СЃ РїРѕРґРїРёСЃСЏРјРё, РѕР±Р° С€СЂРёС„С‚Р°, РєРЅРѕРїРєРё, РїРѕР»Рµ, РєР°СЂС‚РѕС‡РєР°, Р»РёСЃС‚ СЃРЅРёР·Сѓ; СЃС‚СЂР°РЅРёС†Р° РѕС‚РґР°С‘С‚ 404 РїСЂРё `NODE_ENV === 'production'` (`notFound()`).
+- [ ] **РЁР°Рі 8.** РљРѕСЂРЅРµРІРѕР№ `layout.tsx`: `lang="ru"`, РєР»Р°СЃСЃС‹ С€СЂРёС„С‚РѕРІ, `bg-bg text-text`, `<meta name="theme-color" content="#0E0E10">`.
+- [ ] **РЁР°Рі 9.** Р СѓРєР°РјРё: `pnpm dev`, РѕС‚РєСЂС‹С‚СЊ `http://localhost:3000` (СЃР°Р№С‚) Рё `http://app.localhost:3000` (РїСЂРёР»РѕР¶РµРЅРёРµ), `http://app.localhost:3000/dev/ui` (РІРёС‚СЂРёРЅР°). РЎРґРµР»Р°Р№ СЃРєСЂРёРЅС€РѕС‚С‹ РЅР° 375 px РІ `docs/reports/assets/00-*.png`.
+- [ ] **РЁР°Рі 10.** `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№. РљРѕРјРјРёС‚: `feat(ui): theme tokens, fonts, shadcn kit, host-based routing`.
 
-### Задача 5. Пользователи, роли и права (`rbac`), сид
+### Р—Р°РґР°С‡Р° 5. РџРѕР»СЊР·РѕРІР°С‚РµР»Рё, СЂРѕР»Рё Рё РїСЂР°РІР° (`rbac`), СЃРёРґ
 
 **Files:**
-- Create: `src/modules/auth/schema.ts` (только таблица `users` на этом этапе), `src/modules/rbac/permissions.ts`, `src/modules/rbac/schema.ts`, `src/modules/rbac/check.ts`, `src/modules/rbac/check.test.ts`, `src/modules/rbac/service.ts`, `src/modules/rbac/service.test.ts`, `src/modules/rbac/defaults.ts`, `src/modules/rbac/errors.ts`, `scripts/seed.ts`, `tests/db.ts`
+- Create: `src/modules/auth/schema.ts` (С‚РѕР»СЊРєРѕ С‚Р°Р±Р»РёС†Р° `users` РЅР° СЌС‚РѕРј СЌС‚Р°РїРµ), `src/modules/rbac/permissions.ts`, `src/modules/rbac/schema.ts`, `src/modules/rbac/check.ts`, `src/modules/rbac/check.test.ts`, `src/modules/rbac/service.ts`, `src/modules/rbac/service.test.ts`, `src/modules/rbac/defaults.ts`, `src/modules/rbac/errors.ts`, `scripts/seed.ts`, `tests/db.ts`
 - Modify: `src/modules/rbac/index.ts`, `src/modules/auth/index.ts`, `src/shared/db/schema.ts`
 
 **Interfaces:**
 - Produces:
-  - `PERMISSIONS` — `as const` массив кодов ровно из `ARCHITECTURE.md` §8.3 (16 кодов); `type Permission = typeof PERMISSIONS[number]`; `type Scope = 'own' | 'all'`; `type RolePermission = { code: Permission; scope: Scope }`.
-  - Таблицы: `users` (колонки §7, `role_id` fk → `roles.id`, `trainer_id` fk → `users.id` nullable, `phone` unique), `roles` (`name` unique, `is_system` bool, `permissions` jsonb `RolePermission[]`), `role_audit`.
-  - Тип `Actor = { id: string; roleId: string; gymId: string; isOwner: boolean; permissions: RolePermission[] }`.
-  - Чистая функция `checkPermission(actor: Actor, perm: Permission, target?: { clientTrainerId: string | null; clientId: string }): boolean` (файл `check.ts`).
-  - `can(actor, perm, target?)` = `checkPermission`; `assertCan(...)` бросает `ForbiddenError` (класс в `errors.ts`, `name = 'ForbiddenError'`, `status = 403`).
-  - Сервис (`service.ts`): `loadActor(userId: string): Promise<Actor>`, `createRole(actor, input: { name: string; permissions: RolePermission[] }): Promise<Role>`, `updateRole(actor, roleId, input)`, `deleteRole(actor, roleId)`, `assignRole(actor, userId, roleId)`. Все пишут `role_audit`.
-  - `DEFAULT_ROLES` в `defaults.ts` — 5 ролей из `ARCHITECTURE.md` §8.3 с именами: `Владелец` (`is_system: true`), `Главный тренер`, `Тренер`, `Администратор зала`, `Клиент`.
+  - `PERMISSIONS` вЂ” `as const` РјР°СЃСЃРёРІ РєРѕРґРѕРІ СЂРѕРІРЅРѕ РёР· `ARCHITECTURE.md` В§8.3 (16 РєРѕРґРѕРІ); `type Permission = typeof PERMISSIONS[number]`; `type Scope = 'own' | 'all'`; `type RolePermission = { code: Permission; scope: Scope }`.
+  - РўР°Р±Р»РёС†С‹: `users` (РєРѕР»РѕРЅРєРё В§7, `role_id` fk в†’ `roles.id`, `trainer_id` fk в†’ `users.id` nullable, `phone` unique), `roles` (`name` unique, `is_system` bool, `permissions` jsonb `RolePermission[]`), `role_audit`.
+  - РўРёРї `Actor = { id: string; roleId: string; gymId: string; isOwner: boolean; permissions: RolePermission[] }`.
+  - Р§РёСЃС‚Р°СЏ С„СѓРЅРєС†РёСЏ `checkPermission(actor: Actor, perm: Permission, target?: { clientTrainerId: string | null; clientId: string }): boolean` (С„Р°Р№Р» `check.ts`).
+  - `can(actor, perm, target?)` = `checkPermission`; `assertCan(...)` Р±СЂРѕСЃР°РµС‚ `ForbiddenError` (РєР»Р°СЃСЃ РІ `errors.ts`, `name = 'ForbiddenError'`, `status = 403`).
+  - РЎРµСЂРІРёСЃ (`service.ts`): `loadActor(userId: string): Promise<Actor>`, `createRole(actor, input: { name: string; permissions: RolePermission[] }): Promise<Role>`, `updateRole(actor, roleId, input)`, `deleteRole(actor, roleId)`, `assignRole(actor, userId, roleId)`. Р’СЃРµ РїРёС€СѓС‚ `role_audit`.
+  - `DEFAULT_ROLES` РІ `defaults.ts` вЂ” 5 СЂРѕР»РµР№ РёР· `ARCHITECTURE.md` В§8.3 СЃ РёРјРµРЅР°РјРё: `Р’Р»Р°РґРµР»РµС†` (`is_system: true`), `Р“Р»Р°РІРЅС‹Р№ С‚СЂРµРЅРµСЂ`, `РўСЂРµРЅРµСЂ`, `РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ Р·Р°Р»Р°`, `РљР»РёРµРЅС‚`.
 
-- [ ] **Шаг 1.** Схемы `users`, `roles`, `role_audit`, добавь в `src/shared/db/schema.ts`. `pnpm db:generate && pnpm db:migrate`.
-- [ ] **Шаг 2.** Падающие тесты `check.test.ts`:
+- [ ] **РЁР°Рі 1.** РЎС…РµРјС‹ `users`, `roles`, `role_audit`, РґРѕР±Р°РІСЊ РІ `src/shared/db/schema.ts`. `pnpm db:generate && pnpm db:migrate`.
+- [ ] **РЁР°Рі 2.** РџР°РґР°СЋС‰РёРµ С‚РµСЃС‚С‹ `check.test.ts`:
   ```ts
   const own = (code: Permission): RolePermission => ({ code, scope: 'own' })
   const all = (code: Permission): RolePermission => ({ code, scope: 'all' })
@@ -169,57 +169,57 @@
   test('scope own without target -> true (list of own clients)', () =>
     expect(checkPermission(actor([own('clients.view')]), 'clients.view')).toBe(true))
   ```
-- [ ] **Шаг 3.** Запусти → FAIL. Реализуй `permissions.ts`, `check.ts`. → PASS.
-- [ ] **Шаг 4.** `tests/db.ts`: хелпер `resetDb()` — `TRUNCATE` всех таблиц `CASCADE` в тестовой БД `maxosipov_test` (создай её в dev-контейнере; `DATABASE_URL` для тестов берётся из `TEST_DATABASE_URL`, если задан). Тесты сервиса запускаются последовательно (`fileParallelism: false` для файлов `*.service.test.ts` или `--no-file-parallelism`).
-- [ ] **Шаг 5.** Падающие тесты `service.test.ts` (перед каждым — `resetDb()` + сид ролей):
-  - `deleteRole` для роли «Владелец» → бросает `ForbiddenError`;
-  - `updateRole` для «Владелец» (любое изменение имени/прав) → `ForbiddenError`;
-  - `assignRole`, снимающий роль «Владелец» с единственного владельца → `ForbiddenError` с текстом `Нельзя снять последнего владельца`;
-  - `createRole` актором без `roles.manage` → `ForbiddenError`;
-  - `createRole` владельцем → роль создана, в `role_audit` 1 запись с `action = 'role.create'`;
-  - `createRole` с неизвестным кодом права → ошибка валидации (Zod).
-- [ ] **Шаг 6.** Реализуй `service.ts` → PASS.
-- [ ] **Шаг 7.** `scripts/seed.ts` (идемпотентный — `onConflictDoNothing`/upsert по уникальным полям): зал «Колизей» (`name: 'Колизей'`, `address: 'Красноярск, ул. Говорова'`, `brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null }`, `settings: { trialDays: 30, subscriptionPriceRub: null, aiDailyLimit: 30, progressionRules: { sessionsToIncrease: 2, fastTrackOnEasy: true, failSessionsToDrop: 2, dropPercent: 10 }, aiMemo: '' }`); `DEFAULT_ROLES`; пользователи из `docs/plans/README.md` («Тестовые данные»): владелец, Максим (`trainer_id` у клиентов = Максим), 5 клиентов с ролью «Клиент».
-- [ ] **Шаг 8.** `pnpm db:seed` два раза подряд → без ошибок, количество строк не меняется (проверь `select count(*) from users` = 7, `roles` = 5).
-- [ ] **Шаг 9.** `rbac/index.ts` экспортирует `PERMISSIONS`, типы, `can`, `assertCan`, `ForbiddenError`, функции сервиса, `DEFAULT_ROLES`. `auth/index.ts` экспортирует таблицу `users` и тип `User`.
-- [ ] **Шаг 10.** `pnpm verify` → зелёный. Коммит: `feat(rbac): permissions, roles, audit, seed`.
+- [ ] **РЁР°Рі 3.** Р—Р°РїСѓСЃС‚Рё в†’ FAIL. Р РµР°Р»РёР·СѓР№ `permissions.ts`, `check.ts`. в†’ PASS.
+- [ ] **РЁР°Рі 4.** `tests/db.ts`: С…РµР»РїРµСЂ `resetDb()` вЂ” `TRUNCATE` РІСЃРµС… С‚Р°Р±Р»РёС† `CASCADE` РІ С‚РµСЃС‚РѕРІРѕР№ Р‘Р” `maxosipov_test` (СЃРѕР·РґР°Р№ РµС‘ РІ dev-РєРѕРЅС‚РµР№РЅРµСЂРµ; `DATABASE_URL` РґР»СЏ С‚РµСЃС‚РѕРІ Р±РµСЂС‘С‚СЃСЏ РёР· `TEST_DATABASE_URL`, РµСЃР»Рё Р·Р°РґР°РЅ). РўРµСЃС‚С‹ СЃРµСЂРІРёСЃР° Р·Р°РїСѓСЃРєР°СЋС‚СЃСЏ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ (`fileParallelism: false` РґР»СЏ С„Р°Р№Р»РѕРІ `*.service.test.ts` РёР»Рё `--no-file-parallelism`).
+- [ ] **РЁР°Рі 5.** РџР°РґР°СЋС‰РёРµ С‚РµСЃС‚С‹ `service.test.ts` (РїРµСЂРµРґ РєР°Р¶РґС‹Рј вЂ” `resetDb()` + СЃРёРґ СЂРѕР»РµР№):
+  - `deleteRole` РґР»СЏ СЂРѕР»Рё В«Р’Р»Р°РґРµР»РµС†В» в†’ Р±СЂРѕСЃР°РµС‚ `ForbiddenError`;
+  - `updateRole` РґР»СЏ В«Р’Р»Р°РґРµР»РµС†В» (Р»СЋР±РѕРµ РёР·РјРµРЅРµРЅРёРµ РёРјРµРЅРё/РїСЂР°РІ) в†’ `ForbiddenError`;
+  - `assignRole`, СЃРЅРёРјР°СЋС‰РёР№ СЂРѕР»СЊ В«Р’Р»Р°РґРµР»РµС†В» СЃ РµРґРёРЅСЃС‚РІРµРЅРЅРѕРіРѕ РІР»Р°РґРµР»СЊС†Р° в†’ `ForbiddenError` СЃ С‚РµРєСЃС‚РѕРј `РќРµР»СЊР·СЏ СЃРЅСЏС‚СЊ РїРѕСЃР»РµРґРЅРµРіРѕ РІР»Р°РґРµР»СЊС†Р°`;
+  - `createRole` Р°РєС‚РѕСЂРѕРј Р±РµР· `roles.manage` в†’ `ForbiddenError`;
+  - `createRole` РІР»Р°РґРµР»СЊС†РµРј в†’ СЂРѕР»СЊ СЃРѕР·РґР°РЅР°, РІ `role_audit` 1 Р·Р°РїРёСЃСЊ СЃ `action = 'role.create'`;
+  - `createRole` СЃ РЅРµРёР·РІРµСЃС‚РЅС‹Рј РєРѕРґРѕРј РїСЂР°РІР° в†’ РѕС€РёР±РєР° РІР°Р»РёРґР°С†РёРё (Zod).
+- [ ] **РЁР°Рі 6.** Р РµР°Р»РёР·СѓР№ `service.ts` в†’ PASS.
+- [ ] **РЁР°Рі 7.** `scripts/seed.ts` (РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹Р№ вЂ” `onConflictDoNothing`/upsert РїРѕ СѓРЅРёРєР°Р»СЊРЅС‹Рј РїРѕР»СЏРј): Р·Р°Р» В«РљРѕР»РёР·РµР№В» (`name: 'РљРѕР»РёР·РµР№'`, `address: 'РљСЂР°СЃРЅРѕСЏСЂСЃРє, СѓР». Р“РѕРІРѕСЂРѕРІР°'`, `brand: { name: 'РњР°РєСЃРёРј РћСЃРёРїРѕРІ', shortName: 'РњР°РєСЃРРРј', colors: { accent: '#E5322D' }, logoUrl: null }`, `settings: { trialDays: 30, subscriptionPriceRub: null, aiDailyLimit: 30, progressionRules: { sessionsToIncrease: 2, fastTrackOnEasy: true, failSessionsToDrop: 2, dropPercent: 10 }, aiMemo: '' }`); `DEFAULT_ROLES`; РїРѕР»СЊР·РѕРІР°С‚РµР»Рё РёР· `docs/plans/README.md` (В«РўРµСЃС‚РѕРІС‹Рµ РґР°РЅРЅС‹РµВ»): РІР»Р°РґРµР»РµС†, РњР°РєСЃРёРј (`trainer_id` Сѓ РєР»РёРµРЅС‚РѕРІ = РњР°РєСЃРёРј), 5 РєР»РёРµРЅС‚РѕРІ СЃ СЂРѕР»СЊСЋ В«РљР»РёРµРЅС‚В».
+- [ ] **РЁР°Рі 8.** `pnpm db:seed` РґРІР° СЂР°Р·Р° РїРѕРґСЂСЏРґ в†’ Р±РµР· РѕС€РёР±РѕРє, РєРѕР»РёС‡РµСЃС‚РІРѕ СЃС‚СЂРѕРє РЅРµ РјРµРЅСЏРµС‚СЃСЏ (РїСЂРѕРІРµСЂСЊ `select count(*) from users` = 7, `roles` = 5).
+- [ ] **РЁР°Рі 9.** `rbac/index.ts` СЌРєСЃРїРѕСЂС‚РёСЂСѓРµС‚ `PERMISSIONS`, С‚РёРїС‹, `can`, `assertCan`, `ForbiddenError`, С„СѓРЅРєС†РёРё СЃРµСЂРІРёСЃР°, `DEFAULT_ROLES`. `auth/index.ts` СЌРєСЃРїРѕСЂС‚РёСЂСѓРµС‚ С‚Р°Р±Р»РёС†Сѓ `users` Рё С‚РёРї `User`.
+- [ ] **РЁР°Рі 10.** `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№. РљРѕРјРјРёС‚: `feat(rbac): permissions, roles, audit, seed`.
 
-### Задача 6. PWA-оболочка
+### Р—Р°РґР°С‡Р° 6. PWA-РѕР±РѕР»РѕС‡РєР°
 
 **Files:**
 - Create: `src/app/manifest.ts`, `public/icons/icon.svg`, `public/icons/icon-192.png`, `public/icons/icon-512.png`, `public/icons/maskable-512.png`, `public/icons/apple-touch-icon.png`, `src/app/(app)/app/offline/page.tsx`, `src/app/sw.ts`, `scripts/make-icons.ts`
 - Modify: `next.config.*`
 
 **Interfaces:**
-- Produces: устанавливаемое PWA на `app.maxosipov.ru`, service worker `/sw.js`, офлайн-страница `/app/offline`.
+- Produces: СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРјРѕРµ PWA РЅР° `app.maxosipov.ru`, service worker `/sw.js`, РѕС„Р»Р°Р№РЅ-СЃС‚СЂР°РЅРёС†Р° `/app/offline`.
 
-- [ ] **Шаг 1.** `public/icons/icon.svg`: квадрат 512, фон `#0E0E10`, по центру монограмма «МО» шрифтом Oswald 500 цвета `#F5F5F7` (текст переведи в кривые не нужно — допускается `<text>` с `font-family="Oswald"`; растеризация в шаге 2 использует локальный шрифт), под ней тонкая линия `#E5322D` шириной 120 и толщиной 6.
-- [ ] **Шаг 2.** `pnpm add -D sharp`; `scripts/make-icons.ts` растеризует svg в 192, 512, maskable 512 (с полями 10%), apple-touch 180. Запусти, PNG закоммить. Если шрифт в svg не подхватывается — переведи монограмму в контуры вручную и опиши в отчёте.
-- [ ] **Шаг 3.** `src/app/manifest.ts`: `name: 'МаксИИм — тренировки с Максимом'`, `short_name: 'МаксИИм'`, `start_url: '/'`, `scope: '/'`, `display: 'standalone'`, `background_color` и `theme_color` `#0E0E10`, `lang: 'ru'`, иконки из шага 2 (maskable с `purpose: 'maskable'`).
-- [ ] **Шаг 4.** Serwist: установи пакеты по официальной инструкции для Next.js App Router (`@serwist/next`, `serwist`), подключи в `next.config`, `src/app/sw.ts` — precache сборки + `defaultCache`; fallback для документов — `/app/offline`. В dev SW отключён.
-- [ ] **Шаг 5.** Офлайн-страница: «Нет сети. Тренировка и подходы сохраняются — отправятся сами, когда появится связь.»
-- [ ] **Шаг 6.** Руками: `pnpm build && pnpm start`, открыть `http://app.localhost:3000` в Chrome → DevTools → Application: manifest без ошибок, SW активен; включить Offline, обновить страницу → офлайн-страница.
-- [ ] **Шаг 7.** `pnpm verify` → зелёный. Коммит: `feat(pwa): manifest, icons, service worker, offline page`.
+- [ ] **РЁР°Рі 1.** `public/icons/icon.svg`: РєРІР°РґСЂР°С‚ 512, С„РѕРЅ `#0E0E10`, РїРѕ С†РµРЅС‚СЂСѓ РјРѕРЅРѕРіСЂР°РјРјР° В«РњРћВ» С€СЂРёС„С‚РѕРј Oswald 500 С†РІРµС‚Р° `#F5F5F7` (С‚РµРєСЃС‚ РїРµСЂРµРІРµРґРё РІ РєСЂРёРІС‹Рµ РЅРµ РЅСѓР¶РЅРѕ вЂ” РґРѕРїСѓСЃРєР°РµС‚СЃСЏ `<text>` СЃ `font-family="Oswald"`; СЂР°СЃС‚РµСЂРёР·Р°С†РёСЏ РІ С€Р°РіРµ 2 РёСЃРїРѕР»СЊР·СѓРµС‚ Р»РѕРєР°Р»СЊРЅС‹Р№ С€СЂРёС„С‚), РїРѕРґ РЅРµР№ С‚РѕРЅРєР°СЏ Р»РёРЅРёСЏ `#E5322D` С€РёСЂРёРЅРѕР№ 120 Рё С‚РѕР»С‰РёРЅРѕР№ 6.
+- [ ] **РЁР°Рі 2.** `pnpm add -D sharp`; `scripts/make-icons.ts` СЂР°СЃС‚РµСЂРёР·СѓРµС‚ svg РІ 192, 512, maskable 512 (СЃ РїРѕР»СЏРјРё 10%), apple-touch 180. Р—Р°РїСѓСЃС‚Рё, PNG Р·Р°РєРѕРјРјРёС‚СЊ. Р•СЃР»Рё С€СЂРёС„С‚ РІ svg РЅРµ РїРѕРґС…РІР°С‚С‹РІР°РµС‚СЃСЏ вЂ” РїРµСЂРµРІРµРґРё РјРѕРЅРѕРіСЂР°РјРјСѓ РІ РєРѕРЅС‚СѓСЂС‹ РІСЂСѓС‡РЅСѓСЋ Рё РѕРїРёС€Рё РІ РѕС‚С‡С‘С‚Рµ.
+- [ ] **РЁР°Рі 3.** `src/app/manifest.ts`: `name: 'РњР°РєСЃРРРј вЂ” С‚СЂРµРЅРёСЂРѕРІРєРё СЃ РњР°РєСЃРёРјРѕРј'`, `short_name: 'РњР°РєСЃРРРј'`, `start_url: '/'`, `scope: '/'`, `display: 'standalone'`, `background_color` Рё `theme_color` `#0E0E10`, `lang: 'ru'`, РёРєРѕРЅРєРё РёР· С€Р°РіР° 2 (maskable СЃ `purpose: 'maskable'`).
+- [ ] **РЁР°Рі 4.** Serwist: СѓСЃС‚Р°РЅРѕРІРё РїР°РєРµС‚С‹ РїРѕ РѕС„РёС†РёР°Р»СЊРЅРѕР№ РёРЅСЃС‚СЂСѓРєС†РёРё РґР»СЏ Next.js App Router (`@serwist/next`, `serwist`), РїРѕРґРєР»СЋС‡Рё РІ `next.config`, `src/app/sw.ts` вЂ” precache СЃР±РѕСЂРєРё + `defaultCache`; fallback РґР»СЏ РґРѕРєСѓРјРµРЅС‚РѕРІ вЂ” `/app/offline`. Р’ dev SW РѕС‚РєР»СЋС‡С‘РЅ.
+- [ ] **РЁР°Рі 5.** РћС„Р»Р°Р№РЅ-СЃС‚СЂР°РЅРёС†Р°: В«РќРµС‚ СЃРµС‚Рё. РўСЂРµРЅРёСЂРѕРІРєР° Рё РїРѕРґС…РѕРґС‹ СЃРѕС…СЂР°РЅСЏСЋС‚СЃСЏ вЂ” РѕС‚РїСЂР°РІСЏС‚СЃСЏ СЃР°РјРё, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ СЃРІСЏР·СЊ.В»
+- [ ] **РЁР°Рі 6.** Р СѓРєР°РјРё: `pnpm build && pnpm start`, РѕС‚РєСЂС‹С‚СЊ `http://app.localhost:3000` РІ Chrome в†’ DevTools в†’ Application: manifest Р±РµР· РѕС€РёР±РѕРє, SW Р°РєС‚РёРІРµРЅ; РІРєР»СЋС‡РёС‚СЊ Offline, РѕР±РЅРѕРІРёС‚СЊ СЃС‚СЂР°РЅРёС†Сѓ в†’ РѕС„Р»Р°Р№РЅ-СЃС‚СЂР°РЅРёС†Р°.
+- [ ] **РЁР°Рі 7.** `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№. РљРѕРјРјРёС‚: `feat(pwa): manifest, icons, service worker, offline page`.
 
-### Задача 7. Health-check, worker, Docker-образ
+### Р—Р°РґР°С‡Р° 7. Health-check, worker, Docker-РѕР±СЂР°Р·
 
 **Files:**
 - Create: `src/app/api/health/route.ts`, `src/app/api/health/health.test.ts`, `src/shared/health.ts`, `src/worker/index.ts`, `src/worker/jobs.ts`, `docker/Dockerfile`, `docker/compose.yml`, `docker/Caddyfile`, `.dockerignore`
 - Modify: `next.config.*` (`output: 'standalone'`), `package.json` (`"worker": "tsx src/worker/index.ts"`)
 
 **Interfaces:**
-- Produces: `checkHealth(ping: () => Promise<void>, timeoutMs = 2000): Promise<{ ok: boolean; db: 'up' | 'down' }>` (`src/shared/health.ts`); `GET /api/health` → 200 `{ok:true,db:'up'}` или 503 `{ok:false,db:'down'}`; `startWorker(): Promise<void>` с pg-boss и регистрацией задач из `jobs.ts` (сейчас одна: `heartbeat` раз в 10 минут пишет в лог).
+- Produces: `checkHealth(ping: () => Promise<void>, timeoutMs = 2000): Promise<{ ok: boolean; db: 'up' | 'down' }>` (`src/shared/health.ts`); `GET /api/health` в†’ 200 `{ok:true,db:'up'}` РёР»Рё 503 `{ok:false,db:'down'}`; `startWorker(): Promise<void>` СЃ pg-boss Рё СЂРµРіРёСЃС‚СЂР°С†РёРµР№ Р·Р°РґР°С‡ РёР· `jobs.ts` (СЃРµР№С‡Р°СЃ РѕРґРЅР°: `heartbeat` СЂР°Р· РІ 10 РјРёРЅСѓС‚ РїРёС€РµС‚ РІ Р»РѕРі).
 
-- [ ] **Шаг 1.** Падающий тест `health.test.ts`: `checkHealth(async () => {})` → `{ok:true, db:'up'}`; `checkHealth(() => new Promise(() => {}), 50)` → `{ok:false, db:'down'}` (не виснет); `checkHealth(async () => { throw new Error('x') })` → `down`.
-- [ ] **Шаг 2.** Реализуй `checkHealth` через `Promise.race` с таймаутом; route вызывает её с `db.execute(sql\`select 1\`)`. → PASS.
-- [ ] **Шаг 3.** `pnpm add pg-boss`. `src/worker/index.ts`: создать `PgBoss(env.DATABASE_URL)`, `start()`, зарегистрировать задачи, корректно останавливаться по `SIGTERM`. Сверь API с README установленной версии pg-boss (`schedule`, `work`) — не выдумывай.
-- [ ] **Шаг 4.** `docker/Dockerfile` — multi-stage: `deps` (pnpm install --frozen-lockfile), `build` (`pnpm build`), `runner` на `node:22-alpine` с `ffmpeg` (`apk add ffmpeg`) — понадобится worker'у; копирует `.next/standalone`, `.next/static`, `public`, `drizzle`, `src/worker`, `node_modules` нужные для worker (допустимо копировать весь `node_modules` из `deps` — опиши в отчёте размер образа). `CMD` по умолчанию — `node server.js`.
-- [ ] **Шаг 5.** `docker/compose.yml`:
-  - `db`: `postgres:17-alpine`, том `/data/postgres`, без публикации порта наружу, healthcheck `pg_isready`;
-  - `web`: образ из Dockerfile, `env_file: ../.env`, depends_on db (healthy), команда — перед стартом `pnpm`-независимая миграция: `node scripts/migrate.js` (создай `scripts/migrate.ts` → компилируется в образ; использует `drizzle-orm/postgres-js/migrator`), затем `node server.js`;
-  - `worker`: тот же образ, команда `node --import tsx src/worker/index.ts` (или скомпилируй worker отдельно — выбери и опиши в отчёте), том `/data/media`;
-  - `caddy`: `caddy:2-alpine`, порты 80/443, тома `caddy_data`, `caddy_config`, `/data/media:/srv/media:ro`, `./Caddyfile:/etc/caddy/Caddyfile`.
-- [ ] **Шаг 6.** `docker/Caddyfile`:
+- [ ] **РЁР°Рі 1.** РџР°РґР°СЋС‰РёР№ С‚РµСЃС‚ `health.test.ts`: `checkHealth(async () => {})` в†’ `{ok:true, db:'up'}`; `checkHealth(() => new Promise(() => {}), 50)` в†’ `{ok:false, db:'down'}` (РЅРµ РІРёСЃРЅРµС‚); `checkHealth(async () => { throw new Error('x') })` в†’ `down`.
+- [ ] **РЁР°Рі 2.** Р РµР°Р»РёР·СѓР№ `checkHealth` С‡РµСЂРµР· `Promise.race` СЃ С‚Р°Р№РјР°СѓС‚РѕРј; route РІС‹Р·С‹РІР°РµС‚ РµС‘ СЃ `db.execute(sql\`select 1\`)`. в†’ PASS.
+- [ ] **РЁР°Рі 3.** `pnpm add pg-boss`. `src/worker/index.ts`: СЃРѕР·РґР°С‚СЊ `PgBoss(env.DATABASE_URL)`, `start()`, Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ Р·Р°РґР°С‡Рё, РєРѕСЂСЂРµРєС‚РЅРѕ РѕСЃС‚Р°РЅР°РІР»РёРІР°С‚СЊСЃСЏ РїРѕ `SIGTERM`. РЎРІРµСЂСЊ API СЃ README СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅРѕР№ РІРµСЂСЃРёРё pg-boss (`schedule`, `work`) вЂ” РЅРµ РІС‹РґСѓРјС‹РІР°Р№.
+- [ ] **РЁР°Рі 4.** `docker/Dockerfile` вЂ” multi-stage: `deps` (pnpm install --frozen-lockfile), `build` (`pnpm build`), `runner` РЅР° `node:22-alpine` СЃ `ffmpeg` (`apk add ffmpeg`) вЂ” РїРѕРЅР°РґРѕР±РёС‚СЃСЏ worker'Сѓ; РєРѕРїРёСЂСѓРµС‚ `.next/standalone`, `.next/static`, `public`, `drizzle`, `src/worker`, `node_modules` РЅСѓР¶РЅС‹Рµ РґР»СЏ worker (РґРѕРїСѓСЃС‚РёРјРѕ РєРѕРїРёСЂРѕРІР°С‚СЊ РІРµСЃСЊ `node_modules` РёР· `deps` вЂ” РѕРїРёС€Рё РІ РѕС‚С‡С‘С‚Рµ СЂР°Р·РјРµСЂ РѕР±СЂР°Р·Р°). `CMD` РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ вЂ” `node server.js`.
+- [ ] **РЁР°Рі 5.** `docker/compose.yml`:
+  - `db`: `postgres:17-alpine`, С‚РѕРј `/data/postgres`, Р±РµР· РїСѓР±Р»РёРєР°С†РёРё РїРѕСЂС‚Р° РЅР°СЂСѓР¶Сѓ, healthcheck `pg_isready`;
+  - `web`: РѕР±СЂР°Р· РёР· Dockerfile, `env_file: ../.env`, depends_on db (healthy), РєРѕРјР°РЅРґР° вЂ” РїРµСЂРµРґ СЃС‚Р°СЂС‚РѕРј `pnpm`-РЅРµР·Р°РІРёСЃРёРјР°СЏ РјРёРіСЂР°С†РёСЏ: `node scripts/migrate.js` (СЃРѕР·РґР°Р№ `scripts/migrate.ts` в†’ РєРѕРјРїРёР»РёСЂСѓРµС‚СЃСЏ РІ РѕР±СЂР°Р·; РёСЃРїРѕР»СЊР·СѓРµС‚ `drizzle-orm/postgres-js/migrator`), Р·Р°С‚РµРј `node server.js`;
+  - `worker`: С‚РѕС‚ Р¶Рµ РѕР±СЂР°Р·, РєРѕРјР°РЅРґР° `node --import tsx src/worker/index.ts` (РёР»Рё СЃРєРѕРјРїРёР»РёСЂСѓР№ worker РѕС‚РґРµР»СЊРЅРѕ вЂ” РІС‹Р±РµСЂРё Рё РѕРїРёС€Рё РІ РѕС‚С‡С‘С‚Рµ), С‚РѕРј `/data/media`;
+  - `caddy`: `caddy:2-alpine`, РїРѕСЂС‚С‹ 80/443, С‚РѕРјР° `caddy_data`, `caddy_config`, `/data/media:/srv/media:ro`, `./Caddyfile:/etc/caddy/Caddyfile`.
+- [ ] **РЁР°Рі 6.** `docker/Caddyfile`:
   ```
   maxosipov.ru, app.maxosipov.ru {
     encode zstd gzip
@@ -229,39 +229,39 @@
     redir https://maxosipov.ru{uri} permanent
   }
   ```
-  (раздача `/media` с проверкой подписи добавится на этапе 2).
-- [ ] **Шаг 7.** Локально: `docker compose -f docker/compose.yml build` → успешно. Запуск с локальным `.env` → `curl -H 'Host: app.maxosipov.ru' http://localhost/api/health` (через web напрямую, порт 3000 временно опубликуй) → `{"ok":true,"db":"up"}`.
-- [ ] **Шаг 8.** `pnpm verify` → зелёный. Коммит: `feat(infra): health check, worker, docker images, caddy`.
+  (СЂР°Р·РґР°С‡Р° `/media` СЃ РїСЂРѕРІРµСЂРєРѕР№ РїРѕРґРїРёСЃРё РґРѕР±Р°РІРёС‚СЃСЏ РЅР° СЌС‚Р°РїРµ 2).
+- [ ] **РЁР°Рі 7.** Р›РѕРєР°Р»СЊРЅРѕ: `docker compose -f docker/compose.yml build` в†’ СѓСЃРїРµС€РЅРѕ. Р—Р°РїСѓСЃРє СЃ Р»РѕРєР°Р»СЊРЅС‹Рј `.env` в†’ `curl -H 'Host: app.maxosipov.ru' http://localhost/api/health` (С‡РµСЂРµР· web РЅР°РїСЂСЏРјСѓСЋ, РїРѕСЂС‚ 3000 РІСЂРµРјРµРЅРЅРѕ РѕРїСѓР±Р»РёРєСѓР№) в†’ `{"ok":true,"db":"up"}`.
+- [ ] **РЁР°Рі 8.** `pnpm verify` в†’ Р·РµР»С‘РЅС‹Р№. РљРѕРјРјРёС‚: `feat(infra): health check, worker, docker images, caddy`.
 
-### Задача 8. Сервер FirstVPS, деплой, бэкапы
+### Р—Р°РґР°С‡Р° 8. РЎРµСЂРІРµСЂ FirstVPS, РґРµРїР»РѕР№, Р±СЌРєР°РїС‹
 
 **Files:**
 - Create: `docs/ops/server-setup.md`, `scripts/deploy.sh`, `scripts/backup.sh`, `scripts/restore-check.sh`, `docker/backup.env.example`
 
 **Interfaces:**
-- Produces: работающие `https://maxosipov.ru` и `https://app.maxosipov.ru/api/health`; ночной бэкап.
+- Produces: СЂР°Р±РѕС‚Р°СЋС‰РёРµ `https://maxosipov.ru` Рё `https://app.maxosipov.ru/api/health`; РЅРѕС‡РЅРѕР№ Р±СЌРєР°Рї.
 
-- [ ] **Шаг 1.** `docs/ops/server-setup.md` — пошагово (исполнитель пишет, владелец выполняет на сервере, если у исполнителя нет SSH):
-  1. VPS: Ubuntu 24.04 LTS, 4 vCPU, 8 ГБ RAM, 160 ГБ NVMe (ARCHITECTURE §16).
-  2. Пользователь `deploy` с sudo, вход по SSH-ключу, `PasswordAuthentication no`.
+- [ ] **РЁР°Рі 1.** `docs/ops/server-setup.md` вЂ” РїРѕС€Р°РіРѕРІРѕ (РёСЃРїРѕР»РЅРёС‚РµР»СЊ РїРёС€РµС‚, РІР»Р°РґРµР»РµС† РІС‹РїРѕР»РЅСЏРµС‚ РЅР° СЃРµСЂРІРµСЂРµ, РµСЃР»Рё Сѓ РёСЃРїРѕР»РЅРёС‚РµР»СЏ РЅРµС‚ SSH):
+  1. VPS: Ubuntu 24.04 LTS, 4 vCPU, 8 Р“Р‘ RAM, 160 Р“Р‘ NVMe (ARCHITECTURE В§16).
+  2. РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ `deploy` СЃ sudo, РІС…РѕРґ РїРѕ SSH-РєР»СЋС‡Сѓ, `PasswordAuthentication no`.
   3. `ufw allow 22,80,443/tcp && ufw enable`.
-  4. Docker Engine + compose plugin по официальной инструкции Docker для Ubuntu.
-  5. DNS у регистратора: A-записи `@`, `www`, `app` → IP сервера; дождаться применения (`dig +short app.maxosipov.ru`).
-  6. Клонировать репозиторий в `/opt/maxosipov`, создать `.env` (продакшн-значения), `mkdir -p /data/postgres /data/media`.
+  4. Docker Engine + compose plugin РїРѕ РѕС„РёС†РёР°Р»СЊРЅРѕР№ РёРЅСЃС‚СЂСѓРєС†РёРё Docker РґР»СЏ Ubuntu.
+  5. DNS Сѓ СЂРµРіРёСЃС‚СЂР°С‚РѕСЂР°: A-Р·Р°РїРёСЃРё `@`, `www`, `app` в†’ IP СЃРµСЂРІРµСЂР°; РґРѕР¶РґР°С‚СЊСЃСЏ РїСЂРёРјРµРЅРµРЅРёСЏ (`dig +short app.maxosipov.ru`).
+  6. РљР»РѕРЅРёСЂРѕРІР°С‚СЊ СЂРµРїРѕР·РёС‚РѕСЂРёР№ РІ `/opt/maxosipov`, СЃРѕР·РґР°С‚СЊ `.env` (РїСЂРѕРґР°РєС€РЅ-Р·РЅР°С‡РµРЅРёСЏ), `mkdir -p /data/postgres /data/media`.
   7. `./scripts/deploy.sh`.
-- [ ] **Шаг 2.** `scripts/deploy.sh`: `set -euo pipefail`; `git pull --ff-only`; `docker compose -f docker/compose.yml build`; `docker compose -f docker/compose.yml up -d`; ожидание `/api/health` до 60 с (curl в цикле к `https://app.maxosipov.ru/api/health`), при неудаче — вывести `docker compose logs --tail=100 web` и выйти с кодом 1.
-- [ ] **Шаг 3.** `scripts/backup.sh`: `pg_dump` из контейнера `db` в `/data/backups/db-$(date +%F).sql.gz`, затем `restic backup /data/backups /data/media` в S3-совместимое хранилище (переменные из `/opt/maxosipov/docker/backup.env`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), затем `restic forget --keep-daily 14 --keep-weekly 8 --prune`; удалить локальные дампы старше 3 дней.
-- [ ] **Шаг 4.** Cron на сервере (`/etc/cron.d/maxosipov-backup`): ежедневно в 03:30 по Красноярску → `scripts/backup.sh >> /var/log/maxosipov-backup.log 2>&1`. Задокументируй в `server-setup.md`.
-- [ ] **Шаг 5.** `scripts/restore-check.sh`: восстанавливает последний дамп во временный контейнер `postgres:17-alpine` и выполняет `select count(*) from users` — для ежемесячной проверки.
-- [ ] **Шаг 6.** Выполнение на сервере (владелец или исполнитель с доступом): деплой → проверки:
-  - `curl -sI https://maxosipov.ru` → 200, валидный сертификат;
-  - `curl -sI https://www.maxosipov.ru` → 308 на `https://maxosipov.ru/`;
-  - `curl -s https://app.maxosipov.ru/api/health` → `{"ok":true,"db":"up"}`;
-  - `scripts/backup.sh` вручную → снапшот в `restic snapshots`.
-- [ ] **Шаг 7.** Коммит: `chore(ops): server setup guide, deploy and backup scripts`.
+- [ ] **РЁР°Рі 2.** `scripts/deploy.sh`: `set -euo pipefail`; `git pull --ff-only`; `docker compose -f docker/compose.yml build`; `docker compose -f docker/compose.yml up -d`; РѕР¶РёРґР°РЅРёРµ `/api/health` РґРѕ 60 СЃ (curl РІ С†РёРєР»Рµ Рє `https://app.maxosipov.ru/api/health`), РїСЂРё РЅРµСѓРґР°С‡Рµ вЂ” РІС‹РІРµСЃС‚Рё `docker compose logs --tail=100 web` Рё РІС‹Р№С‚Рё СЃ РєРѕРґРѕРј 1.
+- [ ] **РЁР°Рі 3.** `scripts/backup.sh`: `pg_dump` РёР· РєРѕРЅС‚РµР№РЅРµСЂР° `db` РІ `/data/backups/db-$(date +%F).sql.gz`, Р·Р°С‚РµРј `restic backup /data/backups /data/media` РІ S3-СЃРѕРІРјРµСЃС‚РёРјРѕРµ С…СЂР°РЅРёР»РёС‰Рµ (РїРµСЂРµРјРµРЅРЅС‹Рµ РёР· `/opt/maxosipov/docker/backup.env`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), Р·Р°С‚РµРј `restic forget --keep-daily 14 --keep-weekly 8 --prune`; СѓРґР°Р»РёС‚СЊ Р»РѕРєР°Р»СЊРЅС‹Рµ РґР°РјРїС‹ СЃС‚Р°СЂС€Рµ 3 РґРЅРµР№.
+- [ ] **РЁР°Рі 4.** Cron РЅР° СЃРµСЂРІРµСЂРµ (`/etc/cron.d/maxosipov-backup`): РµР¶РµРґРЅРµРІРЅРѕ РІ 03:30 РїРѕ РљСЂР°СЃРЅРѕСЏСЂСЃРєСѓ в†’ `scripts/backup.sh >> /var/log/maxosipov-backup.log 2>&1`. Р—Р°РґРѕРєСѓРјРµРЅС‚РёСЂСѓР№ РІ `server-setup.md`.
+- [ ] **РЁР°Рі 5.** `scripts/restore-check.sh`: РІРѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ РїРѕСЃР»РµРґРЅРёР№ РґР°РјРї РІРѕ РІСЂРµРјРµРЅРЅС‹Р№ РєРѕРЅС‚РµР№РЅРµСЂ `postgres:17-alpine` Рё РІС‹РїРѕР»РЅСЏРµС‚ `select count(*) from users` вЂ” РґР»СЏ РµР¶РµРјРµСЃСЏС‡РЅРѕР№ РїСЂРѕРІРµСЂРєРё.
+- [ ] **РЁР°Рі 6.** Р’С‹РїРѕР»РЅРµРЅРёРµ РЅР° СЃРµСЂРІРµСЂРµ (РІР»Р°РґРµР»РµС† РёР»Рё РёСЃРїРѕР»РЅРёС‚РµР»СЊ СЃ РґРѕСЃС‚СѓРїРѕРј): РґРµРїР»РѕР№ в†’ РїСЂРѕРІРµСЂРєРё:
+  - `curl -sI https://maxosipov.ru` в†’ 200, РІР°Р»РёРґРЅС‹Р№ СЃРµСЂС‚РёС„РёРєР°С‚;
+  - `curl -sI https://www.maxosipov.ru` в†’ 308 РЅР° `https://maxosipov.ru/`;
+  - `curl -s https://app.maxosipov.ru/api/health` в†’ `{"ok":true,"db":"up"}`;
+  - `scripts/backup.sh` РІСЂСѓС‡РЅСѓСЋ в†’ СЃРЅР°РїС€РѕС‚ РІ `restic snapshots`.
+- [ ] **РЁР°Рі 7.** РљРѕРјРјРёС‚: `chore(ops): server setup guide, deploy and backup scripts`.
 
-### Задача 9. Отчёт этапа
+### Р—Р°РґР°С‡Р° 9. РћС‚С‡С‘С‚ СЌС‚Р°РїР°
 
-- [ ] Сид на продакшне **не** запускать с тестовыми номерами: в `scripts/seed.ts` при `NODE_ENV === 'production'` создаются только зал и роли; владелец и Максим — по номерам из переменных `SEED_OWNER_PHONE`, `SEED_TRAINER_PHONE` (добавь в `.env.example`). Тест: `seed` в режиме production без этих переменных не падает и не создаёт пользователей.
-- [ ] `pnpm test:e2e`: один e2e `e2e/smoke.spec.ts` — открывает `http://app.localhost:3000`, видит текст «Приложение МаксИИм — скоро»; открывает `http://localhost:3000`, видит «Максим Осипов».
-- [ ] Отчёт `docs/reports/00-report.md` по шаблону из README. **Стоп — ждать ревью.**
+- [ ] РЎРёРґ РЅР° РїСЂРѕРґР°РєС€РЅРµ **РЅРµ** Р·Р°РїСѓСЃРєР°С‚СЊ СЃ С‚РµСЃС‚РѕРІС‹РјРё РЅРѕРјРµСЂР°РјРё: РІ `scripts/seed.ts` РїСЂРё `NODE_ENV === 'production'` СЃРѕР·РґР°СЋС‚СЃСЏ С‚РѕР»СЊРєРѕ Р·Р°Р» Рё СЂРѕР»Рё; РІР»Р°РґРµР»РµС† Рё РњР°РєСЃРёРј вЂ” РїРѕ РЅРѕРјРµСЂР°Рј РёР· РїРµСЂРµРјРµРЅРЅС‹С… `SEED_OWNER_PHONE`, `SEED_TRAINER_PHONE` (РґРѕР±Р°РІСЊ РІ `.env.example`). РўРµСЃС‚: `seed` РІ СЂРµР¶РёРјРµ production Р±РµР· СЌС‚РёС… РїРµСЂРµРјРµРЅРЅС‹С… РЅРµ РїР°РґР°РµС‚ Рё РЅРµ СЃРѕР·РґР°С‘С‚ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№.
+- [ ] `pnpm test:e2e`: РѕРґРёРЅ e2e `e2e/smoke.spec.ts` вЂ” РѕС‚РєСЂС‹РІР°РµС‚ `http://app.localhost:3000`, РІРёРґРёС‚ С‚РµРєСЃС‚ В«РџСЂРёР»РѕР¶РµРЅРёРµ РњР°РєСЃРРРј вЂ” СЃРєРѕСЂРѕВ»; РѕС‚РєСЂС‹РІР°РµС‚ `http://localhost:3000`, РІРёРґРёС‚ В«РњР°РєСЃРёРј РћСЃРёРїРѕРІВ».
+- [ ] РћС‚С‡С‘С‚ `docs/reports/00-report.md` РїРѕ С€Р°Р±Р»РѕРЅСѓ РёР· README. **РЎС‚РѕРї вЂ” Р¶РґР°С‚СЊ СЂРµРІСЊСЋ.**
