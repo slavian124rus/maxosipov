@@ -201,10 +201,7 @@ importers:
         version: 19.3.0(react@19.3.0)
       serwist:
         specifier: ^9.5.13
-        version: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      shadcn:
-        specifier: ^4.23.0
-        version: 4.23.0(supports-color@7.2.0)
+        version: 9.5.13(browserslist@4.29.3)(typescript@5.9.3)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -257,6 +254,9 @@ importers:
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
+      shadcn:
+        specifier: ^4.23.0
+        version: 4.23.0(supports-color@7.2.0)
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@20.19.43)
@@ -6389,10 +6389,6 @@ snapshots:
     optionalDependencies:
       browserslist: 4.29.3
 
-  '@serwist/utils@9.5.13(browserslist@4.29.5)':
-    optionalDependencies:
-      browserslist: 4.29.5
-
   '@serwist/window@9.5.13(browserslist@4.29.3)(typescript@5.9.3)':
     dependencies:
       '@types/trusted-types': 2.0.7
@@ -8715,15 +8711,6 @@ snapshots:
   serwist@9.5.13(browserslist@4.29.3)(typescript@5.9.3):
     dependencies:
       '@serwist/utils': 9.5.13(browserslist@4.29.3)
-      idb: 8.0.3
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - browserslist
-
-  serwist@9.5.13(browserslist@4.29.5)(typescript@5.9.3):
-    dependencies:
-      '@serwist/utils': 9.5.13(browserslist@4.29.5)
       idb: 8.0.3
     optionalDependencies:
       typescript: 5.9.3
