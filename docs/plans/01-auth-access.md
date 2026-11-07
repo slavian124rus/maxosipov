@@ -47,7 +47,7 @@
   - `type CurrentUser = { user: User; actor: Actor }`
   - Таблица `sessions(id, user_id fk, token_hash unique, expires_at, user_agent, created_at)`; `auth_accounts(id, user_id fk, provider text, provider_user_id text, created_at, unique(provider, provider_user_id))`; `users.pd_consent_at timestamptz null`.
 
-- [ ] **Шаг 1.** Падающие тесты `phone.test.ts`:
+- [x] **Шаг 1.** Падающие тесты `phone.test.ts`:
   ```ts
   test.each([
     ['8 (999) 123-45-67', '+79991234567'], ['+7 999 1234567', '+79991234567'],
@@ -56,12 +56,12 @@
   test.each(['', '123', '+1 202 555 0101', '8999123456', 'abc', '+7999123456789'])('rejects %s', (i) =>
     expect(normalizePhone(i)).toBeNull())
   ```
-- [ ] **Шаг 2.** Реализуй `normalizePhone` (только российские номера: 10 цифр после кода страны, первая из них 9 или 3/4/8 для городских — разрешай любые 10 цифр). → PASS.
-- [ ] **Шаг 3.** Миграция для новых таблиц/колонки (`pnpm db:generate && pnpm db:migrate`).
-- [ ] **Шаг 4.** Падающие тесты `session.test.ts` (с `resetDb()`): создание → `validateSessionToken(token)` возвращает `userId`; в БД нет открытого токена (только хэш); просроченная сессия → `null`; сессия, у которой до конца 10 дней, после валидации продлена до 90 дней от «сейчас»; `destroySession` → далее `null`. Время подменяй через `vi.useFakeTimers()` / `vi.setSystemTime`.
-- [ ] **Шаг 5.** Реализуй `session.ts` (`crypto.randomBytes(32).toString('base64url')`, `createHash('sha256')`). → PASS.
-- [ ] **Шаг 6.** `current.ts`: `getCurrentUser` читает `cookies().get('sid')`, валидирует, загружает `User` и `loadActor(user.id)`. `requireUser` — `redirect('/login')` (путь внутри приложения; middleware добавит `/app`).
-- [ ] **Шаг 7.** `pnpm verify`. Коммит: `feat(auth): phone normalization and sessions`.
+- [x] **Шаг 2.** Реализуй `normalizePhone` (только российские номера: 10 цифр после кода страны, первая из них 9 или 3/4/8 для городских — разрешай любые 10 цифр). → PASS.
+- [x] **Шаг 3.** Миграция для новых таблиц/колонки (`pnpm db:generate && pnpm db:migrate`).
+- [x] **Шаг 4.** Падающие тесты `session.test.ts` (с `resetDb()`): создание → `validateSessionToken(token)` возвращает `userId`; в БД нет открытого токена (только хэш); просроченная сессия → `null`; сессия, у которой до конца 10 дней, после валидации продлена до 90 дней от «сейчас»; `destroySession` → далее `null`. Время подменяй через `vi.useFakeTimers()` / `vi.setSystemTime`.
+- [x] **Шаг 5.** Реализуй `session.ts` (`crypto.randomBytes(32).toString('base64url')`, `createHash('sha256')`). → PASS.
+- [x] **Шаг 6.** `current.ts`: `getCurrentUser` читает `cookies().get('sid')`, валидирует, загружает `User` и `loadActor(user.id)`. `requireUser` — `redirect('/login')` (путь внутри приложения; middleware добавит `/app`).
+- [x] **Шаг 7.** `pnpm verify`. Коммит: `feat(auth): phone normalization and sessions`.
 
 ### Задача 2. СМС и одноразовые коды
 

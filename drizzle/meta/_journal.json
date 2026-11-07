@@ -15,6 +15,13 @@
       "when": 1794047362680,
       "tag": "0001_gigantic_shriek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794052701911,
+      "tag": "0002_special_gauntlet",
+      "breakpoints": true
     }
   ]
 }
