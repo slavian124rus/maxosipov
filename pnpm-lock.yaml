@@ -166,9 +166,6 @@ importers:
 
   .:
     dependencies:
-      '@serwist/next':
-        specifier: ^9.5.13
-        version: 9.5.13(next@16.4.5(@babel/core@7.29.13(supports-color@7.2.0))(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2035,20 +2032,6 @@ packages:
       typescript:
         optional: true
 
-  '@serwist/next@9.5.13':
-    resolution: {integrity: sha512-NyRUmZIhfN+8p/rWLWRlULt+0YGN6G90R2WKbYj8cq0/4VDhDaOrFXyI458Ym98ApQHrNwkUhgPzZMxQoxxWWA==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@serwist/cli': ^9.5.13
-      next: '>=14.0.0'
-      react: '>=18.0.0'
-      typescript: '>=5.0.0'
-    peerDependenciesMeta:
-      '@serwist/cli':
-        optional: true
-      typescript:
-        optional: true
-
   '@serwist/turbopack@9.5.13':
     resolution: {integrity: sha512-7QfoFoXdU+HL7mUHwnnSYmJMK0vJo1WEyr+7jIXfgPkdEvol4BlrgWg1PrbGqWqLZkud5IhMiQm7gbfx7N44MQ==}
     engines: {node: '>=18.0.0'}
@@ -2072,18 +2055,6 @@ packages:
       browserslist: '>=4'
     peerDependenciesMeta:
       browserslist:
-        optional: true
-
-  '@serwist/webpack-plugin@9.5.13':
-    resolution: {integrity: sha512-pXfrV0kVUjoXGOu7D+1xEz06tsDgBNiqV5YXvvBpVLQrIsXOnUTs5H4VLZ2p7OjfuPt8Ho5QFrS6xt08hTPxRA==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      typescript: '>=5.0.0'
-      webpack: 4.4.0 || ^5.9.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      webpack:
         optional: true
 
   '@serwist/window@9.5.13':
@@ -6395,39 +6366,6 @@ snapshots:
     transitivePeerDependencies:
       - browserslist
 
-  '@serwist/build@9.5.13(browserslist@4.29.5)(typescript@5.9.3)':
-    dependencies:
-      '@serwist/utils': 9.5.13(browserslist@4.29.5)
-      common-tags: 1.8.2
-      glob: 13.0.6
-      pretty-bytes: 6.1.1
-      source-map: 0.8.0
-      type-fest: 5.10.0
-      zod: 4.6.5
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - browserslist
-
-  '@serwist/next@9.5.13(next@16.4.5(@babel/core@7.29.13(supports-color@7.2.0))(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)':
-    dependencies:
-      '@serwist/build': 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      '@serwist/utils': 9.5.13(browserslist@4.29.5)
-      '@serwist/webpack-plugin': 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      '@serwist/window': 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      browserslist: 4.29.5
-      glob: 13.0.6
-      kolorist: 1.8.0
-      next: 16.4.5(@babel/core@7.29.13(supports-color@7.2.0))(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react: 19.3.0
-      semver: 7.8.5
-      serwist: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      zod: 4.6.5
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - webpack
-
   '@serwist/turbopack@9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.13(supports-color@7.2.0))(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)':
     dependencies:
       '@serwist/build': 9.5.13(browserslist@4.29.3)(typescript@5.9.3)
@@ -6455,30 +6393,10 @@ snapshots:
     optionalDependencies:
       browserslist: 4.29.5
 
-  '@serwist/webpack-plugin@9.5.13(browserslist@4.29.5)(typescript@5.9.3)':
-    dependencies:
-      '@serwist/build': 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      '@serwist/utils': 9.5.13(browserslist@4.29.5)
-      pretty-bytes: 6.1.1
-      zod: 4.6.5
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - browserslist
-
   '@serwist/window@9.5.13(browserslist@4.29.3)(typescript@5.9.3)':
     dependencies:
       '@types/trusted-types': 2.0.7
       serwist: 9.5.13(browserslist@4.29.3)(typescript@5.9.3)
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - browserslist
-
-  '@serwist/window@9.5.13(browserslist@4.29.5)(typescript@5.9.3)':
-    dependencies:
-      '@types/trusted-types': 2.0.7
-      serwist: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:

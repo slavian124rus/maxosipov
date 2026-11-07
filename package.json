@@ -16,7 +16,6 @@
     "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
-    "@serwist/next": "^9.5.13",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "drizzle-orm": "^0.45.4",
