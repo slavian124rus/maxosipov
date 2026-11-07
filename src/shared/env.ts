@@ -40,7 +40,7 @@ const envSchema = z.object({
   MAX_WEBHOOK_SECRET: optionalString,
 
   // СМС
-  SMS_PROVIDER: z.preprocess(emptyToUndefined, z.string().min(1).default('smsru')),
+  SMS_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['smsru', 'console']).default('console')),
   SMS_API_KEY: optionalString,
 
   // ИИ
@@ -75,13 +75,28 @@ const envSchema = z.object({
   SEED_TRAINER_PHONE: optionalString,
 })
 
+/**
+ * Проверки, которые нельзя выразить одной схемой: `SMS_API_KEY` обязателен для СМС.ру.
+ */
+function refineEnv(data: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void {
+  if (data.SMS_PROVIDER === 'smsru' && !data.SMS_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['SMS_API_KEY'],
+      message: 'SMS_API_KEY обязателен при SMS_PROVIDER=smsru',
+    })
+  }
+}
+
 export type Env = z.infer<typeof envSchema>
+
+const fullEnvSchema = envSchema.superRefine(refineEnv)
 
 /**
  * Разбирает окружение и бросает понятную ошибку со списком проблемных переменных.
  */
 export function parseEnv(raw: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(raw)
+  const result = fullEnvSchema.safeParse(raw)
 
   if (!result.success) {
     const details = result.error.issues

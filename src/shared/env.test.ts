@@ -10,3 +10,18 @@ test('accepts minimal valid env', () => {
   expect(e.APP_URL).toBe('http://app.localhost:3000')
   expect(e.SITE_URL).toBe('http://localhost:3000')
 })
+
+test('SMS_PROVIDER по умолчанию console', () => {
+  const e = parseEnv({ DATABASE_URL: 'postgres://a:b@localhost:5432/c', AUTH_SECRET: 'x'.repeat(32) })
+  expect(e.SMS_PROVIDER).toBe('console')
+})
+
+test('smsru без SMS_API_KEY — ошибка', () => {
+  expect(() =>
+    parseEnv({
+      DATABASE_URL: 'postgres://a:b@localhost:5432/c',
+      AUTH_SECRET: 'x'.repeat(32),
+      SMS_PROVIDER: 'smsru',
+    }),
+  ).toThrow(/SMS_API_KEY/)
+})

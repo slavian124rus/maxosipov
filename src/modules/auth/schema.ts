@@ -1,5 +1,5 @@
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import { index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 /**
  * Пользователи. Телефон — главный ключ (E.164, подтверждён).
@@ -61,4 +61,27 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Session = typeof sessions.$inferSelect
 export type AuthAccount = typeof authAccounts.$inferSelect
+
+/** Одноразовые коды входа: в базе только `sha256`, сам код уходит в СМС. */
+export const otpCodes = pgTable(
+  'otp_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    phone: text('phone').notNull(),
+    codeHash: text('code_hash').notNull(),
+    ip: text('ip').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('otp_codes_phone_created_idx').on(table.phone, table.createdAt),
+    index('otp_codes_ip_created_idx').on(table.ip, table.createdAt),
+  ],
+)
+
+export type OtpCode = typeof otpCodes.$inferSelect
+
 

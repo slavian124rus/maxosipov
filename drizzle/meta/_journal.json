@@ -22,6 +22,13 @@
       "when": 1794052701911,
       "tag": "0002_special_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794052977815,
+      "tag": "0003_melodic_rafael_vega",
+      "breakpoints": true
     }
   ]
 }
