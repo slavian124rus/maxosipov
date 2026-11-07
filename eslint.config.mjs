@@ -7,6 +7,30 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
+  {
+    // Граница модулей: снаружи — только `@/modules/<name>` (его index.ts).
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/*/*", "@/modules/*/**"],
+              message: "Импортируй модуль только через @/modules/<name>",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Единственный файл, которому разрешён прямой импорт schema.ts модулей.
+    files: ["src/shared/db/schema.ts"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
