@@ -1,16 +1,24 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { manrope, oswald } from '@/shared/fonts'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Максим Осипов',
+  title: 'Максим Осипов · МаксИИм',
   description: 'Тренировки с Максимом в зале «Колизей», Красноярск',
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0E0E10',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru">
-      <body>{children}</body>
+    <html lang="ru" className={`dark ${oswald.variable} ${manrope.variable}`}>
+      <body className="min-h-dvh bg-bg text-text">{children}</body>
     </html>
   )
 }
+
