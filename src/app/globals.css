@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* РўРѕРєРµРЅС‹ вЂ” DESIGN.md В§3. РўС‘РјРЅР°СЏ С‚РµРјР° РµРґРёРЅСЃС‚РІРµРЅРЅР°СЏ, РїРѕСЌС‚РѕРјСѓ Р·РЅР°С‡РµРЅРёСЏ Р¶РёРІСѓС‚ РІ :root. */
+/* Токены — DESIGN.md §3. Тёмная тема единственная, поэтому значения живут в :root. */
 :root {
   color-scheme: dark;
 
@@ -30,7 +30,7 @@
   --radius-card: 16px;
   --radius-sheet: 24px;
 
-  /* РЎРµРјР°РЅС‚РёРєР° shadcn/ui РїРѕРІРµСЂС… РЅР°С€РёС… С‚РѕРєРµРЅРѕРІ */
+  /* Семантика shadcn/ui поверх наших токенов */
   --background: var(--bg);
   --foreground: var(--text);
   --card: var(--surface-1);
@@ -141,7 +141,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Р¦РёС„СЂС‹ РЅРµ В«РїСЂС‹РіР°СЋС‚В»: DESIGN.md В§4 */
+/* Цифры не «прыгают»: DESIGN.md §4 */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -151,4 +151,3 @@ body {
     @apply border-border outline-ring/50;
   }
 }
-

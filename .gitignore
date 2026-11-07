@@ -46,6 +46,9 @@ yarn-error.log*
 /playwright-report
 /test-results
 
+# рабочие файлы исполнителя (логи, разовые скрипты)
+/_*
+
 # vercel
 .vercel
 
