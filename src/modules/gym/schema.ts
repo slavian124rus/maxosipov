@@ -22,6 +22,12 @@ export type GymSettings = {
   aiDailyLimit: number
   progressionRules: ProgressionRules
   aiMemo: string
+  /** Контакты Максима для экрана «нет доступа». */
+  contacts?: {
+    phone: string | null
+    maxUrl: string | null
+    photoUrl: string | null
+  }
 }
 
 export const gyms = pgTable('gyms', {

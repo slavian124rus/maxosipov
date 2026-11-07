@@ -19,3 +19,22 @@ export async function getGym(): Promise<Gym> {
   }
   return gym
 }
+
+export type TrainerContacts = {
+  phone: string | null
+  maxUrl: string | null
+  photoUrl: string | null
+}
+
+/** Контакты Максима для экрана «Продли у Максима». */
+export async function getTrainerContacts(): Promise<TrainerContacts> {
+  const gym = await getGym()
+  const contacts = gym.settings.contacts
+
+  return {
+    phone: contacts?.phone ?? null,
+    maxUrl: contacts?.maxUrl ?? null,
+    photoUrl: contacts?.photoUrl ?? null,
+  }
+}
+

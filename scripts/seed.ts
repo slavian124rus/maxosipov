@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
@@ -26,6 +26,7 @@ const SETTINGS: GymSettings = {
     dropPercent: 10,
   },
   aiMemo: '',
+  contacts: { phone: null, maxUrl: null, photoUrl: null },
 }
 
 const DEV_OWNER_PHONE = '+79990000001'
@@ -182,6 +183,13 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       })
       clientIds.push(id)
     }
+
+    // Тестовые клиенты — «давно в зале»: анкета и согласия уже пройдены.
+    const consentAt = new Date()
+    await db
+      .update(users)
+      .set({ onboardingCompletedAt: consentAt, pdConsentAt: consentAt })
+      .where(inArray(users.id, clientIds))
 
     await ensureSubscriptions(clientIds)
 
