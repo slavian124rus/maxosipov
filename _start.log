@@ -1,0 +1,8 @@
+▲ Next.js 16.4.5
+- Local:         http://localhost:3000
+- Network:       http://172.19.0.1:3000
+✓ Ready in 265ms
+✓ Running next.config.ts took 412ms
+✓ Running next.config.ts took 12ms
+○ (serwist) Using esbuild to bundle the service worker.
+✓ (serwist) 24 precache entries (819.44 KiB)

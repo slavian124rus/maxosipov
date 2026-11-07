@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Максим Осипов">
+  <rect width="512" height="512" fill="#0E0E10" />
+  <path
+    d="M130 330 L130 150 L160 150 L185 215 L210 150 L240 150 L240 330 L215 330 L215 220 L190 290 L180 290 L155 220 L155 330 Z"
+    fill="#F5F5F7"
+  />
+  <circle cx="310" cy="240" r="77" fill="none" stroke="#F5F5F7" stroke-width="26" />
+  <rect x="196" y="368" width="120" height="6" fill="#E5322D" />
+</svg>

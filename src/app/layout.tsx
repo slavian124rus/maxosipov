@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { SerwistProvider } from '@serwist/turbopack/react'
 import { manrope, oswald } from '@/shared/fonts'
 import './globals.css'
 
@@ -17,7 +18,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru" className={`dark ${oswald.variable} ${manrope.variable}`}>
-      <body className="min-h-dvh bg-bg text-text">{children}</body>
+      <body className="min-h-dvh bg-bg text-text">
+        <SerwistProvider
+          swUrl="/serwist/sw.js"
+          disable={process.env.NODE_ENV !== 'production'}
+        >
+          {children}
+        </SerwistProvider>
+      </body>
     </html>
   )
 }
