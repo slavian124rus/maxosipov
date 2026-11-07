@@ -24,5 +24,9 @@ export type { OtpCode } from './schema'
 export { getSmsProvider } from './sms'
 export type { SmsProvider } from './sms/types'
 
+export { signInWithVerifiedPhone } from './signin'
+export type { SignInLink, SignInResult } from './signin'
+
+
 
 
