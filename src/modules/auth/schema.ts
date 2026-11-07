@@ -84,4 +84,27 @@ export const otpCodes = pgTable(
 
 export type OtpCode = typeof otpCodes.$inferSelect
 
+/**
+ * Провайдер не отдал телефон: запоминаем профиль на 15 минут,
+ * чтобы после подтверждения номера привязать способ входа.
+ */
+export const pendingLinks = pgTable('pending_links', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  provider: text('provider').$type<Exclude<AuthProvider, 'phone'>>().notNull(),
+  providerUserId: text('provider_user_id').notNull(),
+  name: text('name'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type PendingLink = typeof pendingLinks.$inferSelect
+
+export type PendingLinkData = {
+  provider: Exclude<AuthProvider, 'phone'>
+  providerUserId: string
+  name: string | null
+}
+
+
 

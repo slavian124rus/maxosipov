@@ -9,6 +9,7 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
   signInWithVerifiedPhone,
+  takePendingLink,
   verifyOtp,
 } from '@/modules/auth'
 
@@ -60,6 +61,7 @@ export async function verifyCodeAction(
 ): Promise<FormState> {
   const phone = normalizePhone(String(formData.get('phone') ?? ''))
   const code = String(formData.get('code') ?? '').trim()
+  const linkId = String(formData.get('link') ?? '').trim()
 
   if (!phone) return { error: 'Проверь номер' }
   if (!/^\d{4}$/.test(code)) return { error: 'Неверный код' }
@@ -73,7 +75,17 @@ export async function verifyCodeAction(
     return { error: 'Неверный код' }
   }
 
-  const { userId, isNew } = await signInWithVerifiedPhone(phone)
+  // Пришли из OAuth без телефона — привязываем способ входа к подтверждённому номеру.
+  const pending = linkId ? await takePendingLink(linkId) : null
+  const link = pending
+    ? {
+        provider: pending.provider,
+        providerUserId: pending.providerUserId,
+        ...(pending.name ? { name: pending.name } : {}),
+      }
+    : undefined
+
+  const { userId, isNew } = await signInWithVerifiedPhone(phone, link)
   const { token, expiresAt } = await createSession(userId, await userAgent())
 
   const cookieStore = await cookies()

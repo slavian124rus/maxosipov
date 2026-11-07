@@ -27,6 +27,24 @@ export type { SmsProvider } from './sms/types'
 export { signInWithVerifiedPhone } from './signin'
 export type { SignInLink, SignInResult } from './signin'
 
+export { cleanupPendingLinks, createPendingLink, takePendingLink } from './pending-link'
+
+export { createPkce } from './oauth/pkce'
+export type { Pkce } from './oauth/pkce'
+
+export { openState, sealState, OAUTH_COOKIE, oauthCookieOptions } from './oauth/state'
+export type { OAuthState } from './oauth/state'
+
+export { yandex } from './oauth/yandex'
+export type { OAuthClient, OAuthProfile } from './oauth/yandex'
+
+export { vk } from './oauth/vk'
+export type { VkExchangeInput } from './oauth/vk'
+
+export { pendingLinks } from './schema'
+export type { PendingLink } from './schema'
+
+
 
 
 

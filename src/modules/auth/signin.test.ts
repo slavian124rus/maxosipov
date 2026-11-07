@@ -112,3 +112,24 @@ test.each([
     signInWithVerifiedPhone('+79990000098', { provider, providerUserId: 'p1' }),
   ).rejects.toThrow(`Этот аккаунт ${title} уже привязан к другому номеру`)
 })
+
+test('Яндекс, затем VK с тем же номером — один аккаунт с двумя способами входа', async () => {
+  const viaYandex = await signInWithVerifiedPhone('+79991234567', {
+    provider: 'yandex',
+    providerUserId: 'y1',
+  })
+  const viaVk = await signInWithVerifiedPhone('+79991234567', {
+    provider: 'vk',
+    providerUserId: 'v1',
+  })
+
+  expect(viaVk.userId).toBe(viaYandex.userId)
+  expect(viaVk.isNew).toBe(false)
+
+  const accounts = await db
+    .select()
+    .from(authAccounts)
+    .where(eq(authAccounts.userId, viaYandex.userId))
+
+  expect(accounts.map((account) => account.provider).sort()).toEqual(['phone', 'vk', 'yandex'])
+})

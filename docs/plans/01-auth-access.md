@@ -123,17 +123,17 @@
   - Таблица `pending_links(id, provider, provider_user_id, name, expires_at)` — для случая «провайдер не дал телефон»: callback создаёт запись (TTL 15 мин) и редиректит на `/login/phone?link=<id>`; после подтверждения телефона `signInWithVerifiedPhone(phone, link)`.
   - Redirect URI: `${APP_URL}/api/auth/{provider}/callback`.
 
-- [ ] **Шаг 1.** Тесты `pkce.test.ts` (challenge = base64url(sha256(verifier)), длина verifier 43–128) и `state.test.ts` (open(seal(x)) = x; подделанная подпись → null; старше 10 минут → null). → FAIL → реализация → PASS.
-- [ ] **Шаг 2.** **Прежде чем писать `yandex.ts` и `vk.ts`, открой официальную документацию** и выпиши в `docs/ops/oauth-setup.md` точные URL, параметры и поля ответа:
+- [x] **Шаг 1.** Тесты `pkce.test.ts` (challenge = base64url(sha256(verifier)), длина verifier 43–128) и `state.test.ts` (open(seal(x)) = x; подделанная подпись → null; старше 10 минут → null). → FAIL → реализация → PASS.
+- [x] **Шаг 2.** **Прежде чем писать `yandex.ts` и `vk.ts`, открой официальную документацию** и выпиши в `docs/ops/oauth-setup.md` точные URL, параметры и поля ответа:
   - Яндекс ID: `https://yandex.ru/dev/id/doc/ru/` — авторизация `https://oauth.yandex.ru/authorize` (code + PKCE), токен `POST https://oauth.yandex.ru/token`, профиль `GET https://login.yandex.ru/info?format=json` с заголовком `Authorization: OAuth <token>`; телефон — `default_phone.number` при праве `login:default_phone`; имя — `real_name` или `display_name`; id — `id`.
   - VK ID: `https://id.vk.com/about/business/go/docs/ru/vkid/latest/vk-id/connection/api-description` — авторизация `https://id.vk.com/authorize` (PKCE, `scope=phone`), callback содержит `code`, `device_id`, `state`; токен `POST https://id.vk.com/oauth2/auth` (`grant_type=authorization_code`, `code_verifier`, `device_id`, `redirect_uri`, `client_id`, `state`); профиль `POST https://id.vk.com/oauth2/user_info` (`client_id`, `access_token`) → `user.user_id`, `user.phone`, `user.first_name`, `user.last_name`.
   - Если что-то в документации отличается от написанного здесь — **верь документации**, отметь расхождение в отчёте.
   - Там же — инструкция для владельца: как создать приложения в VK ID и Яндекс ID, какие redirect URI указать (продакшн и `http://app.localhost:3000/...` для разработки), какие права запросить.
-- [ ] **Шаг 3.** Реализуй `yandex.ts`, `vk.ts`. Телефон из ответа прогоняй через `normalizePhone`. Unit-тесты на разбор ответа профиля (фикстуры JSON из документации, `fetch` замокан): с телефоном → `phone: '+7…'`; без телефона → `phone: null`.
-- [ ] **Шаг 4.** Роуты: `start` — генерирует state и PKCE, ставит cookie `oauth`, редирект на `authorizeUrl`. `callback` — проверяет `state` из cookie, обменивает код, затем: телефон есть → `signInWithVerifiedPhone(phone, link)` → сессия → редирект (`/onboarding` для новых, иначе `/`); телефона нет → `pending_links` → `/login/phone?link=…` с подзаголовком «Подтверди номер — так мы защитим твой пробный месяц». Ошибка провайдера/отказ пользователя → `/login?error=oauth` с текстом «Не получилось войти. Попробуй ещё раз или войди по номеру».
-- [ ] **Шаг 5.** Тест `signin.test.ts` дополнить: пользователь создан через `yandex` с номером X; затем вход через `vk` с тем же X → тот же `userId`, у него две записи в `auth_accounts`.
-- [ ] **Шаг 6.** Ручная проверка (когда владелец создаст приложения и заполнит `.env`): вход через оба провайдера локально. Если ключей ещё нет — отметь в отчёте «проверено только тестами».
-- [ ] **Шаг 7.** `pnpm verify`. Коммит: `feat(auth): yandex id and vk id sign-in with pkce`.
+- [x] **Шаг 3.** Реализуй `yandex.ts`, `vk.ts`. Телефон из ответа прогоняй через `normalizePhone`. Unit-тесты на разбор ответа профиля (фикстуры JSON из документации, `fetch` замокан): с телефоном → `phone: '+7…'`; без телефона → `phone: null`.
+- [x] **Шаг 4.** Роуты: `start` — генерирует state и PKCE, ставит cookie `oauth`, редирект на `authorizeUrl`. `callback` — проверяет `state` из cookie, обменивает код, затем: телефон есть → `signInWithVerifiedPhone(phone, link)` → сессия → редирект (`/onboarding` для новых, иначе `/`); телефона нет → `pending_links` → `/login/phone?link=…` с подзаголовком «Подтверди номер — так мы защитим твой пробный месяц». Ошибка провайдера/отказ пользователя → `/login?error=oauth` с текстом «Не получилось войти. Попробуй ещё раз или войди по номеру».
+- [x] **Шаг 5.** Тест `signin.test.ts` дополнить: пользователь создан через `yandex` с номером X; затем вход через `vk` с тем же X → тот же `userId`, у него две записи в `auth_accounts`.
+- [x] **Шаг 6.** Ручная проверка (когда владелец создаст приложения и заполнит `.env`): вход через оба провайдера локально. Если ключей ещё нет — отметь в отчёте «проверено только тестами».
+- [x] **Шаг 7.** `pnpm verify`. Коммит: `feat(auth): yandex id and vk id sign-in with pkce`.
 
 ### Задача 5. Модуль `access`: пробный период и подписки
 

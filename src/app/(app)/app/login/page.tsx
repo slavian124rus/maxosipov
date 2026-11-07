@@ -2,7 +2,15 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { env } from '@/shared/env'
 
-export default function LoginPage() {
+// Сообщение об ошибке OAuth приходит в адресе.
+export const instant = false
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
   const vkReady = Boolean(env.VK_CLIENT_ID && env.VK_CLIENT_SECRET)
   const yandexReady = Boolean(env.YANDEX_CLIENT_ID && env.YANDEX_CLIENT_SECRET)
 
@@ -14,6 +22,12 @@ export default function LoginPage() {
           Видео упражнений, дневник и ИИ-помощник МаксИИм
         </p>
       </div>
+
+      {error === 'oauth' ? (
+        <p className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-danger">
+          Не получилось войти. Попробуй ещё раз или войди по номеру
+        </p>
+      ) : null}
 
       <div className="flex flex-col gap-3">
         {vkReady ? (
