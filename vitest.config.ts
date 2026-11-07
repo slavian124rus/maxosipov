@@ -6,6 +6,8 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
     setupFiles: ['./vitest.setup.ts'],
+    // Тесты сервисов работают с одной тестовой базой — файлы идут по очереди.
+    fileParallelism: false,
   },
   resolve: {
     alias: {

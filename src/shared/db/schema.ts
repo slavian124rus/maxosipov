@@ -3,3 +3,5 @@
  * Наружу (в `@/shared/db`) схемы отдаются отсюда.
  */
 export * from '@/modules/gym/schema'
+export * from '@/modules/auth/schema'
+export * from '@/modules/rbac/schema'
