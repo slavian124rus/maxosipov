@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МаксИИм — так будет выглядеть упражнение</title>
+<style>
+@font-face{font-family:Oswald;font-weight:200 700;font-display:swap;src:url(assets/oswald-cyrillic-wght-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Oswald;font-weight:200 700;font-display:swap;src:url(assets/oswald-latin-wght-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2190-21FF,U+2212}
+@font-face{font-family:Manrope;font-weight:200 800;font-display:swap;src:url(assets/manrope-cyrillic-wght-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Manrope;font-weight:200 800;font-display:swap;src:url(assets/manrope-latin-wght-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2190-21FF,U+2212}
+:root{--bg:#0E0E10;--s1:#17171A;--s2:#202024;--bd:#2A2A2F;--tx:#F5F5F7;--tx2:#A1A1AA;--tx3:#6B6B73;--ac:#E5322D;--acp:#C4241F;--mp:#FF3B30;--ms:#FF8A80;--mi:#3A3A40;--sil:#26262B;--gold:#D4A64A;--ok:#34C759}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#09090B;color:var(--tx);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+.num{font-family:Oswald,sans-serif;font-variant-numeric:tabular-nums}
+.page{max-width:1080px;margin:0 auto;padding:40px 20px 64px}
+.intro{text-align:center;margin-bottom:36px}
+.brand{font-family:Oswald;letter-spacing:.32em;font-size:13px;color:var(--tx2)}
+.brand b{color:var(--ac);font-weight:500}
+.intro h1{font-family:Oswald;font-weight:500;font-size:clamp(30px,5vw,46px);line-height:1.05;margin:14px 0 10px;letter-spacing:.01em}
+.intro p{color:var(--tx2);margin:0 auto;max-width:560px;line-height:1.6;font-size:15px}
+.tag{display:inline-block;margin-top:14px;font-size:12px;color:var(--tx3);border:1px solid var(--bd);border-radius:99px;padding:5px 12px}
+.stage{display:flex;gap:48px;justify-content:center;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;align-items:center;gap:16px}
+.cap{font-size:13px;color:var(--tx2);text-align:center;max-width:340px;line-height:1.5}
+.cap b{color:var(--tx);font-weight:600;display:block;font-size:15px;margin-bottom:2px}
+.phone{width:min(390px,calc(100vw - 32px));height:844px;border-radius:54px;padding:10px;background:#1B1B1E;box-shadow:0 0 0 1px #2c2c31,0 40px 80px -20px rgba(0,0,0,.8),0 0 120px -40px rgba(229,50,45,.25);position:relative}
+.screen{width:100%;height:100%;border-radius:44px;overflow:hidden;background:var(--bg);position:relative;display:flex;flex-direction:column}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative}
+.scroll::-webkit-scrollbar{display:none}
+.island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:32px;border-radius:20px;background:#000;z-index:30}
+.status{position:absolute;top:0;left:0;right:0;height:56px;transition:background .25s;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0 34px;font-size:15px;font-weight:600;z-index:25;pointer-events:none}
+.status svg{height:12px}
+.status.solid{background:linear-gradient(180deg,var(--bg) 70%,rgba(14,14,16,0))}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* hero */
+.hero{position:relative;height:610px;background:#000}
+.hero video{width:100%;height:100%;object-fit:cover;display:block}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,14,16,.55) 0%,rgba(14,14,16,0) 18%,rgba(14,14,16,0) 50%,rgba(14,14,16,.85) 82%,var(--bg) 100%);pointer-events:none}
+.topbar{position:absolute;top:54px;left:16px;right:16px;display:flex;justify-content:space-between;z-index:5}
+.glass{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:rgba(20,20,22,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08)}
+.herotext{position:absolute;left:20px;right:20px;bottom:20px;z-index:4}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{font-size:12px;font-weight:600;padding:5px 10px;border-radius:99px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.chip.red{background:rgba(229,50,45,.18);color:#FF8A80}
+.herotext h2{font-family:Oswald;font-weight:500;font-size:34px;line-height:1.02;margin:0 0 12px;letter-spacing:.005em}
+.meta{display:flex;gap:18px;color:var(--tx2);font-size:13px}
+.meta span b{display:block;color:var(--tx);font-family:Oswald;font-weight:500;font-size:20px;line-height:1.2}
+.loopbar{position:absolute;left:20px;right:20px;top:110px;height:3px;border-radius:2px;background:rgba(255,255,255,.18);overflow:hidden;z-index:5}
+.loopbar i{display:block;height:100%;width:0;background:#fff;border-radius:2px}
+.coach{position:absolute;right:16px;top:124px;display:flex;align-items:center;gap:8px;z-index:5;font-size:12px;font-weight:600;padding:5px 10px 5px 5px;border-radius:99px;background:rgba(20,20,22,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08)}
+.ava{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#2a2a30,#121214);border:1px solid #3a3a40;display:grid;place-items:center;font-family:Oswald;font-size:11px;font-weight:600;position:relative}
+.ava.ai::after{content:"";position:absolute;right:-1px;top:-1px;width:7px;height:7px;border-radius:50%;background:var(--ac);box-shadow:0 0 0 2px var(--bg)}
+.paused{position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none;opacity:0;transition:opacity .2s}
+.paused.on{opacity:1}
+.paused div{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:rgba(20,20,22,.5);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+/* sections */
+.sec{padding:22px 20px 4px}
+.sec h3{font-size:18px;font-weight:700;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center}
+.seg{display:flex;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:3px;font-size:13px;font-weight:600}
+.seg button{padding:6px 12px;border-radius:9px;color:var(--tx2);transition:all .2s}
+.seg button.on{background:var(--s2);color:var(--tx)}
+.figcard{background:radial-gradient(120% 70% at 50% 30%,#1d1d21 0%,var(--s1) 60%);border:1px solid var(--bd);border-radius:20px;padding:12px 8px 16px;display:flex;align-items:center;gap:4px}
+.figcard svg{width:170px;height:360px;flex:none}
+.legend{flex:1;display:flex;flex-direction:column;gap:14px;padding-right:8px}
+.legend .lt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3);font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:3px;display:inline-block}
+.mname{display:block;font-size:14px;font-weight:600;padding:3px 0;text-align:left}
+.mname.sec2{color:var(--tx2);font-weight:500}
+.hint{font-size:12px;color:var(--tx3);line-height:1.5}
+.musc{transition:fill .35s ease}
+.musc.p{fill:var(--mp);filter:url(#glow);animation:pulse 1.6s ease-in-out infinite}
+.musc.s{fill:var(--ms);fill-opacity:.7}
+.musc.flash{animation:flash .9s ease 1}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.78}}
+@keyframes flash{0%,100%{fill-opacity:1}40%{fill:#fff}}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps li{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--bd);font-size:15px;line-height:1.5}
+.steps li:last-child{border:0}
+.steps .n{font-family:Oswald;font-size:22px;font-weight:500;color:var(--ac);width:20px;flex:none;line-height:1.1}
+.err{display:flex;gap:12px;align-items:flex-start;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:13px 14px;margin-bottom:8px;font-size:14px;line-height:1.45}
+.err .x{width:22px;height:22px;border-radius:7px;background:rgba(229,50,45,.14);color:var(--mp);display:grid;place-items:center;flex:none}
+.aicard{margin:22px 20px 0;padding:16px;border-radius:20px;background:linear-gradient(160deg,#221516 0%,var(--s1) 55%);border:1px solid #3a2224}
+.aicard .h{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;margin-bottom:10px}
+.aicard .h span{color:var(--tx3);font-weight:500}
+.aicard p{margin:0;font-size:15px;line-height:1.5}
+.aicard .w{font-family:Oswald;font-size:22px;color:var(--ok);font-weight:500}
+.bottombar{padding:12px 16px 26px;display:flex;gap:10px;background:linear-gradient(180deg,rgba(14,14,16,0),var(--bg) 30%);position:absolute;left:0;right:0;bottom:0;z-index:10}
+.btn{height:54px;border-radius:16px;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .12s,background .2s}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--ac);flex:1.25}
+.btn.pri:active{background:var(--acp)}
+.btn.sec{background:var(--s2);border:1px solid var(--bd);flex:1}
+.spacer{height:110px}
+/* workout */
+.whead{padding:58px 20px 14px;background:linear-gradient(180deg,#141416,var(--bg))}
+.whead .r1{display:flex;justify-content:space-between;align-items:center}
+.whead .day{font-size:13px;color:var(--tx2);font-weight:600}
+.whead h2{font-family:Oswald;font-weight:500;font-size:28px;margin:4px 0 12px}
+.timer{font-family:Oswald;font-size:15px;font-weight:500;padding:6px 12px;border-radius:99px;background:var(--s1);border:1px solid var(--bd);display:flex;align-items:center;gap:7px}
+.timer i{width:7px;height:7px;border-radius:50%;background:var(--ac);animation:pulse 1.2s infinite}
+.prog{height:4px;border-radius:2px;background:var(--s2);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ac);border-radius:2px;transition:width .4s}
+.progt{display:flex;justify-content:space-between;font-size:12px;color:var(--tx3);margin-top:7px}
+.ex{margin:10px 16px;border-radius:20px;background:var(--s1);border:1px solid var(--bd);overflow:hidden;transition:border-color .3s}
+.ex.active{border-color:#4a2628;background:linear-gradient(180deg,#1b1415,var(--s1) 40%)}
+.exrow{display:flex;gap:12px;align-items:center;padding:10px}
+.thumb{width:62px;height:62px;border-radius:14px;overflow:hidden;flex:none;background:var(--s2);position:relative;display:grid;place-items:center;color:var(--tx3)}
+.thumb video{width:100%;height:100%;object-fit:cover}
+.exrow .t{flex:1;min-width:0}
+.exrow .t b{display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exrow .t span{font-size:13px;color:var(--tx2)}
+.done{width:28px;height:28px;border-radius:50%;background:rgba(52,199,89,.15);color:var(--ok);display:grid;place-items:center;flex:none}
+.todo{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--bd);flex:none}
+.ex.done-ex .t b{color:var(--tx2)}
+.bigvid{position:relative;aspect-ratio:5/4;background:#000}
+.bigvid video{width:100%;height:100%;object-fit:cover;display:block}
+.bigvid .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(23,23,26,.95) 100%)}
+.bigvid .ttl{position:absolute;left:14px;right:14px;bottom:10px}
+.bigvid .ttl b{font-family:Oswald;font-weight:500;font-size:22px;display:block}
+.bigvid .ttl span{font-size:13px;color:var(--tx2)}
+.mini{position:absolute;right:10px;top:10px;width:58px;height:96px;border-radius:12px;background:rgba(14,14,16,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);display:grid;place-items:center}
+.mini svg{width:46px;height:88px}
+.logger{padding:12px 14px 16px}
+.tip{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--tx2);background:var(--s2);border-radius:12px;padding:9px 11px;margin-bottom:12px;line-height:1.4}
+.tip b{color:var(--tx)}
+.sets{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;min-height:30px}
+.set{font-size:12px;font-weight:700;padding:6px 10px;border-radius:10px;background:rgba(52,199,89,.12);color:#7fe39a;animation:pop .3s ease}
+.set.next{background:transparent;border:1px dashed var(--bd);color:var(--tx3)}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.steppers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.stp{background:var(--s2);border:1px solid var(--bd);border-radius:16px;padding:8px 8px 10px;text-align:center}
+.stp .l{font-size:11px;color:var(--tx3);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.stp .v{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.stp .v button{width:38px;height:38px;border-radius:12px;background:var(--s1);display:grid;place-items:center}
+.stp .v button:active{background:#2a2a30}
+.stp .val{font-family:Oswald;font-size:32px;font-weight:500;line-height:1}
+.stp .val small{font-size:14px;color:var(--tx2);margin-left:2px;font-family:Manrope;font-weight:600}
+.feel{display:none}
+.feel.on{display:block;animation:pop .3s ease}
+.feel .q{font-size:14px;font-weight:700;margin:2px 0 8px}
+.fbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fbtns button{height:48px;border-radius:14px;background:var(--s2);border:1px solid var(--bd);font-weight:700;font-size:14px;transition:all .2s}
+.fbtns button.on{background:rgba(229,50,45,.16);border-color:var(--ac);color:#fff}
+.rec{display:none;margin-top:10px;padding:12px;border-radius:14px;background:linear-gradient(160deg,rgba(52,199,89,.12),var(--s2));border:1px solid rgba(52,199,89,.25)}
+.rec.on{display:block;animation:pop .3s ease}
+.rec .a{display:flex;justify-content:space-between;align-items:center}
+.rec .a b{font-family:Oswald;font-weight:500;font-size:22px}
+.rec p{margin:4px 0 10px;font-size:13px;color:var(--tx2);line-height:1.45}
+.rec .bb{display:flex;gap:8px}
+.rec .bb button{flex:1;height:40px;border-radius:12px;font-weight:700;font-size:13px;background:var(--s1);border:1px solid var(--bd)}
+.rec .bb button.y{background:var(--ok);color:#06210e;border:0}
+.why{font-size:12px;color:#FF8A80;font-weight:700;margin-top:8px;display:inline-flex;gap:5px;align-items:center}
+.nav{display:flex;justify-content:space-around;align-items:center;padding:8px 8px 26px;border-top:1px solid var(--bd);background:rgba(14,14,16,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--tx3);width:60px}
+.nav a.on{color:var(--tx)}
+.nav .ai{width:54px;height:54px;border-radius:18px;background:var(--ac);display:grid;place-items:center;margin-top:-22px;box-shadow:0 10px 24px -6px rgba(229,50,45,.6),0 0 0 4px var(--bg);color:#fff;font-family:Oswald;font-size:13px;font-weight:600}
+.micb{width:34px;height:34px;border-radius:50%;background:var(--s1);border:1px solid var(--bd);display:grid;place-items:center}
+.mic{position:absolute;right:20px;bottom:96px;z-index:12;height:46px;padding:0 16px 0 12px;border-radius:99px;background:var(--s2);border:1px solid var(--bd);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;box-shadow:0 10px 30px -10px #000}
+.note{max-width:760px;margin:44px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.note div{background:#121214;border:1px solid var(--bd);border-radius:16px;padding:16px;font-size:13px;color:var(--tx2);line-height:1.55}
+.note b{display:block;color:var(--tx);font-size:14px;margin-bottom:4px}
+@media (max-width:480px){.page{padding:24px 0 40px}.intro{padding:0 20px}.phone{padding:6px;border-radius:46px}.screen{border-radius:40px}.note{padding:0 16px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="intro">
+    <div class="brand">МАКСИМ ОСИПОВ · <b>МАКСИИМ</b></div>
+    <h1>Так упражнение выглядит в приложении</h1>
+    <p>Реальные ролики из зала, обработанные автоматически: стабилизация, единый цвет, бесшовный цикл. Нажми на видео, переключи вид фигуры, запиши подходы.</p>
+    <span class="tag">Прототип интерфейса · фигура временная, финальная будет по фото Максима</span>
+  </header>
+
+  <div class="stage">
+    <!-- PHONE 1 -->
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="island"></div>
+        <div class="status"><span class="num" style="font-family:Manrope">9:41</span><svg viewBox="0 0 64 12" fill="#fff"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/><path d="M30 3.2a9 9 0 0 1 12 0l-1.4 1.5a7 7 0 0 0-9.2 0zM32.4 5.8a5.5 5.5 0 0 1 7.2 0L36 9.6z"/><rect x="46" y="1" width="16" height="10" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="47.5" y="2.5" width="11" height="7" rx="1.6"/></svg></div>
+        <div class="scroll" id="s1">
+          <div class="hero" id="hero">
+            <video id="v1" src="assets/lat-pulldown.mp4" poster="assets/lat-pulldown.jpg" autoplay muted loop playsinline preload="auto"></video>
+            <div class="shade"></div>
+            <div class="paused" id="pz"><div><svg class="ico" style="width:30px;height:30px;fill:#fff;stroke:none" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div></div>
+            <div class="topbar">
+              <button class="glass" aria-label="Назад"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div style="display:flex;gap:10px">
+                <button class="glass" aria-label="В избранное" id="fav"><svg class="ico" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/></svg></button>
+                <button class="glass" aria-label="Поделиться"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></button>
+              </div>
+            </div>
+            <div class="loopbar"><i id="lb"></i></div>
+            <div class="coach"><span class="ava">МО</span>Показывает Максим</div>
+            <div class="herotext">
+              <div class="chips"><span class="chip red">Спина</span><span class="chip">Блочный тренажёр</span><span class="chip">Зона B</span></div>
+              <h2>Тяга верхнего блока к груди</h2>
+              <div class="meta">
+                <span><b>3 подхода</b>по 10–12 раз</span>
+                <span><b>1:30</b>отдых</span>
+                <span><b>55 кг</b>сегодня</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <h3>Какие мышцы работают
+              <div class="seg"><button data-v="front">Спереди</button><button data-v="back" class="on">Сзади</button></div>
+            </h3>
+            <div class="figcard">
+              <svg id="fig1" viewBox="22 0 156 400"></svg>
+              <div class="legend">
+                <div><div class="lt"><span class="dot" style="background:var(--mp)"></span>Основные</div><div id="lp1"></div></div>
+                <div><div class="lt"><span class="dot" style="background:var(--ms)"></span>Помогают</div><div id="ls1"></div></div>
+                <div class="hint">Нажми на мышцу — подсвечу её на фигуре</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <h3>Как делать</h3>
+            <ol class="steps">
+              <li><span class="n">1</span><span>Сядь, зафиксируй бёдра под валиками. Хват чуть шире плеч.</span></li>
+              <li><span class="n">2</span><span>Сведи лопатки и опусти плечи вниз — только потом начинай тянуть.</span></li>
+              <li><span class="n">3</span><span>Тяни рукоять к верху груди локтями вниз, корпус слегка отклони назад.</span></li>
+              <li><span class="n">4</span><span>Медленно, за 2–3 секунды, верни вверх до полного растяжения спины.</span></li>
+            </ol>
+          </div>
+
+          <div class="sec">
+            <h3>Частые ошибки</h3>
+            <div class="err"><span class="x"><svg class="ico" style="width:14px;height:14px;stroke-width:2.6" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span><span>Тянешь руками, а не спиной — бицепс устаёт раньше широчайших.</span></div>
+            <div class="err"><span class="x"><svg class="ico" style="width:14px;height:14px;stroke-width:2.6" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span><span>Раскачиваешь корпус, чтобы «докинуть» вес.</span></div>
+            <div class="err"><span class="x"><svg class="ico" style="width:14px;height:14px;stroke-width:2.6" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span><span>Тянешь за голову — нагрузка уходит в плечевой сустав.</span></div>
+          </div>
+
+          <div class="aicard">
+            <div class="h"><span class="ava ai">М</span>МаксИИм <span>· подсказка</span></div>
+            <p>В прошлый раз все подходы по 12 повторений были легко. Сегодня пробуй <span class="w">55 кг ↑</span></p>
+          </div>
+          <div class="spacer"></div>
+        </div>
+        <div class="bottombar">
+          <button class="btn sec"><span class="ava ai" style="width:22px;height:22px;font-size:10px">М</span>Спросить</button>
+          <button class="btn pri"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>В тренировку</button>
+        </div>
+      </div></div>
+      <div class="cap"><b>Карточка упражнения</b>Видео Максима, мышцы на фигуре, техника и подсказка по весу</div>
+    </div>
+
+    <!-- PHONE 2 -->
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="island"></div>
+        <div class="status"><span style="font-family:Manrope">9:41</span><svg viewBox="0 0 64 12" fill="#fff"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/><path d="M30 3.2a9 9 0 0 1 12 0l-1.4 1.5a7 7 0 0 0-9.2 0zM32.4 5.8a5.5 5.5 0 0 1 7.2 0L36 9.6z"/><rect x="46" y="1" width="16" height="10" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="47.5" y="2.5" width="11" height="7" rx="1.6"/></svg></div>
+        <div class="scroll">
+          <div class="whead">
+            <div class="r1"><span class="day">Тренировка · День A</span><div style="display:flex;gap:8px;align-items:center"><span class="timer"><i></i><span id="tm">00:23:41</span></span><button class="micb" aria-label="Наговорить подходы голосом"><svg class="ico" style="width:18px;height:18px" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></button></div></div>
+            <h2>Спина и бицепс</h2>
+            <div class="prog"><i id="pg" style="width:20%"></i></div>
+            <div class="progt"><span id="pgt">1 из 5 упражнений</span><span>≈ 35 мин осталось</span></div>
+          </div>
+
+          <div class="ex done-ex">
+            <div class="exrow">
+              <div class="thumb"><video src="assets/lat-pulldown.mp4" autoplay muted loop playsinline></video></div>
+              <div class="t"><b>Тяга верхнего блока</b><span class="num" style="font-family:Manrope">3 подхода · 55 кг · легко</span></div>
+              <span class="done"><svg class="ico" style="width:16px;height:16px;stroke-width:2.6" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+          </div>
+
+          <div class="ex active" id="ex2">
+            <div class="bigvid">
+              <video src="assets/seated-row.mp4" poster="assets/seated-row.jpg" autoplay muted loop playsinline></video>
+              <div class="shade"></div>
+              <div class="mini"><svg id="fig2" viewBox="22 0 156 400"></svg></div>
+              <div class="ttl"><b>Тяга горизонтального блока</b><span>Цель: 3 подхода · 10–12 раз</span></div>
+            </div>
+            <div class="logger">
+              <div class="tip"><span class="ava ai" style="flex:none">М</span><span>Сегодня <b>50 кг</b> — в прошлый раз все подходы были по 12 и легко</span></div>
+              <div class="sets" id="sets"></div>
+              <div id="entry">
+                <div class="steppers">
+                  <div class="stp"><div class="l">Вес</div><div class="v"><button data-d="w-" aria-label="Меньше"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><span class="val"><span id="w">50</span><small>кг</small></span><button data-d="w+" aria-label="Больше"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
+                  <div class="stp"><div class="l">Повторения</div><div class="v"><button data-d="r-" aria-label="Меньше"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><span class="val"><span id="r">12</span><small>раз</small></span><button data-d="r+" aria-label="Больше"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
+                </div>
+                <button class="btn pri" style="width:100%" id="log"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span id="logt">Записать подход 2</span></button>
+              </div>
+              <div class="feel" id="feel">
+                <div class="q">Как прошло упражнение?</div>
+                <div class="fbtns"><button data-f="easy">Легко</button><button data-f="good">Отлично</button><button data-f="hard">Тяжело</button></div>
+                <div class="rec" id="rec">
+                  <div class="a"><span style="font-size:13px;color:var(--tx2);font-weight:600">В следующий раз</span><b id="recw">55 кг ↑</b></div>
+                  <p id="recp">Все подходы сделаны по 12 и легко — пора добавить шаг тренажёра.</p>
+                  <div class="bb"><button class="y" id="acc">Принять</button><button id="keep">Оставить</button></div>
+                  <span class="why"><span class="ava ai" style="width:16px;height:16px;font-size:8px">М</span>Почему так? Спросить МаксИИма</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ex"><div class="exrow"><div class="thumb"><svg class="ico" viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M2 10.5v3M22 10.5v3"/></svg></div><div class="t"><b>Подтягивания в гравитроне</b><span>3 подхода · 8–10 раз</span></div><span class="todo"></span></div></div>
+          <div class="ex"><div class="exrow"><div class="thumb"><svg class="ico" viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M2 10.5v3M22 10.5v3"/></svg></div><div class="t"><b>Пуловер в кроссовере</b><span>3 подхода · 12–15 раз</span></div><span class="todo"></span></div></div>
+          <div class="ex"><div class="exrow"><div class="thumb"><svg class="ico" viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M2 10.5v3M22 10.5v3"/></svg></div><div class="t"><b>Подъём штанги на бицепс</b><span>3 подхода · 10–12 раз</span></div><span class="todo"></span></div></div>
+          <div style="height:150px"></div>
+        </div>
+                <nav class="nav">
+          <a><svg class="ico" viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Сегодня</a>
+          <a class="on"><svg class="ico" viewBox="0 0 24 24"><path d="M6.5 6.5h11M6.5 17.5h11M4 9v6M20 9v6M2 10.5v3M22 10.5v3"/></svg>Тренировки</a>
+          <a><span class="ai">ИИ</span></a>
+          <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 22l4-7 4 7M6 11h12"/></svg>Упражнения</a>
+          <a><svg class="ico" viewBox="0 0 24 24"><path d="M3 20h18M6 16v-4M11 16V8M16 16v-6M21 16V4"/></svg>Прогресс</a>
+        </nav>
+      </div></div>
+      <div class="cap"><b>Тренировка в зале</b>Свободный режим: отмечаешь подходы в любом порядке, оцениваешь ощущения и получаешь вес на следующий раз</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <div><b>Видео</b>Оба ролика — твои исходники с телефона. Автообработка выровняла цвет, убрала тряску и склеила бесшовный цикл в 5 секунд. Вес ролика — около 0,6 МБ.</div>
+    <div><b>Фигура</b>Здесь временная схема. В приложении будет силуэт в пропорциях Максима по его фото спереди и сзади, с детальной прорисовкой мышц.</div>
+    <div><b>Попробуй</b>Нажми на видео — пауза. Нажми на название мышцы — она мигнёт. Справа запиши ещё два подхода и выбери ощущение.</div>
+  </div>
+</div>
+
+<script>
+const FIG={"sil": "M93.0 50.0 C91.2 51.2 93.5 58.1 92.0 60.0 C90.5 61.9 83.0 64.7 80.0 66.0 C77.0 67.3 68.9 69.7 66.0 71.0 C63.1 72.3 57.0 74.8 55.0 77.0 C53.0 79.2 49.9 86.6 49.0 90.0 C48.1 93.4 47.5 102.0 47.0 106.0 C46.5 110.0 45.6 119.3 45.0 124.0 C44.4 128.7 42.7 140.9 42.0 146.0 C41.3 151.1 39.7 162.9 39.0 168.0 C38.3 173.1 36.5 185.8 36.0 190.0 C35.5 194.2 35.6 201.2 35.0 204.0 C34.4 206.8 31.2 211.4 31.0 214.0 C30.8 216.6 31.9 224.5 33.0 226.0 C34.0 227.5 38.7 228.4 40.0 227.0 C41.3 225.6 43.3 217.2 44.0 214.0 C44.7 210.8 45.2 204.2 46.0 200.0 C46.8 195.8 49.8 183.1 51.0 178.0 C52.2 172.9 55.0 160.9 56.0 156.0 C57.0 151.1 59.1 140.4 60.0 136.0 C60.9 131.6 63.0 121.3 64.0 118.0 C65.0 114.7 68.2 107.3 69.0 108.0 C69.8 108.7 70.5 120.0 71.0 124.0 C71.5 128.0 72.4 137.8 73.0 142.0 C73.6 146.2 75.9 156.0 76.0 160.0 C76.1 164.0 74.7 172.0 74.0 176.0 C73.3 180.0 70.7 188.6 70.0 194.0 C69.3 199.4 68.0 215.2 68.0 222.0 C68.0 228.8 69.2 245.5 70.0 252.0 C70.8 258.5 74.7 272.4 75.0 278.0 C75.3 283.6 73.1 294.4 73.0 300.0 C72.9 305.6 73.3 319.9 74.0 326.0 C74.7 332.1 78.3 346.6 79.0 352.0 C79.7 357.4 80.7 368.3 80.0 372.0 C79.3 375.7 73.3 381.9 73.0 384.0 C72.7 386.1 74.8 389.3 77.0 390.0 C79.2 390.7 90.2 391.6 92.0 390.0 C93.8 388.4 92.1 380.4 92.0 376.0 C91.9 371.6 90.9 357.8 91.0 352.0 C91.1 346.2 92.7 332.1 93.0 326.0 C93.3 319.9 94.0 305.1 94.0 300.0 C94.0 294.9 92.8 287.1 93.0 282.0 C93.2 276.9 95.4 262.5 96.0 256.0 C96.6 249.5 97.5 231.8 98.0 226.0 C98.5 220.2 99.5 206.0 100.0 206.0 C100.5 206.0 101.5 220.2 102.0 226.0 C102.5 231.8 103.4 249.5 104.0 256.0 C104.6 262.5 106.8 276.9 107.0 282.0 C107.2 287.1 106.0 294.9 106.0 300.0 C106.0 305.1 106.7 319.9 107.0 326.0 C107.3 332.1 108.9 346.2 109.0 352.0 C109.1 357.8 108.1 371.6 108.0 376.0 C107.9 380.4 106.2 388.4 108.0 390.0 C109.8 391.6 120.8 390.7 123.0 390.0 C125.2 389.3 127.3 386.1 127.0 384.0 C126.7 381.9 120.7 375.7 120.0 372.0 C119.3 368.3 120.3 357.4 121.0 352.0 C121.7 346.6 125.3 332.1 126.0 326.0 C126.7 319.9 127.1 305.6 127.0 300.0 C126.9 294.4 124.7 283.6 125.0 278.0 C125.3 272.4 129.2 258.5 130.0 252.0 C130.8 245.5 132.0 228.8 132.0 222.0 C132.0 215.2 130.7 199.4 130.0 194.0 C129.3 188.6 126.7 180.0 126.0 176.0 C125.3 172.0 123.9 164.0 124.0 160.0 C124.1 156.0 126.4 146.2 127.0 142.0 C127.6 137.8 128.5 128.0 129.0 124.0 C129.5 120.0 130.2 108.7 131.0 108.0 C131.8 107.3 134.9 114.7 136.0 118.0 C137.1 121.3 139.1 131.6 140.0 136.0 C140.9 140.4 142.9 151.1 144.0 156.0 C145.1 160.9 147.8 172.9 149.0 178.0 C150.2 183.1 153.2 195.8 154.0 200.0 C154.8 204.2 155.3 210.8 156.0 214.0 C156.7 217.2 158.7 225.6 160.0 227.0 C161.3 228.4 165.9 227.5 167.0 226.0 C168.1 224.5 169.2 216.6 169.0 214.0 C168.8 211.4 165.6 206.8 165.0 204.0 C164.4 201.2 164.5 194.2 164.0 190.0 C163.5 185.8 161.7 173.1 161.0 168.0 C160.3 162.9 158.7 151.1 158.0 146.0 C157.3 140.9 155.6 128.7 155.0 124.0 C154.4 119.3 153.5 110.0 153.0 106.0 C152.5 102.0 151.9 93.4 151.0 90.0 C150.1 86.6 147.0 79.2 145.0 77.0 C143.0 74.8 136.9 72.3 134.0 71.0 C131.1 69.7 123.0 67.3 120.0 66.0 C117.0 64.7 109.5 61.9 108.0 60.0 C106.5 58.1 108.8 51.2 107.0 50.0 C105.2 48.8 94.8 48.8 93.0 50.0 Z", "front": [["traps-upper", "M93.0 60.0 C91.0 59.7 85.5 64.2 82.0 66.0 C78.5 67.8 69.7 70.7 70.0 72.0 C70.3 73.3 80.2 75.6 84.0 75.0 C87.8 74.4 93.7 70.2 95.0 68.0 C96.3 65.8 95.0 60.3 93.0 60.0 Z"], ["traps-upper", "M107.0 60.0 C109.0 59.7 114.5 64.2 118.0 66.0 C121.5 67.8 130.3 70.7 130.0 72.0 C129.7 73.3 119.8 75.6 116.0 75.0 C112.2 74.4 106.3 70.2 105.0 68.0 C103.7 65.8 105.0 60.3 107.0 60.0 Z"], ["delts", "M68.0 72.0 C65.6 71.5 59.7 74.3 57.0 77.0 C54.3 79.7 50.9 85.7 50.0 90.0 C49.1 94.3 49.6 103.9 51.0 106.0 C52.4 108.1 56.8 106.1 59.0 104.0 C61.2 101.9 63.9 95.6 66.0 92.0 C68.1 88.4 72.7 83.0 73.0 80.0 C73.3 77.0 70.4 72.5 68.0 72.0 Z"], ["delts", "M132.0 72.0 C134.4 71.5 140.3 74.3 143.0 77.0 C145.7 79.7 149.1 85.7 150.0 90.0 C150.9 94.3 150.3 103.9 149.0 106.0 C147.7 108.1 143.2 106.1 141.0 104.0 C138.8 101.9 136.1 95.6 134.0 92.0 C131.9 88.4 127.3 83.0 127.0 80.0 C126.7 77.0 129.6 72.5 132.0 72.0 Z"], ["chest", "M98.0 78.0 C96.0 73.0 88.8 75.4 85.0 76.0 C81.2 76.6 75.5 79.0 73.0 82.0 C70.5 85.0 68.0 92.1 68.0 96.0 C68.0 99.9 70.2 105.5 73.0 108.0 C75.8 110.5 83.2 112.8 87.0 113.0 C90.8 113.2 96.3 114.2 98.0 109.0 C99.7 103.8 100.0 83.0 98.0 78.0 Z"], ["chest", "M102.0 78.0 C104.0 73.0 111.2 75.4 115.0 76.0 C118.8 76.6 124.5 79.0 127.0 82.0 C129.6 85.0 132.0 92.1 132.0 96.0 C132.0 99.9 129.8 105.5 127.0 108.0 C124.2 110.5 116.8 112.8 113.0 113.0 C109.2 113.2 103.7 114.2 102.0 109.0 C100.3 103.8 100.0 83.0 102.0 78.0 Z"], ["biceps", "M59.0 108.0 C57.6 107.0 54.4 113.1 53.0 117.0 C51.6 120.9 50.0 129.7 50.0 134.0 C50.0 138.3 51.6 145.1 53.0 146.0 C54.4 146.9 57.6 143.3 59.0 140.0 C60.4 136.7 62.0 128.8 62.0 124.0 C62.0 119.2 60.4 109.0 59.0 108.0 Z"], ["biceps", "M141.0 108.0 C142.3 107.0 145.7 113.1 147.0 117.0 C148.3 120.9 150.0 129.7 150.0 134.0 C150.0 138.3 148.3 145.1 147.0 146.0 C145.7 146.9 142.3 143.3 141.0 140.0 C139.7 136.7 138.0 128.8 138.0 124.0 C138.0 119.2 139.7 109.0 141.0 108.0 Z"], ["forearms", "M52.0 152.0 C50.0 152.9 45.8 161.2 44.0 166.0 C42.2 170.8 40.5 179.2 40.0 184.0 C39.5 188.8 40.0 196.3 41.0 198.0 C42.0 199.7 45.4 198.0 47.0 195.0 C48.6 192.0 50.5 183.2 52.0 178.0 C53.5 172.8 57.0 163.9 57.0 160.0 C57.0 156.1 54.0 151.1 52.0 152.0 Z"], ["forearms", "M148.0 152.0 C149.9 152.9 154.2 161.2 156.0 166.0 C157.8 170.8 159.6 179.2 160.0 184.0 C160.4 188.8 160.1 196.3 159.0 198.0 C157.9 199.7 154.7 198.0 153.0 195.0 C151.3 192.0 149.5 183.2 148.0 178.0 C146.5 172.8 143.0 163.9 143.0 160.0 C143.0 156.1 146.1 151.1 148.0 152.0 Z"], ["abs", "M89.5 115.0 C89.5 115.0 98.5 115.0 98.5 115.0 C98.5 115.0 98.5 128.0 98.5 128.0 C98.5 128.0 89.5 128.0 89.5 128.0 C89.5 128.0 89.5 115.0 89.5 115.0 Z"], ["abs", "M110.5 115.0 C110.5 115.0 101.5 115.0 101.5 115.0 C101.5 115.0 101.5 128.0 101.5 128.0 C101.5 128.0 110.5 128.0 110.5 128.0 C110.5 128.0 110.5 115.0 110.5 115.0 Z"], ["abs", "M89.5 131.0 C89.5 131.0 98.5 131.0 98.5 131.0 C98.5 131.0 98.5 144.0 98.5 144.0 C98.5 144.0 89.5 144.0 89.5 144.0 C89.5 144.0 89.5 131.0 89.5 131.0 Z"], ["abs", "M110.5 131.0 C110.5 131.0 101.5 131.0 101.5 131.0 C101.5 131.0 101.5 144.0 101.5 144.0 C101.5 144.0 110.5 144.0 110.5 144.0 C110.5 144.0 110.5 131.0 110.5 131.0 Z"], ["abs", "M89.5 147.0 C89.5 147.0 98.5 147.0 98.5 147.0 C98.5 147.0 98.5 160.0 98.5 160.0 C98.5 160.0 89.5 160.0 89.5 160.0 C89.5 160.0 89.5 147.0 89.5 147.0 Z"], ["abs", "M110.5 147.0 C110.5 147.0 101.5 147.0 101.5 147.0 C101.5 147.0 101.5 160.0 101.5 160.0 C101.5 160.0 110.5 160.0 110.5 160.0 C110.5 160.0 110.5 147.0 110.5 147.0 Z"], ["abs", "M90.0 163.0 C90.0 163.0 98.5 163.0 98.5 163.0 C98.5 163.0 98.5 180.0 98.5 180.0 C98.5 180.0 91.0 178.0 91.0 178.0 C91.0 178.0 90.0 163.0 90.0 163.0 Z"], ["abs", "M110.0 163.0 C110.0 163.0 101.5 163.0 101.5 163.0 C101.5 163.0 101.5 180.0 101.5 180.0 C101.5 180.0 109.0 178.0 109.0 178.0 C109.0 178.0 110.0 163.0 110.0 163.0 Z"], ["obliques", "M76.0 113.0 C74.2 115.2 72.3 124.5 72.0 130.0 C71.7 135.6 72.8 144.6 74.0 150.0 C75.2 155.4 78.2 164.2 80.0 166.0 C81.8 167.8 85.0 166.8 86.0 162.0 C87.0 157.2 87.3 141.1 87.0 134.0 C86.7 127.0 85.7 118.2 84.0 115.0 C82.3 111.8 77.8 110.8 76.0 113.0 Z"], ["obliques", "M124.0 113.0 C125.8 115.2 127.7 124.5 128.0 130.0 C128.3 135.6 127.2 144.6 126.0 150.0 C124.8 155.4 121.8 164.2 120.0 166.0 C118.2 167.8 115.0 166.8 114.0 162.0 C113.0 157.2 112.7 141.1 113.0 134.0 C113.3 127.0 114.3 118.2 116.0 115.0 C117.7 111.8 122.2 110.8 124.0 113.0 Z"], ["quads", "M74.0 192.0 C70.8 194.4 70.5 206.2 70.0 214.0 C69.5 221.8 69.8 235.6 71.0 244.0 C72.2 252.4 75.3 265.8 78.0 270.0 C80.7 274.2 86.3 275.0 89.0 272.0 C91.7 269.0 94.8 258.1 96.0 250.0 C97.2 241.9 97.8 225.8 97.0 218.0 C96.2 210.2 94.5 201.9 91.0 198.0 C87.5 194.1 77.2 189.6 74.0 192.0 Z"], ["quads", "M126.0 192.0 C129.2 194.4 129.6 206.2 130.0 214.0 C130.4 221.8 130.2 235.6 129.0 244.0 C127.8 252.4 124.7 265.8 122.0 270.0 C119.3 274.2 113.7 275.0 111.0 272.0 C108.3 269.0 105.2 258.1 104.0 250.0 C102.8 241.9 102.2 225.8 103.0 218.0 C103.8 210.2 105.5 201.9 109.0 198.0 C112.5 194.1 122.8 189.6 126.0 192.0 Z"], ["adductors", "M97.0 210.0 C97.0 210.0 93.0 224.0 93.0 224.0 C93.0 224.0 96.0 244.0 96.0 244.0 C96.0 244.0 99.0 232.0 99.0 232.0 C99.0 232.0 97.0 210.0 97.0 210.0 Z"], ["adductors", "M103.0 210.0 C103.0 210.0 107.0 224.0 107.0 224.0 C107.0 224.0 104.0 244.0 104.0 244.0 C104.0 244.0 101.0 232.0 101.0 232.0 C101.0 232.0 103.0 210.0 103.0 210.0 Z"], ["calves", "M77.0 288.0 C75.0 290.4 73.7 300.5 74.0 308.0 C74.3 315.5 77.2 333.2 79.0 338.0 C80.8 342.8 84.5 343.6 86.0 340.0 C87.5 336.4 88.8 321.2 89.0 314.0 C89.2 306.8 88.8 295.9 87.0 292.0 C85.2 288.1 79.0 285.6 77.0 288.0 Z"], ["calves", "M123.0 288.0 C125.0 290.4 126.3 300.5 126.0 308.0 C125.7 315.5 122.8 333.2 121.0 338.0 C119.2 342.8 115.5 343.6 114.0 340.0 C112.5 336.4 111.2 321.2 111.0 314.0 C110.8 306.8 111.2 295.9 113.0 292.0 C114.8 288.1 121.0 285.6 123.0 288.0 Z"]], "back": [["traps", "M100.0 56.0 C99.0 47.0 97.2 57.6 93.0 60.0 C88.8 62.4 72.9 69.0 72.0 72.0 C71.1 75.0 83.5 75.5 87.0 80.0 C90.5 84.5 93.0 96.0 95.0 102.0 C97.0 108.0 99.2 126.9 100.0 120.0 C100.8 113.1 101.0 65.0 100.0 56.0 Z"], ["traps", "M100.0 56.0 C101.0 47.0 102.8 57.6 107.0 60.0 C111.2 62.4 127.1 69.0 128.0 72.0 C128.9 75.0 116.5 75.5 113.0 80.0 C109.5 84.5 107.0 96.0 105.0 102.0 C103.0 108.0 100.8 126.9 100.0 120.0 C99.2 113.1 99.0 65.0 100.0 56.0 Z"], ["delts-rear", "M68.0 72.0 C66.0 71.0 59.7 74.3 57.0 77.0 C54.3 79.7 50.6 86.0 50.0 90.0 C49.4 94.0 51.4 102.7 53.0 104.0 C54.6 105.3 58.5 102.0 61.0 99.0 C63.5 96.0 69.0 88.0 70.0 84.0 C71.0 80.0 70.0 73.0 68.0 72.0 Z"], ["delts-rear", "M132.0 72.0 C133.9 71.0 140.3 74.3 143.0 77.0 C145.7 79.7 149.4 86.0 150.0 90.0 C150.6 94.0 148.7 102.7 147.0 104.0 C145.3 105.3 141.6 102.0 139.0 99.0 C136.4 96.0 131.1 88.0 130.0 84.0 C128.9 80.0 130.1 73.0 132.0 72.0 Z"], ["lats", "M84.0 96.0 C80.4 91.8 74.2 94.2 72.0 96.0 C69.8 97.8 69.0 102.9 69.0 108.0 C69.0 113.1 70.2 123.4 72.0 130.0 C73.8 136.6 77.8 147.2 81.0 152.0 C84.2 156.8 90.5 162.9 93.0 162.0 C95.5 161.1 97.5 151.7 98.0 146.0 C98.5 140.3 98.1 131.5 96.0 124.0 C93.9 116.5 87.6 100.2 84.0 96.0 Z"], ["lats", "M116.0 96.0 C119.6 91.8 125.8 94.2 128.0 96.0 C130.2 97.8 131.0 102.9 131.0 108.0 C131.0 113.1 129.8 123.4 128.0 130.0 C126.2 136.6 122.2 147.2 119.0 152.0 C115.8 156.8 109.5 162.9 107.0 162.0 C104.5 161.1 102.5 151.7 102.0 146.0 C101.5 140.3 101.9 131.5 104.0 124.0 C106.1 116.5 112.4 100.2 116.0 96.0 Z"], ["triceps", "M57.0 104.0 C55.4 104.3 52.0 111.2 51.0 116.0 C50.0 120.8 49.4 131.3 50.0 136.0 C50.6 140.7 53.2 147.3 55.0 147.0 C56.8 146.7 61.0 138.9 62.0 134.0 C63.0 129.1 62.8 118.5 62.0 114.0 C61.2 109.5 58.6 103.7 57.0 104.0 Z"], ["triceps", "M143.0 104.0 C144.7 104.3 147.9 111.2 149.0 116.0 C150.1 120.8 150.6 131.3 150.0 136.0 C149.4 140.7 146.8 147.3 145.0 147.0 C143.2 146.7 139.1 138.9 138.0 134.0 C136.9 129.1 137.2 118.5 138.0 114.0 C138.8 109.5 141.3 103.7 143.0 104.0 Z"], ["forearms", "M52.0 152.0 C50.0 152.9 45.8 161.2 44.0 166.0 C42.2 170.8 40.5 179.2 40.0 184.0 C39.5 188.8 40.0 196.3 41.0 198.0 C42.0 199.7 45.4 198.0 47.0 195.0 C48.6 192.0 50.5 183.2 52.0 178.0 C53.5 172.8 57.0 163.9 57.0 160.0 C57.0 156.1 54.0 151.1 52.0 152.0 Z"], ["forearms", "M148.0 152.0 C149.9 152.9 154.2 161.2 156.0 166.0 C157.8 170.8 159.6 179.2 160.0 184.0 C160.4 188.8 160.1 196.3 159.0 198.0 C157.9 199.7 154.7 198.0 153.0 195.0 C151.3 192.0 149.5 183.2 148.0 178.0 C146.5 172.8 143.0 163.9 143.0 160.0 C143.0 156.1 146.1 151.1 148.0 152.0 Z"], ["lower-back", "M99.0 142.0 C98.0 137.8 94.0 145.8 92.0 150.0 C90.0 154.2 86.0 165.5 86.0 170.0 C86.0 174.5 90.0 178.8 92.0 180.0 C94.0 181.2 98.0 183.7 99.0 178.0 C100.0 172.3 100.0 146.2 99.0 142.0 Z"], ["lower-back", "M101.0 142.0 C102.0 137.8 106.0 145.8 108.0 150.0 C110.0 154.2 114.0 165.5 114.0 170.0 C114.0 174.5 110.0 178.8 108.0 180.0 C106.0 181.2 102.0 183.7 101.0 178.0 C100.0 172.3 100.0 146.2 101.0 142.0 Z"], ["glutes", "M99.0 184.0 C96.9 178.6 88.8 179.8 85.0 181.0 C81.2 182.2 75.8 187.3 74.0 192.0 C72.2 196.7 71.3 207.3 73.0 212.0 C74.7 216.7 81.1 222.2 85.0 223.0 C88.9 223.8 96.9 222.8 99.0 217.0 C101.1 211.2 101.1 189.4 99.0 184.0 Z"], ["glutes", "M101.0 184.0 C103.1 178.6 111.2 179.8 115.0 181.0 C118.8 182.2 124.2 187.3 126.0 192.0 C127.8 196.7 128.7 207.3 127.0 212.0 C125.3 216.7 118.9 222.2 115.0 223.0 C111.1 223.8 103.1 222.8 101.0 217.0 C98.9 211.2 98.9 189.4 101.0 184.0 Z"], ["hamstrings", "M74.0 220.0 C71.8 222.7 70.5 238.2 71.0 246.0 C71.5 253.8 74.3 267.6 77.0 272.0 C79.7 276.4 86.2 278.3 89.0 275.0 C91.8 271.7 94.8 257.4 96.0 250.0 C97.2 242.7 98.5 229.3 97.0 226.0 C95.5 222.7 89.5 228.9 86.0 228.0 C82.5 227.1 76.2 217.3 74.0 220.0 Z"], ["hamstrings", "M126.0 220.0 C128.2 222.7 129.4 238.2 129.0 246.0 C128.6 253.8 125.7 267.6 123.0 272.0 C120.3 276.4 113.8 278.3 111.0 275.0 C108.2 271.7 105.2 257.4 104.0 250.0 C102.8 242.7 101.5 229.3 103.0 226.0 C104.5 222.7 110.5 228.9 114.0 228.0 C117.5 227.1 123.8 217.3 126.0 220.0 Z"], ["calves", "M77.0 282.0 C74.8 284.7 72.2 295.4 72.0 302.0 C71.8 308.6 74.2 320.9 76.0 326.0 C77.8 331.1 81.8 336.9 84.0 336.0 C86.2 335.1 90.0 326.0 91.0 320.0 C92.0 314.0 91.6 301.4 91.0 296.0 C90.4 290.6 89.1 286.1 87.0 284.0 C84.9 281.9 79.2 279.3 77.0 282.0 Z"], ["calves", "M123.0 282.0 C125.2 284.7 127.8 295.4 128.0 302.0 C128.2 308.6 125.8 320.9 124.0 326.0 C122.2 331.1 118.2 336.9 116.0 336.0 C113.8 335.1 110.0 326.0 109.0 320.0 C108.0 314.0 108.4 301.4 109.0 296.0 C109.6 290.6 110.9 286.1 113.0 284.0 C115.1 281.9 120.8 279.3 123.0 282.0 Z"]]};
+const NAMES={'lats':'Широчайшие','traps':'Трапеции и ромбовидные','delts-rear':'Задние дельты','biceps':'Бицепс','forearms':'Предплечья','delts':'Дельты','chest':'Грудные','triceps':'Трицепс','lower-back':'Разгибатели спины'};
+const NS='http://www.w3.org/2000/svg';
+function draw(svg,view,prim,sec,uid){
+  svg.innerHTML='';
+  const defs=document.createElementNS(NS,'defs');
+  defs.innerHTML=`<filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><radialGradient id="sh${uid}" cx="50%" cy="25%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+  svg.appendChild(defs);
+  const add=(tag,attrs)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);svg.appendChild(e);return e};
+  add('ellipse',{cx:100,cy:30,rx:15,ry:19,fill:'#26262B'});
+  add('rect',{x:93,y:44,width:14,height:14,rx:4,fill:'#26262B'});
+  add('path',{d:FIG.sil,fill:'#26262B',stroke:'#34343a','stroke-width':.8});
+  FIG[view].forEach(([k,d])=>{const c=prim.includes(k)?'musc p':sec.includes(k)?'musc s':'musc';add('path',{d,class:c,'data-m':k,fill:'#3A3A40',stroke:'#131316','stroke-width':1.1})});
+  add('path',{d:FIG.sil,fill:`url(#sh${uid})`,'pointer-events':'none'});
+}
+const EX1={p:['lats'],s:['traps','delts-rear','biceps','forearms']};
+const VIEW_OF={'lats':'back','traps':'back','delts-rear':'back','biceps':'front','forearms':'back'};
+let view1='back';const fig1=document.getElementById('fig1');
+function render1(){draw(fig1,view1,EX1.p,EX1.s,1);document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===view1))}
+render1();
+draw(document.getElementById('fig2'),'back',['lats','traps'],['delts-rear','forearms'],2);
+const mk=(arr,cls)=>arr.map(k=>`<button class="mname ${cls}" data-k="${k}">${NAMES[k]}</button>`).join('');
+document.getElementById('lp1').innerHTML=mk(EX1.p,'');
+document.getElementById('ls1').innerHTML=mk(EX1.s,'sec2');
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{view1=b.dataset.v;render1()});
+document.querySelectorAll('.mname').forEach(b=>b.onclick=()=>{const k=b.dataset.k;const v=VIEW_OF[k]||'back';if(v!==view1){view1=v;render1()}
+  fig1.querySelectorAll(`[data-m="${k}"]`).forEach(e=>{e.classList.remove('flash');void e.getBBox();e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),950)})});
+/* video */
+const v1=document.getElementById('v1'),lb=document.getElementById('lb'),pz=document.getElementById('pz');
+document.getElementById('hero').addEventListener('click',e=>{if(e.target.closest('button'))return;if(v1.paused){v1.play();pz.classList.remove('on')}else{v1.pause();pz.classList.add('on')}});
+(function tick(){if(v1.duration)lb.style.width=(v1.currentTime/v1.duration*100)+'%';requestAnimationFrame(tick)})();
+document.querySelectorAll('video').forEach(v=>{v.muted=true;const p=v.play();if(p)p.catch(()=>{})});
+document.getElementById('fav').onclick=function(){const p=this.querySelector('path');const on=p.getAttribute('fill')==='#FF3B30';p.setAttribute('fill',on?'none':'#FF3B30');p.setAttribute('stroke',on?'currentColor':'#FF3B30')};
+document.querySelectorAll('.screen').forEach(sc=>{const st=sc.querySelector('.status'),s=sc.querySelector('.scroll');s.addEventListener('scroll',()=>st.classList.toggle('solid',s.scrollTop>(s.id==='s1'?420:20)))});
+/* timer */
+let sec=23*60+41;setInterval(()=>{sec++;const h=String(Math.floor(sec/3600)).padStart(2,'0'),m=String(Math.floor(sec%3600/60)).padStart(2,'0'),s=String(sec%60).padStart(2,'0');document.getElementById('tm').textContent=`${h}:${m}:${s}`},1000);
+/* logger */
+let w=50,r=12;const sets=[{w:50,r:12}];const TOTAL=3,STEP=5;
+const W=document.getElementById('w'),R=document.getElementById('r');
+function renderSets(){const el=document.getElementById('sets');el.innerHTML=sets.map((s,i)=>`<span class="set">${i+1}: ${s.w} кг · ${s.r} раз</span>`).join('')+(sets.length<TOTAL?`<span class="set next">${sets.length+1}: …</span>`:'');
+  document.getElementById('logt').textContent=`Записать подход ${sets.length+1}`;
+  if(sets.length>=TOTAL){document.getElementById('entry').style.display='none';document.getElementById('feel').classList.add('on')}}
+renderSets();
+document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const d=b.dataset.d;if(d==='w-')w=Math.max(0,w-STEP);if(d==='w+')w+=STEP;if(d==='r-')r=Math.max(1,r-1);if(d==='r+')r++;W.textContent=w;R.textContent=r});
+document.getElementById('log').onclick=()=>{sets.push({w,r});renderSets();if(navigator.vibrate)try{navigator.vibrate(10)}catch(e){}};
+document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-f]').forEach(x=>x.classList.toggle('on',x===b));
+  const f=b.dataset.f,last=sets[sets.length-1].w,allTop=sets.every(s=>s.r>=12),under=sets.filter(s=>s.r<10).length>sets.length/2;
+  let txt,wt;
+  if(under){wt=Math.max(last-STEP,0)+' кг ↓';txt='Больше половины подходов меньше 10 раз — снизим вес и отработаем технику.'}
+  else if(allTop&&f==='easy'){wt=(last+STEP)+' кг ↑';txt='Все подходы по 12 и легко — пора добавить шаг тренажёра.'}
+  else if(allTop&&f==='good'){wt=last+' кг =';txt='Все подходы по 12. Ещё одна такая тренировка — и повышаем вес.'}
+  else {wt=last+' кг =';txt=f==='hard'?'Было тяжело — закрепим этот вес, добьём 12 повторений во всех подходах.':'Добиваем 12 повторений во всех подходах, потом повышаем.'}
+  document.getElementById('recw').textContent=wt;document.getElementById('recp').textContent=txt;document.getElementById('rec').classList.add('on');
+  document.getElementById('pg').style.width='40%';document.getElementById('pgt').textContent='2 из 5 упражнений'});
+document.getElementById('acc').onclick=function(){this.textContent='Принято ✓';document.getElementById('keep').style.display='none'};
+document.getElementById('keep').onclick=function(){this.textContent='Оставили';document.getElementById('acc').style.display='none'};
+</script>
+</body>
+</html>
