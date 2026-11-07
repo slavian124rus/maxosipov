@@ -153,19 +153,19 @@
   - `expireSubscriptions(now: Date): Promise<number>` — переводит `trial|active` с `ends_at <= now` в `expired`, пишет событие `expired`, возвращает количество.
   - Все сервисные функции, кроме `startTrialIfEligible`, `getAccessForUser`, `expireSubscriptions`, вызывают `assertCan(actor, 'subscriptions.grant', target)`.
 
-- [ ] **Шаг 1.** Падающие тесты `dates.test.ts` (tz `Asia/Krasnoyarsk`): 2027-01-31 12:00 +1 → 2027-02-28 12:00; 2028-01-31 +1 → 2028-02-29; 2026-11-07 +3 → 2027-02-07; 2026-12-15 +12 → 2027-12-15. Реализуй без внешних библиотек (`Intl.DateTimeFormat` для разбора локальной даты). → PASS.
-- [ ] **Шаг 2.** Падающие тесты `compute.test.ts`: `null` → `{hasAccess:false,status:'none'}`; `trial` с концом через 3 дня 2 часа → `hasAccess:true, daysLeft:4`; `active`, `ends_at` в прошлом → `hasAccess:false` (даже если воркер ещё не перевёл в `expired`); `frozen` → `hasAccess:false`; `disabled` → `false`. → реализация → PASS.
-- [ ] **Шаг 3.** Падающие тесты `service.test.ts`:
+- [x] **Шаг 1.** Падающие тесты `dates.test.ts` (tz `Asia/Krasnoyarsk`): 2027-01-31 12:00 +1 → 2027-02-28 12:00; 2028-01-31 +1 → 2028-02-29; 2026-11-07 +3 → 2027-02-07; 2026-12-15 +12 → 2027-12-15. Реализуй без внешних библиотек (`Intl.DateTimeFormat` для разбора локальной даты). → PASS.
+- [x] **Шаг 2.** Падающие тесты `compute.test.ts`: `null` → `{hasAccess:false,status:'none'}`; `trial` с концом через 3 дня 2 часа → `hasAccess:true, daysLeft:4`; `active`, `ends_at` в прошлом → `hasAccess:false` (даже если воркер ещё не перевёл в `expired`); `frozen` → `hasAccess:false`; `disabled` → `false`. → реализация → PASS.
+- [x] **Шаг 3.** Падающие тесты `service.test.ts`:
   - `startTrialIfEligible` для нового номера → `true`, подписка `trial` на 30 дней, событие `trial_started`, запись в `trial_registry`; второй раз (тот же номер, даже другой `userId`) → `false`, подписка не создана;
   - `grant(+1)` при `trial`, оставалось 10 дней → `ends_at` = старый конец + 1 месяц, статус `active`;
   - `grant(+1)` при `expired` 20 дней назад → `ends_at` = сейчас + 1 месяц;
   - `freeze` 1 марта, `unfreeze` 11 марта → `ends_at` сдвинут ровно на 10 суток, статус вернулся к предыдущему;
   - `grant` актором-клиентом → `ForbiddenError`; актором «Тренер» (scope `own`) для чужого клиента → `ForbiddenError`;
   - `expireSubscriptions` переводит только просроченные, возвращает их число.
-- [ ] **Шаг 4.** Реализуй → PASS. В `signin.ts` замени заглушку на настоящий `startTrialIfEligible`.
-- [ ] **Шаг 5.** Задача воркера `subscriptions:expire` — раз в час (`'0 * * * *'`), вызывает `expireSubscriptions(new Date())`, пишет число в лог. Уведомления «осталось 3 дня» — на этапе 5 (не делать).
-- [ ] **Шаг 6.** Сид: клиентам 1–3 — `trial` (концы через 25, 5, 1 день), клиенту 4 — `active` на 2 месяца, клиенту 5 — `expired` 3 дня назад.
-- [ ] **Шаг 7.** `pnpm verify`. Коммит: `feat(access): trials, subscriptions, expiry job`.
+- [x] **Шаг 4.** Реализуй → PASS. В `signin.ts` замени заглушку на настоящий `startTrialIfEligible`.
+- [x] **Шаг 5.** Задача воркера `subscriptions:expire` — раз в час (`'0 * * * *'`), вызывает `expireSubscriptions(new Date())`, пишет число в лог. Уведомления «осталось 3 дня» — на этапе 5 (не делать).
+- [x] **Шаг 6.** Сид: клиентам 1–3 — `trial` (концы через 25, 5, 1 день), клиенту 4 — `active` на 2 месяца, клиенту 5 — `expired` 3 дня назад.
+- [x] **Шаг 7.** `pnpm verify`. Коммит: `feat(access): trials, subscriptions, expiry job`.
 
 ### Задача 6. Анкета и согласия
 

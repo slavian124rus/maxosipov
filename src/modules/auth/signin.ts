@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { startTrialIfEligible } from '@/modules/access'
 import { getGym } from '@/modules/gym'
 import { CLIENT_ROLE_NAME, roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
@@ -18,16 +19,6 @@ export type SignInLink = {
 }
 
 export type SignInResult = { userId: string; isNew: boolean }
-
-/**
- * Заглушка до задачи 5: пробный период включится вместе с модулем `access`.
- * Сигнатура уже финальная, чтобы не менять вызывающий код.
- */
-async function startTrialIfEligible(userId: string, phone: string): Promise<boolean> {
-  void userId
-  void phone
-  return false
-}
 
 async function findUserIdByLink(link: SignInLink): Promise<string | null> {
   const [account] = await db

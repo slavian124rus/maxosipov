@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { users } from '@/modules/auth'
 import { db } from '@/shared/db'
+import { users } from '@/shared/db/schema'
 import { assertCan, type Actor } from './check'
 import { ForbiddenError } from './errors'
 import { PERMISSIONS, type RolePermission } from './permissions'

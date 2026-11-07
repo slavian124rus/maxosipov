@@ -5,3 +5,4 @@
 export * from '@/modules/gym/schema'
 export * from '@/modules/auth/schema'
 export * from '@/modules/rbac/schema'
+export * from '@/modules/access/schema'

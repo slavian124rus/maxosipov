@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { eq } from 'drizzle-orm'
+import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
 import { DEFAULT_ROLES, roles } from '@/modules/rbac'
@@ -103,6 +104,31 @@ function roleId(roleIds: Map<string, string>, name: string): string {
   return id
 }
 
+/**
+ * Подписки тестовых клиентов: 1–3 пробные (25, 5, 1 день), 4 — оплачен на 2 месяца,
+ * 5 — истёк 3 дня назад (для экрана «Продли у Максима»).
+ */
+async function ensureSubscriptions(clientIds: string[]): Promise<void> {
+  const now = new Date()
+  const plan: { status: SubscriptionStatus; endsAt: Date }[] = [
+    { status: 'trial', endsAt: addDays(now, 25) },
+    { status: 'trial', endsAt: addDays(now, 5) },
+    { status: 'trial', endsAt: addDays(now, 1) },
+    { status: 'active', endsAt: addMonthsClamped(now, 2, 'Asia/Krasnoyarsk') },
+    { status: 'expired', endsAt: addDays(now, -3) },
+  ]
+
+  for (const [index, item] of plan.entries()) {
+    const userId = clientIds[index]
+    if (!userId) continue
+
+    await db
+      .insert(subscriptions)
+      .values({ userId, status: item.status, startsAt: now, endsAt: item.endsAt })
+      .onConflictDoNothing({ target: subscriptions.userId })
+  }
+}
+
 /** Идемпотентный сид: зал, роли и пользователи. Возвращает количество созданных сущностей. */
 export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
@@ -145,15 +171,19 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       roleId: roleId(roleIds, 'Главный тренер'),
     })
 
+    const clientIds: string[] = []
     for (const [index, phone] of DEV_CLIENT_PHONES.entries()) {
-      await ensureUser({
+      const id = await ensureUser({
         phone,
         name: DEV_CLIENT_NAMES[index] ?? `Клиент ${index + 1}`,
         gymId,
         roleId: roleId(roleIds, 'Клиент'),
         trainerId,
       })
+      clientIds.push(id)
     }
+
+    await ensureSubscriptions(clientIds)
 
     createdUsers = 2 + DEV_CLIENT_PHONES.length
   }
