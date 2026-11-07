@@ -1,0 +1,8 @@
+maxosipov.ru, app.maxosipov.ru {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+www.maxosipov.ru {
+	redir https://maxosipov.ru{uri} permanent
+}

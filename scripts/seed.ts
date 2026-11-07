@@ -45,6 +45,19 @@ const DEV_CLIENT_NAMES = [
   'Сергей Волков',
 ]
 
+export type SeedOptions = {
+  /** В production создаём только зал, роли и пользователей из SEED_*. */
+  production: boolean
+  ownerPhone?: string | undefined
+  trainerPhone?: string | undefined
+}
+
+export type SeedResult = {
+  gymId: string
+  roles: number
+  users: number
+}
+
 async function ensureGym(): Promise<string> {
   const [existing] = await db.select().from(gyms).where(eq(gyms.name, GYM_NAME)).limit(1)
   if (existing) return existing.id
@@ -90,37 +103,32 @@ function roleId(roleIds: Map<string, string>, name: string): string {
   return id
 }
 
-async function main(): Promise<void> {
-  const isProduction = process.env.NODE_ENV === 'production'
-
+/** Идемпотентный сид: зал, роли и пользователи. Возвращает количество созданных сущностей. */
+export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
   const roleIds = await ensureRoles()
 
-  let created = 0
+  let createdUsers = 0
 
-  if (isProduction) {
-    // На продакшне тестовые номера не создаём: только зал, роли и явно указанные люди.
-    const ownerPhone = process.env.SEED_OWNER_PHONE
-    const trainerPhone = process.env.SEED_TRAINER_PHONE
-
-    if (ownerPhone) {
+  if (options.production) {
+    if (options.ownerPhone) {
       await ensureUser({
-        phone: ownerPhone,
+        phone: options.ownerPhone,
         name: 'Владелец',
         gymId,
         roleId: roleId(roleIds, 'Владелец'),
       })
-      created += 1
+      createdUsers += 1
     }
 
-    if (trainerPhone) {
+    if (options.trainerPhone) {
       await ensureUser({
-        phone: trainerPhone,
+        phone: options.trainerPhone,
         name: 'Максим Осипов',
         gymId,
         roleId: roleId(roleIds, 'Главный тренер'),
       })
-      created += 1
+      createdUsers += 1
     }
   } else {
     await ensureUser({
@@ -147,22 +155,39 @@ async function main(): Promise<void> {
       })
     }
 
-    created = 2 + DEV_CLIENT_PHONES.length
+    createdUsers = 2 + DEV_CLIENT_PHONES.length
   }
+
+  return { gymId, roles: roleIds.size, users: createdUsers }
+}
+
+async function main(): Promise<void> {
+  const result = await runSeed({
+    production: process.env.NODE_ENV === 'production',
+    ownerPhone: process.env.SEED_OWNER_PHONE,
+    trainerPhone: process.env.SEED_TRAINER_PHONE,
+  })
 
   const [userCount] = await client<{ count: string }[]>`select count(*) from users`
   const [roleCount] = await client<{ count: string }[]>`select count(*) from roles`
 
   console.log(
-    `Сид выполнен: зал «${GYM_NAME}», ролей ${roleCount?.count ?? 0}, пользователей ${userCount?.count ?? 0} (обработано ${created})`,
+    `Сид выполнен: зал «${GYM_NAME}», ролей ${roleCount?.count ?? 0}, пользователей ${userCount?.count ?? 0} (обработано ${result.users})`,
   )
 }
 
-main()
-  .catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
-  .finally(async () => {
-    await client.end()
-  })
+// Запускаем только при прямом вызове (`pnpm db:seed`), не при импорте в тестах.
+const isEntrypoint =
+  typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module
+
+if (isEntrypoint) {
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      await client.end()
+    })
+}
+

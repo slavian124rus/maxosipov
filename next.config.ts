@@ -2,6 +2,7 @@ import type { NextConfig } from 'next'
 import { withSerwist } from '@serwist/turbopack'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

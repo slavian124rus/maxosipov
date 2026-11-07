@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.gitignore
+data
+docs
+prototypes
+Видео для примера как заниматься
+ФОТО ЗАЛА
+coverage
+playwright-report
+test-results
+*.log
+_*
+.env
+.env.*
+!.env.example

@@ -1,0 +1,67 @@
+name: maxosipov
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: maxosipov
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    volumes:
+      - /data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d maxosipov']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-app}@db:5432/maxosipov
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['sh', '-c', 'node dist/migrate.js && node server.js']
+    ports:
+      # только для локальной проверки и отладки; наружу сайт отдаёт caddy
+      - '127.0.0.1:3000:3000'
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-app}@db:5432/maxosipov
+      MEDIA_ROOT: /data/media
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['node', 'dist/worker.js']
+    volumes:
+      - /data/media:/data/media
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - /data/media:/srv/media:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:
