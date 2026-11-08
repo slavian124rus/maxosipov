@@ -6,6 +6,8 @@ export const roles = pgTable('roles', {
   name: text('name').notNull().unique(),
   /** Системная роль «Владелец»: неудаляемая, права не урезаются. */
   isSystem: boolean('is_system').notNull().default(false),
+  /** Роль клиента зала: так ищем клиентов, а не по названию роли (ревью F3). */
+  isClient: boolean('is_client').notNull().default(false),
   permissions: jsonb('permissions').$type<RolePermission[]>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -1,5 +1,13 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { signInAs, signOut } from './helpers'
+
+/** Открывает лист клиента; до гидратации клик может «потеряться» — повторяем. */
+async function openClientSheet(page: Page, action: string): Promise<void> {
+  await expect(async () => {
+    await page.getByRole('button', { name: /Сергей Волков/ }).click()
+    await expect(page.getByRole('button', { name: action }).first()).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+}
 
 test('Максим продлевает подписку клиенту, клиент получает доступ', async ({ page }) => {
   // 1. Максим выдаёт клиенту 5 месяц подписки.
@@ -9,7 +17,7 @@ test('Максим продлевает подписку клиенту, кли�
 
   await page.getByPlaceholder('Имя или телефон').fill('+79990000015')
   await page.getByRole('button', { name: 'Найти' }).click()
-  await page.getByRole('button', { name: /Сергей Волков/ }).click()
+  await openClientSheet(page, '+1 мес')
 
   await page.getByRole('button', { name: '+1 мес' }).click()
   await page.waitForTimeout(2000)
@@ -32,7 +40,7 @@ test('Максим продлевает подписку клиенту, кли�
   await page.goto('http://app.localhost:3000/trainer/subscriptions')
   await page.getByPlaceholder('Имя или телефон').fill('+79990000015')
   await page.getByRole('button', { name: 'Найти' }).click()
-  await page.getByRole('button', { name: /Сергей Волков/ }).click()
+  await openClientSheet(page, 'Отключить')
   await page.getByRole('button', { name: 'Отключить' }).click()
   await page.getByRole('button', { name: 'Отключить', exact: true }).last().click()
   await page.waitForTimeout(2000)

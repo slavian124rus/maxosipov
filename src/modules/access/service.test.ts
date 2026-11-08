@@ -243,3 +243,34 @@ test('assertClientAccess: без подписки — ForbiddenError, с под�
   vi.setSystemTime(new Date(NOW.getTime() + 31 * DAY))
   await expect(assertClientAccess(clientId)).rejects.toThrow('Подписка закончилась')
 })
+
+test('список подписок: область own — только свои клиенты, all — все клиенты зала', async () => {
+  const { listSubscriptionsForActor } = await import('./list')
+
+  const own = await listSubscriptionsForActor(trainer)
+  expect(own.map((item) => item.userId)).toEqual([clientId])
+
+  const all = await listSubscriptionsForActor(owner)
+  expect(all.map((item) => item.userId).sort()).toEqual([clientId, otherClientId].sort())
+})
+
+test('список подписок: клиент без права — ForbiddenError', async () => {
+  const { listSubscriptionsForActor } = await import('./list')
+  await expect(listSubscriptionsForActor(client)).rejects.toBeInstanceOf(ForbiddenError)
+})
+
+test('история подписки: не больше 10 событий конкретного клиента, чужой клиент закрыт', async () => {
+  const { listSubscriptionEvents } = await import('./list')
+
+  await startTrialIfEligible(clientId, '+79990000011')
+  await startTrialIfEligible(otherClientId, '+79990000012')
+  for (let i = 0; i < 12; i += 1) await grant(owner, clientId, { months: 1 })
+
+  const events = await listSubscriptionEvents(owner, clientId)
+  expect(events).toHaveLength(10)
+  expect(events.every((event) => event.userId === clientId)).toBe(true)
+
+  await expect(listSubscriptionEvents(trainer, otherClientId)).rejects.toBeInstanceOf(
+    ForbiddenError,
+  )
+})

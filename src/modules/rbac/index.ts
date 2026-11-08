@@ -1,7 +1,7 @@
 export { PERMISSIONS } from './permissions'
 export type { Permission, RolePermission, Scope } from './permissions'
 
-export { assertCan, can, checkPermission } from './check'
+export { assertCan, can, checkPermission, permissionScope } from './check'
 export type { Actor, PermissionTarget } from './check'
 
 export { ForbiddenError } from './errors'

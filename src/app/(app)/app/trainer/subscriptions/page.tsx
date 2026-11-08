@@ -1,10 +1,8 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import { db } from '@/shared/db'
-import { users } from '@/shared/db/schema'
-import { computeAccess, subscriptionEvents, subscriptions } from '@/modules/access'
-import { formatPhone } from '@/modules/auth'
+import { listSubscriptionsForActor, type SubscriptionFilter } from '@/modules/access'
+import { formatPhone, requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
-import { roles } from '@/modules/rbac'
+import { can } from '@/modules/rbac'
+import { notFound } from 'next/navigation'
 import { SubscriptionsList, type SubscriptionRowView } from './subscriptions-list'
 
 // Список зависит от сессии и фильтров.
@@ -49,64 +47,31 @@ export default async function TrainerSubscriptionsPage({
   searchParams: Promise<{ q?: string; filter?: string }>
 }) {
   const { q = '', filter = 'all' } = await searchParams
+  const { actor } = await requireUser()
+  if (!can(actor, 'subscriptions.grant')) notFound()
   const gym = await getGym()
-  const now = new Date()
 
-  const rows = await db
-    .select({ user: users, sub: subscriptions })
-    .from(users)
-    .innerJoin(roles, eq(users.roleId, roles.id))
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
-    .where(and(eq(roles.name, 'Клиент'), isNull(users.deletedAt)))
-    .orderBy(users.name)
+  const activeFilter: SubscriptionFilter = FILTERS.some((item) => item.value === filter)
+    ? (filter as SubscriptionFilter)
+    : 'all'
 
-  const events = await db
-    .select()
-    .from(subscriptionEvents)
-    .orderBy(desc(subscriptionEvents.createdAt))
+  // Только клиенты, которых актор вправе видеть (ревью F3).
+  const items = await listSubscriptionsForActor(actor, { query: q, filter: activeFilter })
 
-  const query = q.trim().toLowerCase()
-  const queryDigits = q.replace(/\D/g, '')
-
-  const view: SubscriptionRowView[] = []
-
-  for (const { user, sub } of rows) {
-    const access = computeAccess(sub, now)
-
-    if (query) {
-      const matchesName = user.name.toLowerCase().includes(query)
-      const matchesPhone = queryDigits ? user.phone.includes(queryDigits) : false
-      if (!matchesName && !matchesPhone) continue
-    }
-
-    if (filter === 'trial' && access.status !== 'trial') continue
-    if (filter === 'expired' && access.status !== 'expired') continue
-    if (filter === 'ending' && !(access.hasAccess && (access.daysLeft ?? 99) <= 7)) continue
-
-    const tone: SubscriptionRowView['tone'] = !access.hasAccess
-      ? 'danger'
-      : (access.daysLeft ?? 99) <= 7
-        ? 'warning'
-        : 'normal'
-
-    view.push({
-      id: user.id,
-      name: user.name,
-      phone: formatPhone(user.phone),
-      statusLabel: statusLabel(access.status, access.hasAccess),
-      endsAtLabel: access.endsAt ? formatDateRu(access.endsAt) : null,
-      tone,
-      isFrozen: access.status === 'frozen',
-      history: events
-        .filter((event) => event.userId === user.id)
-        .slice(0, 10)
-        .map((event) => ({
-          id: event.id,
-          label: EVENT_LABELS[event.type] ?? event.type,
-          date: formatDateRu(event.createdAt),
-        })),
-    })
-  }
+  const view: SubscriptionRowView[] = items.map(({ userId, name, phone, access, events }) => ({
+    id: userId,
+    name,
+    phone: formatPhone(phone),
+    statusLabel: statusLabel(access.status, access.hasAccess),
+    endsAtLabel: access.endsAt ? formatDateRu(access.endsAt) : null,
+    tone: !access.hasAccess ? 'danger' : (access.daysLeft ?? 99) <= 7 ? 'warning' : 'normal',
+    isFrozen: access.status === 'frozen',
+    history: events.map((event) => ({
+      id: event.id,
+      label: EVENT_LABELS[event.type] ?? event.type,
+      date: formatDateRu(event.createdAt),
+    })),
+  }))
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
@@ -134,7 +99,7 @@ export default async function TrainerSubscriptionsPage({
             key={item.value}
             href={`/trainer/subscriptions?filter=${item.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
             className={`rounded-full border px-3 py-1.5 text-[13px] ${
-              filter === item.value
+              activeFilter === item.value
                 ? 'border-accent bg-surface-2 text-text'
                 : 'border-border bg-surface-1 text-text-secondary'
             }`}

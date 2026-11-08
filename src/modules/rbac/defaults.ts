@@ -14,15 +14,22 @@ const CLIENT_PERMISSIONS: Permission[] = [
 ]
 
 /** Пять ролей из ARCHITECTURE.md §8.3. Сид создаёт их идемпотентно. */
-export const DEFAULT_ROLES: { name: string; isSystem: boolean; permissions: RolePermission[] }[] = [
+export const DEFAULT_ROLES: {
+  name: string
+  isSystem: boolean
+  isClient: boolean
+  permissions: RolePermission[]
+}[] = [
   {
     name: 'Владелец',
     isSystem: true,
+    isClient: false,
     permissions: PERMISSIONS.map(all),
   },
   {
     name: 'Главный тренер',
     isSystem: false,
+    isClient: false,
     permissions: PERMISSIONS.filter(
       (code) => code !== 'roles.manage' && code !== 'users.assign_roles',
     ).map(all),
@@ -30,16 +37,19 @@ export const DEFAULT_ROLES: { name: string; isSystem: boolean; permissions: Role
   {
     name: 'Тренер',
     isSystem: false,
+    isClient: false,
     permissions: [...CLIENT_PERMISSIONS.map(own), all('catalog.edit')],
   },
   {
     name: 'Администратор зала',
     isSystem: false,
+    isClient: false,
     permissions: [all('clients.view'), all('subscriptions.grant')],
   },
   {
     name: 'Клиент',
     isSystem: false,
+    isClient: true,
     permissions: [],
   },
 ]
