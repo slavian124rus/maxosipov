@@ -1,4 +1,5 @@
 import { PgBoss } from 'pg-boss'
+import { QUEUE_TUNING } from '@/modules/media/queues'
 import { env } from './env'
 
 let bossPromise: Promise<PgBoss> | null = null
@@ -19,7 +20,7 @@ export async function enqueueJob(name: string, data: object): Promise<void> {
   const boss = await getBoss()
 
   if (!createdQueues.has(name)) {
-    await boss.createQueue(name)
+    await boss.createQueue(name, QUEUE_TUNING[name])
     createdQueues.add(name)
   }
 

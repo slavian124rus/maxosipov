@@ -1,8 +1,8 @@
 import type { PgBoss } from 'pg-boss'
-import { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE } from '@/modules/media'
+import { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from '@/modules/media'
 import { registerAuthCleanup } from './jobs/auth-cleanup'
 import { registerExpireSubscriptions } from './jobs/expire-subscriptions'
-import { cleanupOriginals } from './jobs/media-cleanup'
+import { cleanupAbandonedUploads, cleanupOriginals } from './jobs/media-cleanup'
 import { MUSCLE_OVERLAY_QUEUE, muscleOverlayJob, profilesForMedia } from './jobs/muscle-overlay'
 import { processMediaJob } from './jobs/process-media'
 
@@ -14,6 +14,13 @@ export { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE }
 
 /** Ночная уборка исходников и временных файлов. */
 export const MEDIA_CLEANUP_CRON = '0 4 * * *'
+
+/** Создаёт очередь и применяет настройки, даже если веб успел создать её раньше. */
+async function createTunedQueue(boss: PgBoss, name: string): Promise<void> {
+  const tuning = QUEUE_TUNING[name]
+  await boss.createQueue(name, tuning)
+  if (tuning) await boss.updateQueue(name, tuning)
+}
 
 /**
  * Регистрирует фоновые задачи: пульс, подписки, очистку входа, обработку видео, уборку медиа.
@@ -29,7 +36,7 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
   await registerExpireSubscriptions(boss)
   await registerAuthCleanup(boss)
 
-  await boss.createQueue(PROCESS_MEDIA_QUEUE)
+  await createTunedQueue(boss, PROCESS_MEDIA_QUEUE)
   await boss.work<{ mediaId: string }>(PROCESS_MEDIA_QUEUE, { batchSize: 1 }, async ([job]) => {
     if (!job) return
     console.log(`[worker] media.process ${job.data.mediaId}`)
@@ -41,7 +48,7 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
     }
   })
 
-  await boss.createQueue(MUSCLE_OVERLAY_QUEUE)
+  await createTunedQueue(boss, MUSCLE_OVERLAY_QUEUE)
   await boss.work<{ mediaId: string; profile: 'pull_vertical' | 'pull_horizontal' }>(
     MUSCLE_OVERLAY_QUEUE,
     { batchSize: 1 },
@@ -54,8 +61,10 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
   await boss.createQueue(MEDIA_CLEANUP_QUEUE)
   await boss.schedule(MEDIA_CLEANUP_QUEUE, MEDIA_CLEANUP_CRON)
   await boss.work(MEDIA_CLEANUP_QUEUE, async () => {
-    const removed = await cleanupOriginals(new Date())
-    console.log(`[worker] media.cleanup: удалено исходников — ${removed}`)
+    const now = new Date()
+    const originals = await cleanupOriginals(now)
+    const abandoned = await cleanupAbandonedUploads(now)
+    console.log(`[worker] media.cleanup: исходников — ${originals}, брошенных загрузок — ${abandoned}`)
   })
 }
 

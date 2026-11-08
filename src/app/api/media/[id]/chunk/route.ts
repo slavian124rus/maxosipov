@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/modules/auth'
-import { assertCanAccessMedia, putChunk } from '@/modules/media'
+import { assertCanAccessMedia, CHUNK_SIZE, putChunk } from '@/modules/media'
 
 /** Принимает один кусок файла (`?index=N`), тело — сырые байты. */
 export async function PUT(
@@ -11,6 +11,13 @@ export async function PUT(
   if (!current) return NextResponse.json({ error: 'Требуется вход' }, { status: 401 })
 
   const { id } = await params
+
+  // Не читаем в память тело больше куска.
+  const declared = Number(request.headers.get('content-length') ?? 0)
+  if (declared > CHUNK_SIZE) {
+    return NextResponse.json({ error: 'Часть слишком большая' }, { status: 413 })
+  }
+
   const index = Number(new URL(request.url).searchParams.get('index'))
 
   try {

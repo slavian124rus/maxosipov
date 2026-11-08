@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/modules/auth'
 import { createUpload, type MediaKind } from '@/modules/media'
 
-const KINDS: MediaKind[] = ['exercise_video', 'photo', 'progress_photo']
+// Фото включим на этапе 3 вместе с квотой на клиента.
+const KINDS: MediaKind[] = ['exercise_video']
 
 /** Создаёт загрузку: возвращает id, размер куска и число кусков. */
 export async function POST(request: Request) {

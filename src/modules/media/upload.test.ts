@@ -180,3 +180,70 @@ test('setProcessingOptions: клиент не может, метки петли 
     'только у видео',
   )
 })
+
+test('кусок неверного размера не принимается', async () => {
+  const { id } = await createUpload(actor, {
+    kind: 'exercise_video',
+    fileName: 'v.mp4',
+    sizeBytes: CHUNK_SIZE * 2 + 100,
+    mime: 'video/mp4',
+  })
+
+  await expect(putChunk(id, 0, Buffer.alloc(CHUNK_SIZE + 1))).rejects.toThrow('Размер части')
+  await expect(putChunk(id, 2, Buffer.alloc(99))).rejects.toThrow('Размер части')
+  await putChunk(id, 2, Buffer.alloc(100))
+})
+
+test('параллельные куски все попадают в receivedChunks', async () => {
+  const { id } = await createUpload(actor, {
+    kind: 'exercise_video',
+    fileName: 'v.mp4',
+    sizeBytes: CHUNK_SIZE * 3,
+    mime: 'video/mp4',
+  })
+
+  await Promise.all([0, 1, 2].map((index) => putChunk(id, index, Buffer.alloc(CHUNK_SIZE, index))))
+
+  expect((await getMediaStatus(id)).receivedChunks).toEqual([0, 1, 2])
+})
+
+test('после complete куски не принимаются, а повторный complete не ставит задачу снова', async () => {
+  const { id } = await upload3Chunks()
+  let queued = 0
+  const enqueue = async () => {
+    queued += 1
+  }
+
+  await completeUpload(id, { enqueue })
+  await completeUpload(id, { enqueue })
+
+  expect(queued).toBe(1)
+  await expect(putChunk(id, 0, Buffer.alloc(CHUNK_SIZE))).rejects.toThrow('Загрузка уже завершена')
+})
+
+test('фото пока не загружаются, даже владельцем файла', async () => {
+  for (const kind of ['photo', 'progress_photo'] as const) {
+    await expect(
+      createUpload(actor, { kind, fileName: 'p.jpg', sizeBytes: 1000, mime: 'image/jpeg' }),
+    ).rejects.toThrow('Загрузка фото пока недоступна')
+  }
+})
+
+test('несовпадение размера сбрасывает загрузку, можно залить заново', async () => {
+  const { id } = await createUpload(actor, {
+    kind: 'exercise_video',
+    fileName: 'v.mp4',
+    sizeBytes: CHUNK_SIZE + 10,
+    mime: 'video/mp4',
+  })
+  await putChunk(id, 0, Buffer.alloc(CHUNK_SIZE))
+  await putChunk(id, 1, Buffer.alloc(10))
+
+  // порча: заявленный размер в базе больше фактического
+  await db.update(media).set({ sizeBytes: CHUNK_SIZE + 20 }).where(eq(media.id, id))
+  await expect(completeUpload(id, { enqueue: async () => {} })).rejects.toThrow('загрузи видео заново')
+
+  const status = await getMediaStatus(id)
+  expect(status.receivedChunks).toEqual([])
+  expect(status.status).toBe('uploaded')
+})

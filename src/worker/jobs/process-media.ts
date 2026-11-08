@@ -12,6 +12,8 @@ export type ProcessMediaData = { mediaId: string }
 export async function processMediaJob(data: ProcessMediaData): Promise<void> {
   const [row] = await db.select().from(media).where(eq(media.id, data.mediaId)).limit(1)
   if (!row) throw new Error(`Файл ${data.mediaId} не найден`)
+  // Повторная доставка задачи (истёк срок, дубль): готовый ролик не пересобираем.
+  if (row.status === 'ready' && row.processedPaths?.mp4) return
 
   await db
     .update(media)

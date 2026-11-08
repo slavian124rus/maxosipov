@@ -1,6 +1,6 @@
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
@@ -54,11 +54,11 @@ export async function createUpload(
 ): Promise<CreatedUpload> {
   const isVideo = input.kind === 'exercise_video'
 
-  if (isVideo) {
-    assertCan(actor, 'catalog.edit')
-  }
-  // Фото (прогресс, аватар) загружает сам владелец: `ownerId = actor.id`.
-  // Загрузку за другого (тренер за клиента) добавим на этапе 3 вместе с замерами.
+  // Фото (прогресс, аватар) появятся на этапе 3 вместе с квотой на клиента: пока любой
+  // зарегистрированный пользователь мог бы забить диск, поэтому принимаем только видео упражнений.
+  if (!isVideo) throw new Error('Загрузка фото пока недоступна')
+
+  assertCan(actor, 'catalog.edit')
 
   const max = isVideo ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES
   if (input.sizeBytes > max) {
@@ -94,12 +94,22 @@ async function findMedia(id: string) {
   return row
 }
 
+/** Ожидаемый размер куска: все по `CHUNK_SIZE`, последний — остаток. */
+export function expectedChunkSize(row: { sizeBytes: number; totalChunks: number }, index: number): number {
+  return index === row.totalChunks - 1 ? row.sizeBytes - CHUNK_SIZE * (row.totalChunks - 1) : CHUNK_SIZE
+}
+
 /** Кладёт кусок файла. Повторная загрузка того же куска идемпотентна. */
 export async function putChunk(id: string, index: number, body: Uint8Array): Promise<void> {
   const row = await findMedia(id)
 
+  if (row.originalPath) throw new Error('Загрузка уже завершена')
+
   if (!Number.isInteger(index) || index < 0 || index >= row.totalChunks) {
     throw new Error('Неверный номер части')
+  }
+  if (body.byteLength !== expectedChunkSize(row, index)) {
+    throw new Error('Размер части не совпал с ожидаемым')
   }
 
   const dir = safeJoin(mediaRoot(), mediaDir(row))
@@ -107,22 +117,29 @@ export async function putChunk(id: string, index: number, body: Uint8Array): Pro
   await mkdir(chunksDir, { recursive: true })
   await writeFile(path.join(chunksDir, `${index}.part`), body)
 
-  if (!row.receivedChunks.includes(index)) {
-    await db
-      .update(media)
-      .set({ receivedChunks: [...row.receivedChunks, index].sort((a, b) => a - b), updatedAt: new Date() })
-      .where(eq(media.id, id))
-  }
+  // Одним запросом: куски могут приходить параллельно, и «прочитать, дополнить, записать» терял бы номера.
+  await db
+    .update(media)
+    .set({
+      receivedChunks: sql`(SELECT array_agg(DISTINCT c ORDER BY c) FROM unnest(array_append(${media.receivedChunks}, ${index}::integer)) AS c)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(media.id, id))
 }
 
 export type CompleteDeps = {
   enqueue?: (mediaId: string) => Promise<void>
 }
 
-/** Склеивает куски в `original.<ext>`, ставит `uploaded` и задачу обработки. */
+/**
+ * Склеивает куски в `original.<ext>`, ставит `uploaded` и задачу обработки.
+ * Куски дописываются по одному (в памяти не больше одного куска), повторный вызов ничего не делает.
+ */
 export async function completeUpload(id: string, deps: CompleteDeps = {}): Promise<void> {
   const row = await findMedia(id)
   const enqueue = deps.enqueue ?? ((mediaId: string) => enqueueJob('media.process', { mediaId }))
+
+  if (row.originalPath) return
 
   const missing: number[] = []
   for (let index = 0; index < row.totalChunks; index += 1) {
@@ -134,21 +151,30 @@ export async function completeUpload(id: string, deps: CompleteDeps = {}): Promi
   const chunksDir = path.join(dir, '.chunks')
   const extension = extensionFor(row.kind, row.mime)
   const originalRel = `${mediaDir(row)}/original.${extension}`
-
-  const buffers: Buffer[] = []
-  for (let index = 0; index < row.totalChunks; index += 1) {
-    buffers.push(await readFile(path.join(chunksDir, `${index}.part`)))
-  }
-  const file = Buffer.concat(buffers)
+  const originalAbs = safeJoin(mediaRoot(), originalRel)
+  const partial = `${originalAbs}.part`
 
   await mkdir(dir, { recursive: true })
-  await writeFile(safeJoin(mediaRoot(), originalRel), file)
 
-  const size = (await stat(safeJoin(mediaRoot(), originalRel))).size
-  if (size !== row.sizeBytes) {
-    throw new Error('Размер файла не совпал с заявленным')
+  const handle = await open(partial, 'w')
+  try {
+    for (let index = 0; index < row.totalChunks; index += 1) {
+      await handle.appendFile(await readFile(path.join(chunksDir, `${index}.part`)))
+    }
+  } finally {
+    await handle.close()
   }
 
+  const size = (await stat(partial)).size
+  if (size !== row.sizeBytes) {
+    // Начинаем загрузку заново, иначе клиент застрянет на «все куски есть, но размер не тот».
+    await rm(partial, { force: true })
+    await rm(chunksDir, { recursive: true, force: true })
+    await db.update(media).set({ receivedChunks: [], updatedAt: new Date() }).where(eq(media.id, id))
+    throw new Error('Размер файла не совпал с заявленным — загрузи видео заново')
+  }
+
+  await rename(partial, originalAbs)
   await rm(chunksDir, { recursive: true, force: true })
 
   await db
