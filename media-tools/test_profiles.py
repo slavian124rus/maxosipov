@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 import profiles as P
-from overlay import ensure_detected
+from overlay import compose_frame, ensure_detected, pixel_points
 
 
 def make_points(nose_x: float = 200.0, left_vis: float = 0.9, right_vis: float = 0.9):
@@ -72,3 +72,30 @@ def test_intensity_stays_in_range():
     intensity = P.intensity_from_angles(angles)
     assert intensity.min() >= 0.22 - 1e-6
     assert intensity.max() <= 1.0 + 1e-6
+
+
+def test_pixel_points_scales_fractions_to_pixels_and_keeps_visibility():
+    fractions = np.zeros((6, 33, 3), dtype=np.float32)
+    fractions[:, :, 0] = 0.5
+    fractions[:, :, 1] = 0.25
+    fractions[:, :, 2] = 0.8
+
+    pts = pixel_points(fractions, 200, 400)
+
+    assert pts.shape == (6, 33, 3)
+    assert np.allclose(pts[:, :, 0], 100, atol=0.5)
+    assert np.allclose(pts[:, :, 1], 100, atol=0.5)
+    assert np.allclose(pts[:, :, 2], 0.8)
+
+
+def test_compose_frame_paints_red_on_the_back():
+    """Регрессия F2: подсветка не рисовалась из-за нормированных координат вместо пикселей."""
+    mask = body_mask()
+    frame = np.full((*mask.shape, 3), 100, dtype=np.uint8)
+    yy, xx = np.mgrid[0 : mask.shape[0], 0 : mask.shape[1]].astype(np.float32)
+
+    out = compose_frame(frame, mask, make_points(nose_x=200), xx, yy, 1.0, "pull_vertical")
+
+    # BGR: красный канал заметно выше синего
+    red = out[..., 2].astype(np.int16) - out[..., 0].astype(np.int16)
+    assert int((red > 40).sum()) > 200

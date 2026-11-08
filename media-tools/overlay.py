@@ -1,4 +1,4 @@
-﻿"""Рисует подсветку мышц по точкам позы и маске силуэта.
+"""Рисует подсветку мышц по точкам позы и маске силуэта.
 
 Запуск: python overlay.py <видео> <pose.npz> <profile> <out.mp4>
 Коды выхода: 0 — успех, 3 — поза найдена менее чем на 90% кадров (файл не пишем).
@@ -23,6 +23,16 @@ def ensure_detected(points: np.ndarray) -> None:
     if share < MIN_DETECTED:
         print(json.dumps({"error": "поза найдена не на всех кадрах", "detected": round(share, 3)}))
         raise SystemExit(3)
+
+
+def pixel_points(points_all: np.ndarray, width: int, height: int) -> np.ndarray:
+    """Точки позы в пикселях (со сглаживанием) + столбец visibility: форма [кадры, 33, 3+].
+
+    MediaPipe отдаёт x, y в долях кадра (0..1), а маски и сетка координат — в пикселях.
+    """
+    xy = points_all[:, :, :2] * np.array([width, height], np.float32)
+    xy = P.smooth_points(xy)
+    return np.concatenate([xy, points_all[:, :, 2:]], axis=2)
 
 
 def compose_frame(
@@ -110,8 +120,8 @@ def main() -> None:
         raise SystemExit(1)
 
     height, width = frames[0].shape[:2]
-    xy = points_all[:, :, :2] * np.array([width, height], np.float32)
-    xy = P.smooth_points(xy)
+    pts = pixel_points(points_all, width, height)
+    xy = pts[:, :, :2]
 
     angles = P.elbow_angles(xy, P.visible_arm(points_all))
     intensity = P.intensity_from_angles(angles)
@@ -157,7 +167,7 @@ def main() -> None:
         mask = cv2.GaussianBlur(mask, (0, 0), 1.5)
 
         composed = compose_frame(
-            frames[index], mask, points_all[index], xx, yy, float(intensity[index]), profile
+            frames[index], mask, pts[index], xx, yy, float(intensity[index]), profile
         )
         writer.stdin.write(composed.tobytes())
 
