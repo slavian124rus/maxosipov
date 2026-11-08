@@ -67,7 +67,7 @@
 6. **Снижение** (`decrease`): последние `rules.failSessionsToDrop` сессий все с `w = W`, в каждой больше половины рабочих подходов `reps < repMin` → `max(0, min(floorStep(W·(1 − dropPercent/100)), W − step))`, где `floorStep(x) = floor(x/step + 1e-9)·step`, результат округлить до 0,01.
 7. Иначе `keep`, `weightKg = W`.
 
-- [ ] **Шаг 1.** Тесты `recommend.test.ts` (правила по умолчанию `{2, true, 2, 10}`, цель 3·10–12, шаг 5, если не указано):
+- [x] **Шаг 1.** Тесты `recommend.test.ts` (правила по умолчанию `{2, true, 2, 10}`, цель 3·10–12, шаг 5, если не указано):
   - пусто → `none`;
   - одна сессия 50 кг [12,12,12] `good` → `keep 50`;
   - две сессии 50 [12,12,12] `good`,`good` → `increase 55 increase_streak`;
@@ -82,8 +82,8 @@
   - одна провальная сессия → `keep`;
   - разминка 20 кг [15] + рабочие 50 [12,12,12] `good` ×2 сессии → `increase 55`;
   - `W=2.5`, шаг 5, две провальные → `decrease 0`.
-- [ ] **Шаг 2.** Тесты `text.test.ts`: каждый `reasonCode` → ровно текст DESIGN §9.2 (с весом из рекомендации; для `keep` — «Оставляем 32,5 кг — добиваем 12 повторений во всех подходах», где 12 = `repMax` — добавь `repMax` в аргументы: `recommendationText(r, { repMax })`).
-- [ ] **Шаг 3.** Реализация → PASS → коммит `feat(progression): deterministic weight recommendation`.
+- [x] **Шаг 2.** Тесты `text.test.ts`: каждый `reasonCode` → ровно текст DESIGN §9.2 (с весом из рекомендации; для `keep` — «Оставляем 32,5 кг — добиваем 12 повторений во всех подходах», где 12 = `repMax` — добавь `repMax` в аргументы: `recommendationText(r, { repMax })`).
+- [x] **Шаг 3.** Реализация → PASS → коммит `feat(progression): deterministic weight recommendation`.
 
 ### Задача 3. Сессии, подходы и синхронизация (сервер)
 
