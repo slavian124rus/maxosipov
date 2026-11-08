@@ -23,6 +23,8 @@ export type ExerciseListItem = {
   secondaryMuscles: string[]
   status: string
   posterUrl: string | null
+  videoStatus: string | null
+  hasMuscles: boolean
 }
 
 export type ExerciseDetail = ExerciseListItem & {
@@ -219,13 +221,6 @@ export type ExerciseFilter = {
   status?: 'published' | 'draft' | 'all'
 }
 
-async function posterUrlFor(mediaId: string | null): Promise<string | null> {
-  if (!mediaId) return null
-  const [row] = await db.select().from(media).where(eq(media.id, mediaId)).limit(1)
-  const poster = row?.processedPaths?.poster
-  return poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null
-}
-
 /** Список каталога. По умолчанию — только опубликованные и неархивные. */
 export async function listExercises(filter: ExerciseFilter = {}): Promise<ExerciseListItem[]> {
   const status = filter.status ?? 'published'
@@ -264,16 +259,26 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
   }
 
   return Promise.all(
-    rows.map(async ({ exercise, machineName }) => ({
-      id: exercise.id,
-      slug: exercise.slug,
-      name: exercise.name,
-      machineName,
-      primaryMuscles: exercise.primaryMuscles,
-      secondaryMuscles: exercise.secondaryMuscles,
-      status: exercise.status,
-      posterUrl: await posterUrlFor(exercise.videoMediaId),
-    })),
+    rows.map(async ({ exercise, machineName }) => {
+      const [video] = exercise.videoMediaId
+        ? await db.select().from(media).where(eq(media.id, exercise.videoMediaId)).limit(1)
+        : []
+
+      const poster = video?.processedPaths?.poster
+
+      return {
+        id: exercise.id,
+        slug: exercise.slug,
+        name: exercise.name,
+        machineName,
+        primaryMuscles: exercise.primaryMuscles,
+        secondaryMuscles: exercise.secondaryMuscles,
+        status: exercise.status,
+        posterUrl: poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null,
+        videoStatus: video?.status ?? null,
+        hasMuscles: Boolean(video?.processedPaths?.musclesMp4),
+      }
+    }),
   )
 }
 
@@ -324,5 +329,6 @@ export async function getExercise(
     videoWebmUrl: sign(paths?.webm),
     musclesMp4Url: sign(paths?.musclesMp4),
     hasMuscles: Boolean(paths?.musclesMp4),
+    videoStatus: video?.status ?? null,
   }
 }

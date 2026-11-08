@@ -5,7 +5,7 @@ import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
 import { mediaDir, mediaRoot, safeJoin } from './paths'
-import { media, type MediaKind } from './schema'
+import { media, type MediaKind, type ProcessingOptions } from './schema'
 
 export const CHUNK_SIZE = 5 * 1024 * 1024
 export const MAX_VIDEO_BYTES = 300 * 1024 * 1024
@@ -166,7 +166,6 @@ export type MediaStatus = {
   totalChunks: number
   error: string | null
 }
-
 /** Статус загрузки: по нему клиент продолжает прерванную загрузку. */
 export async function getMediaStatus(id: string): Promise<MediaStatus> {
   const row = await findMedia(id)
@@ -177,4 +176,12 @@ export async function getMediaStatus(id: string): Promise<MediaStatus> {
     totalChunks: row.totalChunks,
     error: row.error,
   }
+}
+
+/** Настройки обработки: `cropX` для горизонтального видео, ручные метки петли. */
+export async function setProcessingOptions(
+  id: string,
+  options: ProcessingOptions,
+): Promise<void> {
+  await db.update(media).set({ processingOptions: options, updatedAt: new Date() }).where(eq(media.id, id))
 }

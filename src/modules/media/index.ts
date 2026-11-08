@@ -7,7 +7,7 @@ export { mediaDir, mediaRoot, safeJoin } from './paths'
 
 export { PHOTO_URL_TTL_SEC, signMediaPath, verifyMediaRequest, VIDEO_URL_TTL_SEC } from './sign'
 
-export { CHUNK_SIZE, completeUpload, createUpload, getMediaStatus, putChunk } from './upload'
+export { CHUNK_SIZE, completeUpload, createUpload, getMediaStatus, putChunk, setProcessingOptions } from './upload'
 export type { CompleteDeps, CreateUploadInput, CreatedUpload } from './upload'
 
 export { buildPipelineCommands, frameFilter } from './pipeline'
