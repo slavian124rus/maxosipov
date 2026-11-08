@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { eq, inArray } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
+import { MUSCLES, muscles, svgLayerId } from '@/modules/catalog'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
 import { DEFAULT_ROLES, roles } from '@/modules/rbac'
 import { client, db } from '@/shared/db'
@@ -85,6 +86,26 @@ async function ensureRoles(): Promise<Map<string, string>> {
   return new Map(rows.map((role) => [role.name, role.id]))
 }
 
+/** Справочник мышц: вставляем и обновляем названия/стороны при каждом сиде. */
+async function ensureMuscles(): Promise<number> {
+  for (const muscle of MUSCLES) {
+    await db
+      .insert(muscles)
+      .values({
+        code: muscle.code,
+        nameRu: muscle.nameRu,
+        view: muscle.view,
+        svgLayerId: svgLayerId(muscle.code),
+      })
+      .onConflictDoUpdate({
+        target: muscles.code,
+        set: { nameRu: muscle.nameRu, view: muscle.view, svgLayerId: svgLayerId(muscle.code) },
+      })
+  }
+
+  return MUSCLES.length
+}
+
 /** Записывает главного тренера в настройки зала, если он ещё не задан. */
 async function ensureHeadTrainer(gymId: string, trainerId: string): Promise<void> {
   const [gym] = await db.select().from(gyms).where(eq(gyms.id, gymId)).limit(1)
@@ -144,6 +165,7 @@ async function ensureSubscriptions(clientIds: string[]): Promise<void> {
 export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
   const roleIds = await ensureRoles()
+  const muscleCount = await ensureMuscles()
 
   let createdUsers = 0
 
@@ -220,9 +242,10 @@ async function main(): Promise<void> {
 
   const [userCount] = await client<{ count: string }[]>`select count(*) from users`
   const [roleCount] = await client<{ count: string }[]>`select count(*) from roles`
+  const [muscleCount] = await client<{ count: string }[]>`select count(*) from muscles`
 
   console.log(
-    `Сид выполнен: зал «${GYM_NAME}», ролей ${roleCount?.count ?? 0}, пользователей ${userCount?.count ?? 0} (обработано ${result.users})`,
+    `Сид выполнен: зал «${GYM_NAME}», ролей ${roleCount?.count ?? 0}, мышц ${muscleCount?.count ?? 0}, пользователей ${userCount?.count ?? 0} (обработано ${result.users})`,
   )
 }
 

@@ -42,7 +42,7 @@
 - спереди: `neck` Шея · `traps-upper` Верх трапеций · `delts-front` Передние дельты · `delts-side` Средние дельты · `chest` Грудные · `biceps` Бицепс · `brachialis` Плечевая мышца · `forearms-flexors` Сгибатели предплечья · `serratus` Передняя зубчатая · `abs` Пресс · `obliques` Косые мышцы живота · `hip-flexors` Сгибатели бедра · `adductors` Приводящие бедра · `quads` Квадрицепсы · `tibialis` Передняя большеберцовая;
 - сзади: `traps-middle` Средняя часть трапеций · `delts-rear` Задние дельты · `rhomboids` Ромбовидные · `lats` Широчайшие · `teres` Большая круглая · `triceps` Трицепс · `forearms-extensors` Разгибатели предплечья · `lower-back` Разгибатели спины · `glutes` Ягодичные · `glutes-medius` Средняя ягодичная · `hamstrings` Бицепс бедра · `calves` Икры.
 
-- [ ] Тест: 27 кодов, все уникальны, 15 `front` + 12 `back`, `svg_layer_id = 'm-' + code`. → реализация → сид (upsert) → коммит `feat(catalog): muscles reference`.
+- [x] Тест: 27 кодов, все уникальны, 15 `front` + 12 `back`, `svg_layer_id = 'm-' + code`. → реализация → сид (upsert) → коммит `feat(catalog): muscles reference`.
 
 ### Задача 2. Компонент фигуры мышц
 

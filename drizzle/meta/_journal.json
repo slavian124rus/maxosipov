@@ -71,6 +71,13 @@
       "when": 1794112200396,
       "tag": "0009_drop_max_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794112867045,
+      "tag": "0010_dark_dark_beast",
+      "breakpoints": true
     }
   ]
 }
