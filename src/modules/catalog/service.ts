@@ -301,10 +301,12 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
     conditions.push(sql`replace(lower(${exercises.name}), 'ё', 'е') like ${normalized}`)
   }
 
+  // Одним запросом: упражнение + тренажёр + видео (раньше видео читалось отдельным запросом на каждую строку).
   const rows = await db
-    .select({ exercise: exercises, machineName: machines.name })
+    .select({ exercise: exercises, machineName: machines.name, video: media })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
+    .leftJoin(media, eq(exercises.videoMediaId, media.id))
     .where(and(...conditions))
     .orderBy(asc(exercises.name))
 
@@ -317,28 +319,22 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
     })
   }
 
-  return Promise.all(
-    rows.map(async ({ exercise, machineName }) => {
-      const [video] = exercise.videoMediaId
-        ? await db.select().from(media).where(eq(media.id, exercise.videoMediaId)).limit(1)
-        : []
+  return rows.map(({ exercise, machineName, video }) => {
+    const poster = video?.processedPaths?.poster
 
-      const poster = video?.processedPaths?.poster
-
-      return {
-        id: exercise.id,
-        slug: exercise.slug,
-        name: exercise.name,
-        machineName,
-        primaryMuscles: exercise.primaryMuscles,
-        secondaryMuscles: exercise.secondaryMuscles,
-        status: exercise.status,
-        posterUrl: poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null,
-        videoStatus: video?.status ?? null,
-        hasMuscles: exercise.overlayProfile !== 'none' && Boolean(video?.processedPaths?.musclesMp4),
-      }
-    }),
-  )
+    return {
+      id: exercise.id,
+      slug: exercise.slug,
+      name: exercise.name,
+      machineName,
+      primaryMuscles: exercise.primaryMuscles,
+      secondaryMuscles: exercise.secondaryMuscles,
+      status: exercise.status,
+      posterUrl: poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null,
+      videoStatus: video?.status ?? null,
+      hasMuscles: exercise.overlayProfile !== 'none' && Boolean(video?.processedPaths?.musclesMp4),
+    }
+  })
 }
 
 export type GetExerciseOptions = { includeDrafts?: boolean }

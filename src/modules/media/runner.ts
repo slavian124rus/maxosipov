@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm } from 'node:fs/promises'
 import { buildOutputCommands, buildPrepCommands } from './pipeline'
 import { mediaDir, mediaRoot, safeJoin } from './paths'
 import type { Media, ProcessedPaths } from './schema'
@@ -96,11 +96,10 @@ export async function hasFfmpeg(): Promise<boolean> {
   }
 }
 
-/**
- * Полная обработка: поворот → стабилизация → петля → mp4/webm/постер.
- * Возвращает пути относительно `MEDIA_ROOT`.
- */
-export async function processVideo(row: Media): Promise<ProcessedPaths> {
+/** Промежуточные файлы обработки: `stab.trf` весит около 2 МБ на каждые 5 секунд видео. */
+const TEMP_FILES = ['norm.mp4', 'stab.trf', 'stab.mp4', 'loop.mp4']
+
+async function processVideoSteps(row: Media): Promise<ProcessedPaths> {
   if (!row.originalPath) throw new Error('Исходник не найден')
 
   const relDir = mediaDir(row)
@@ -144,5 +143,18 @@ export async function processVideo(row: Media): Promise<ProcessedPaths> {
     mp4: `${relDir}/video.mp4`,
     webm: `${relDir}/video.webm`,
     poster: `${relDir}/poster.webp`,
+  }
+}
+
+/**
+ * Полная обработка: поворот → стабилизация → петля → mp4/webm/постер.
+ * Возвращает пути относительно `MEDIA_ROOT`; промежуточные файлы удаляются в любом случае.
+ */
+export async function processVideo(row: Media): Promise<ProcessedPaths> {
+  try {
+    return await processVideoSteps(row)
+  } finally {
+    const dir = safeJoin(mediaRoot(), mediaDir(row))
+    await Promise.all(TEMP_FILES.map((name) => rm(`${dir}/${name}`, { force: true })))
   }
 }

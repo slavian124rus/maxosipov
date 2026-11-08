@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises'
 import { and, eq, ne } from 'drizzle-orm'
 import { MUSCLE_OVERLAY_QUEUE, mediaDir, mediaRoot, runProcess, safeJoin } from '@/modules/media'
 import { db } from '@/shared/db'
@@ -69,5 +70,8 @@ export async function muscleOverlayJob(data: MuscleOverlayData): Promise<boolean
   } catch (error) {
     console.error(`[media.muscles] ${row.id}: подсветка не сделана`, error)
     return false
+  } finally {
+    // pose.npz весит около 5 МБ на каждую секунду ролика и после подсветки не нужен.
+    await rm(poseFile, { force: true })
   }
 }

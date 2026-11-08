@@ -65,6 +65,9 @@ test.skipIf(!ffmpegReady)(
       const out = await run(name, path.join(FIXTURES, `${name}.mp4`))
 
       expect((await stat(out.poster)).size).toBeGreaterThan(1000)
+      for (const temp of ['norm.mp4', 'stab.trf', 'stab.mp4', 'loop.mp4']) {
+        await expect(stat(path.join(path.dirname(out.mp4), temp))).rejects.toThrow()
+      }
 
       const mp4 = await probeVideo(out.mp4)
       const webm = await probeVideo(out.webm)

@@ -57,9 +57,16 @@ test('порядок шагов: стабилизация → петля → mp4
   ])
 })
 
-test('постер — кадр №3', () => {
+test('постер — кадр из середины петли, а не первый рывок', () => {
   const poster = buildPipelineCommands(base).at(-1)!.join(' ')
-  expect(poster).toContain('select=eq(n\\,3)')
+  expect(poster).toContain('-ss 3.50 -i /out/video.mp4')
+  expect(poster).toContain('-frames:v 1')
+})
+
+test('webm кодируется в несколько потоков (row-mt, cpu-used)', () => {
+  const webm = buildPipelineCommands(base).find((args) => args.at(-1) === '/out/video.webm')!.join(' ')
+  expect(webm).toContain('-row-mt 1')
+  expect(webm).toContain('-cpu-used 2')
 })
 
 test('петля собирается кроссфейдом 0,4 с', () => {
