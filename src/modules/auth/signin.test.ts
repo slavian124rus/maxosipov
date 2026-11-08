@@ -50,6 +50,10 @@ beforeEach(async () => {
     })
     .returning()
   trainerId = trainer!.id
+  await db
+    .update(gyms)
+    .set({ settings: { ...gym.settings, headTrainerId: trainerId } })
+    .where(eq(gyms.id, gym.id))
 })
 
 test('новый номер создаёт клиента с ролью «Клиент» и тренером Максимом', async () => {
@@ -132,4 +136,12 @@ test('Яндекс, затем VK с тем же номером — один а�
     .where(eq(authAccounts.userId, viaYandex.userId))
 
   expect(accounts.map((account) => account.provider).sort()).toEqual(['phone', 'vk', 'yandex'])
+})
+
+test('роль главного тренера переименована — новый клиент всё равно получает Максима', async () => {
+  await db.update(roles).set({ name: 'Старший тренер' }).where(eq(roles.name, 'Главный тренер'))
+
+  const result = await signInWithVerifiedPhone('+79990000098')
+  const [user] = await db.select().from(users).where(eq(users.id, result.userId))
+  expect(user?.trainerId).toBe(trainerId)
 })

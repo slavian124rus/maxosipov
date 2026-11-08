@@ -57,6 +57,13 @@
       "when": 1794111593545,
       "tag": "0007_wet_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794111918539,
+      "tag": "0008_head_trainer",
+      "breakpoints": true
     }
   ]
 }

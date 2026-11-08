@@ -22,6 +22,8 @@ export type GymSettings = {
   aiDailyLimit: number
   progressionRules: ProgressionRules
   aiMemo: string
+  /** Главный тренер: его получают новые клиенты (а не «первый с ролью по названию» — ревью F6). */
+  headTrainerId?: string | null
   /** Контакты Максима для экрана «нет доступа». */
   contacts?: {
     phone: string | null

@@ -20,6 +20,12 @@ export async function getGym(): Promise<Gym> {
   return gym
 }
 
+/** Главный тренер зала — назначается новым клиентам. */
+export async function getHeadTrainerId(): Promise<string | null> {
+  const gym = await getGym()
+  return gym.settings.headTrainerId ?? null
+}
+
 export type TrainerContacts = {
   phone: string | null
   maxUrl: string | null

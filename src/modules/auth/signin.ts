@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { startTrialIfEligible } from '@/modules/access'
-import { getGym } from '@/modules/gym'
-import { CLIENT_ROLE_NAME, roles } from '@/modules/rbac'
+import { getGym, getHeadTrainerId } from '@/modules/gym'
+import { roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { authAccounts, users, type AuthProvider } from './schema'
 
@@ -48,24 +48,6 @@ async function attachAccount(
     })
 }
 
-async function findFirstTrainerId(gymId: string): Promise<string | null> {
-  const [trainerRole] = await db
-    .select()
-    .from(roles)
-    .where(eq(roles.name, 'Главный тренер'))
-    .limit(1)
-
-  if (!trainerRole) return null
-
-  const [trainer] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.roleId, trainerRole.id), eq(users.gymId, gymId)))
-    .limit(1)
-
-  return trainer?.id ?? null
-}
-
 /**
  * Вход с подтверждённым телефоном: находит или создаёт пользователя,
  * привязывает способы входа и (для нового) включает пробный период.
@@ -104,7 +86,7 @@ export async function signInWithVerifiedPhone(
     const [clientRole] = await db
       .select()
       .from(roles)
-      .where(eq(roles.name, CLIENT_ROLE_NAME))
+      .where(eq(roles.isClient, true))
       .limit(1)
 
     if (!clientRole) {
@@ -118,7 +100,7 @@ export async function signInWithVerifiedPhone(
         name: link?.name ?? '',
         gymId: gym.id,
         roleId: clientRole.id,
-        trainerId: await findFirstTrainerId(gym.id),
+        trainerId: await getHeadTrainerId(),
       })
       .returning()
 

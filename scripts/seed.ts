@@ -85,6 +85,16 @@ async function ensureRoles(): Promise<Map<string, string>> {
   return new Map(rows.map((role) => [role.name, role.id]))
 }
 
+/** Записывает главного тренера в настройки зала, если он ещё не задан. */
+async function ensureHeadTrainer(gymId: string, trainerId: string): Promise<void> {
+  const [gym] = await db.select().from(gyms).where(eq(gyms.id, gymId)).limit(1)
+  if (!gym || gym.settings.headTrainerId) return
+  await db
+    .update(gyms)
+    .set({ settings: { ...gym.settings, headTrainerId: trainerId } })
+    .where(eq(gyms.id, gymId))
+}
+
 async function ensureUser(input: NewUser): Promise<string> {
   const [inserted] = await db
     .insert(users)
@@ -149,12 +159,13 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
     }
 
     if (options.trainerPhone) {
-      await ensureUser({
+      const headTrainerId = await ensureUser({
         phone: options.trainerPhone,
         name: 'Максим Осипов',
         gymId,
         roleId: roleId(roleIds, 'Главный тренер'),
       })
+      await ensureHeadTrainer(gymId, headTrainerId)
       createdUsers += 1
     }
   } else {
@@ -171,6 +182,7 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       gymId,
       roleId: roleId(roleIds, 'Главный тренер'),
     })
+    await ensureHeadTrainer(gymId, trainerId)
 
     const clientIds: string[] = []
     for (const [index, phone] of DEV_CLIENT_PHONES.entries()) {
