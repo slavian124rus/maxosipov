@@ -145,3 +145,13 @@ test('роль главного тренера переименована — н
   const [user] = await db.select().from(users).where(eq(users.id, result.userId))
   expect(user?.trainerId).toBe(trainerId)
 })
+
+test('двойной тап: два параллельных входа одного нового номера — один пользователь, без ошибки', async () => {
+  const results = await Promise.all([
+    signInWithVerifiedPhone('+79990000097'),
+    signInWithVerifiedPhone('+79990000097'),
+  ])
+  expect(results[0].userId).toBe(results[1].userId)
+  const rows = await db.select().from(users).where(eq(users.phone, '+79990000097'))
+  expect(rows).toHaveLength(1)
+})

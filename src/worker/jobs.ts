@@ -1,4 +1,5 @@
 import type { PgBoss } from 'pg-boss'
+import { registerAuthCleanup } from './jobs/auth-cleanup'
 import { registerExpireSubscriptions } from './jobs/expire-subscriptions'
 
 /** Очередь-пульс: раз в 10 минут пишет строку в лог. */
@@ -18,4 +19,5 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
   })
 
   await registerExpireSubscriptions(boss)
+  await registerAuthCleanup(boss)
 }

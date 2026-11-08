@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { clientIpFrom } from '@/shared/client-ip'
 import {
   createSession,
   normalizePhone,
@@ -18,10 +19,7 @@ export type FormState = { error: string | null }
 const RATE_MESSAGE = 'Слишком много попыток. Попробуй через час'
 
 async function clientIp(): Promise<string> {
-  const headerStore = await headers()
-  const forwarded = headerStore.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]!.trim()
-  return headerStore.get('x-real-ip') ?? 'unknown'
+  return clientIpFrom(await headers())
 }
 
 async function userAgent(): Promise<string | null> {
