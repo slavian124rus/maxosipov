@@ -2,13 +2,14 @@ import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
 import { MUSCLES, exercises, machines, muscles, svgLayerId, type MuscleCode } from '@/modules/catalog'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
 import { mediaDir, mediaRoot } from '@/modules/media'
-import { DEFAULT_ROLES, roles } from '@/modules/rbac'
+import { DEFAULT_ROLES, roles, type Actor } from '@/modules/rbac'
+import { copyTemplateToClient, programDays, programExercises, programs } from '@/modules/training'
 import { client, db } from '@/shared/db'
 import { media } from '@/shared/db/schema'
 import { SEED_EXERCISES, SEED_MACHINES } from './seed-catalog'
@@ -193,16 +194,14 @@ async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
 
   for (const exercise of SEED_EXERCISES) {
     const [existing] = await db
-      .select({ id: exercises.id })
+      .select()
       .from(exercises)
       .where(eq(exercises.slug, exercise.slug))
       .limit(1)
 
-    if (existing) continue
+    let videoMediaId: string | null = existing?.videoMediaId ?? null
 
-    let videoMediaId: string | null = null
-
-    if (exercise.source && exercise.poster) {
+    if (!videoMediaId && exercise.source && exercise.poster) {
       const id = randomUUID()
       const createdAt = new Date()
       const relDir = mediaDir({ id, createdAt })
@@ -236,7 +235,7 @@ async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
       videoMediaId = row?.id ?? null
     }
 
-    await db.insert(exercises).values({
+    const values = {
       gymId,
       machineId: machineIds.get(exercise.machine) ?? null,
       name: exercise.name,
@@ -250,7 +249,104 @@ async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
       defaultRepMin: 10,
       defaultRepMax: 12,
       status: exercise.status,
-    })
+    }
+
+    if (existing) {
+      await db
+        .update(exercises)
+        .set({ ...values, updatedAt: new Date() })
+        .where(eq(exercises.id, existing.id))
+    } else {
+      await db.insert(exercises).values(values)
+    }
+  }
+}
+
+/** Шаблон «Старт: 3 дня» и выдача его клиентам 1–4. */
+const TEMPLATE_NAME = 'Старт: 3 дня'
+
+const TEMPLATE_DAYS = [
+  {
+    name: 'День A — спина и бицепс',
+    slugs: ['tyaga-verkhnego-bloka-k-grudi', 'tyaga-gorizontalnogo-bloka', 'podyom-shtangi-na-bitseps'],
+  },
+  { name: 'День B — ноги', slugs: ['zhim-nogami', 'razgibanie-nog'] },
+  {
+    name: 'День C — повтор A',
+    slugs: ['tyaga-verkhnego-bloka-k-grudi', 'tyaga-gorizontalnogo-bloka', 'podyom-shtangi-na-bitseps'],
+  },
+]
+
+async function ensureTraining(gymId: string, trainerId: string, trainerRoleId: string): Promise<void> {
+  const [existingTemplate] = await db
+    .select({ id: programs.id })
+    .from(programs)
+    .where(and(eq(programs.name, TEMPLATE_NAME), isNull(programs.ownerId)))
+    .limit(1)
+
+  let templateId = existingTemplate?.id ?? null
+
+  if (!templateId) {
+    const [template] = await db
+      .insert(programs)
+      .values({ gymId, ownerId: null, authorId: trainerId, authorKind: 'trainer', name: TEMPLATE_NAME })
+      .returning({ id: programs.id })
+
+    if (!template) throw new Error('Шаблон не создан')
+    templateId = template.id
+
+    const catalog = await db
+      .select({ id: exercises.id, slug: exercises.slug })
+      .from(exercises)
+      .where(inArray(exercises.slug, TEMPLATE_DAYS.flatMap((day) => day.slugs)))
+    const bySlug = new Map(catalog.map((row) => [row.slug, row.id]))
+
+    for (const [dayIndex, day] of TEMPLATE_DAYS.entries()) {
+      const dayId = randomUUID()
+      await db
+        .insert(programDays)
+        .values({ id: dayId, programId: templateId, name: day.name, order: dayIndex + 1 })
+
+      const rows = day.slugs
+        .map((slug, index) => ({ slug, index, exerciseId: bySlug.get(slug) }))
+        .filter((row): row is { slug: string; index: number; exerciseId: string } => Boolean(row.exerciseId))
+        .map((row) => ({
+          dayId,
+          order: row.index + 1,
+          exerciseId: row.exerciseId,
+          sets: row.slug === 'zhim-nogami' ? 4 : 3,
+          repMin: 10,
+          repMax: row.slug === 'razgibanie-nog' ? 15 : 12,
+          restSec: 90,
+        }))
+
+      if (rows.length > 0) await db.insert(programExercises).values(rows)
+    }
+  }
+
+  const actor: Actor = {
+    id: trainerId,
+    roleId: trainerRoleId,
+    gymId,
+    isOwner: false,
+    permissions: [{ code: 'clients.edit_programs', scope: 'all' }],
+  }
+
+  const clients = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.phone, DEV_CLIENT_PHONES.slice(0, 4)))
+
+  for (const clientRow of clients) {
+    const [active] = await db
+      .select({ id: programs.id })
+      .from(programs)
+      .where(and(eq(programs.ownerId, clientRow.id), eq(programs.status, 'active')))
+      .limit(1)
+
+    if (!active) {
+      await copyTemplateToClient(actor, templateId, clientRow.id, gymId)
+    }
   }
 }
 
@@ -299,6 +395,7 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
     })
     await ensureHeadTrainer(gymId, trainerId)
     await ensureCatalog(gymId, trainerId)
+    await ensureTraining(gymId, trainerId, roleId(roleIds, 'Главный тренер'))
 
     const clientIds: string[] = []
     for (const [index, phone] of DEV_CLIENT_PHONES.entries()) {
