@@ -22,64 +22,88 @@ function phoneHash(phone: string): string {
   return createHash('sha256').update(`${phone}${env.AUTH_SECRET}`).digest('hex')
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Db = typeof db | Tx
+
 async function findUser(userId: string) {
   const [row] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!row) throw new Error('Пользователь не найден')
   return row
 }
 
-async function findSub(userId: string): Promise<SubscriptionRow | null> {
-  const [row] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId))
+/** Текущая подписка; внутри транзакции — с блокировкой строки до конца транзакции. */
+async function findSub(userId: string, tx: Db = db, lock = false): Promise<SubscriptionRow | null> {
+  const query = tx.select().from(subscriptions).where(eq(subscriptions.userId, userId))
+  const [row] = lock ? await query.for('update') : await query
   return row ?? null
 }
 
-/** Проверяет право на управление подпиской конкретного клиента. */
+/**
+ * Право на подписку конкретного клиента. Сначала право вообще (без цели) —
+ * посторонний не узнаёт, существует ли пользователь (ревью F5).
+ */
 async function assertGrant(actor: Actor, userId: string): Promise<void> {
+  assertCan(actor, 'subscriptions.grant')
   const user = await findUser(userId)
   assertCan(actor, 'subscriptions.grant', { clientId: userId, clientTrainerId: user.trainerId })
 }
 
 async function writeEvent(
+  tx: Db,
   userId: string,
   type: (typeof subscriptionEvents.$inferInsert)['type'],
   extra: Partial<typeof subscriptionEvents.$inferInsert> = {},
 ): Promise<void> {
-  await db.insert(subscriptionEvents).values({ userId, type, ...extra })
+  await tx.insert(subscriptionEvents).values({ userId, type, ...extra })
 }
 
-/** Пробный период: один раз на номер телефона. `true`, если выдан сейчас. */
+/**
+ * Пробный период: один раз на номер телефона. `true`, если выдан сейчас.
+ * Номер «занимается» вставкой в `trial_registry` с `ON CONFLICT DO NOTHING` —
+ * два параллельных входа не получат два пробных периода (ревью F5).
+ */
 export async function startTrialIfEligible(userId: string, phone: string): Promise<boolean> {
-  const hash = phoneHash(phone)
-
-  const [used] = await db
-    .select()
-    .from(trialRegistry)
-    .where(eq(trialRegistry.phoneHash, hash))
-    .limit(1)
-
-  if (used) return false
-
-  const existing = await findSub(userId)
-  if (existing) return false
-
   const gym = await getGym()
-  const now = new Date()
-  const endsAt = addDays(now, gym.settings.trialDays)
 
-  await db
-    .insert(trialRegistry)
-    .values({ phoneHash: hash, usedAt: now })
-    .onConflictDoNothing({ target: trialRegistry.phoneHash })
+  return db.transaction(async (tx) => {
+    if (await findSub(userId, tx, true)) return false
 
-  await db.insert(subscriptions).values({ userId, status: 'trial', startsAt: now, endsAt })
-  await writeEvent(userId, 'trial_started')
+    const now = new Date()
+    const [claimed] = await tx
+      .insert(trialRegistry)
+      .values({ phoneHash: phoneHash(phone), usedAt: now })
+      .onConflictDoNothing({ target: trialRegistry.phoneHash })
+      .returning({ phoneHash: trialRegistry.phoneHash })
 
-  return true
+    if (!claimed) return false
+
+    await tx
+      .insert(subscriptions)
+      .values({ userId, status: 'trial', startsAt: now, endsAt: addDays(now, gym.settings.trialDays) })
+    await writeEvent(tx, userId, 'trial_started')
+    return true
+  })
+}
+
+/** От какой даты продлевать: активная — от конца, замороженная — от конца + срок заморозки, иначе — от сегодня. */
+function extensionBase(current: SubscriptionRow | null, now: Date): Date {
+  if (!current) return now
+  const endsMs = current.endsAt.getTime()
+
+  if ((current.status === 'trial' || current.status === 'active') && endsMs > now.getTime()) {
+    return current.endsAt
+  }
+  if (current.status === 'frozen' && current.frozenAt) {
+    const shifted = endsMs + (now.getTime() - current.frozenAt.getTime())
+    return shifted > now.getTime() ? new Date(shifted) : now
+  }
+  return now
 }
 
 /**
  * Выдаёт подписку: ровно одно из `months` / `untilDate`.
- * Продление активной считается от её конца, истёкшей — от сегодня.
+ * Продление активной считается от её конца, замороженной — с учётом заморозки,
+ * истёкшей — от сегодня.
  */
 export async function grant(
   actor: Actor,
@@ -98,106 +122,113 @@ export async function grant(
   }
 
   const now = new Date()
+  if (input.untilDate !== undefined && input.untilDate.getTime() <= now.getTime()) {
+    throw new Error('Дата должна быть в будущем')
+  }
+
   const gym = await getGym()
-  const current = await findSub(userId)
 
-  const isActiveNow =
-    current !== null &&
-    (current.status === 'trial' || current.status === 'active') &&
-    current.endsAt.getTime() > now.getTime()
+  return db.transaction(async (tx) => {
+    const current = await findSub(userId, tx, true)
+    const base = extensionBase(current, now)
+    const endsAt = input.months
+      ? addMonthsClamped(base, input.months, gym.timezone)
+      : input.untilDate!
 
-  const base = isActiveNow && current ? current.endsAt : now
-  const endsAt = input.months
-    ? addMonthsClamped(base, input.months, gym.timezone)
-    : input.untilDate!
+    const [updated] = await tx
+      .insert(subscriptions)
+      .values({ userId, status: 'active', startsAt: current?.startsAt ?? now, endsAt })
+      .onConflictDoUpdate({
+        target: subscriptions.userId,
+        set: { status: 'active', endsAt, frozenAt: null, statusBeforeFreeze: null, updatedAt: now },
+      })
+      .returning()
 
-  const [updated] = await db
-    .insert(subscriptions)
-    .values({ userId, status: 'active', startsAt: current?.startsAt ?? now, endsAt })
-    .onConflictDoUpdate({
-      target: subscriptions.userId,
-      set: { status: 'active', endsAt, frozenAt: null, statusBeforeFreeze: null, updatedAt: now },
+    await writeEvent(tx, userId, 'granted', {
+      months: input.months ?? null,
+      untilDate: input.untilDate ?? null,
+      priceRub: input.priceRub ?? null,
+      note: input.note ?? null,
+      actorId: actor.id,
     })
-    .returning()
 
-  await writeEvent(userId, 'granted', {
-    months: input.months ?? null,
-    untilDate: input.untilDate ?? null,
-    priceRub: input.priceRub ?? null,
-    note: input.note ?? null,
-    actorId: actor.id,
+    return updated!
   })
-
-  return updated!
 }
 
 /** Заморозка: доступ пропадает, конец подписки потом сдвинется на срок заморозки. */
 export async function freeze(actor: Actor, userId: string): Promise<SubscriptionRow> {
   await assertGrant(actor, userId)
 
-  const current = await findSub(userId)
-  if (!current) throw new Error('Подписки нет')
-  if (current.status !== 'trial' && current.status !== 'active') {
-    throw new Error('Заморозить можно только активную подписку')
-  }
+  return db.transaction(async (tx) => {
+    const current = await findSub(userId, tx, true)
+    if (!current) throw new Error('Подписки нет')
+    if (current.status !== 'trial' && current.status !== 'active') {
+      throw new Error('Заморозить можно только активную подписку')
+    }
 
-  const now = new Date()
-  const [updated] = await db
-    .update(subscriptions)
-    .set({ status: 'frozen', statusBeforeFreeze: current.status, frozenAt: now, updatedAt: now })
-    .where(eq(subscriptions.userId, userId))
-    .returning()
+    const now = new Date()
+    const [updated] = await tx
+      .update(subscriptions)
+      .set({ status: 'frozen', statusBeforeFreeze: current.status, frozenAt: now, updatedAt: now })
+      .where(eq(subscriptions.userId, userId))
+      .returning()
 
-  await writeEvent(userId, 'frozen', { actorId: actor.id })
-  return updated!
+    await writeEvent(tx, userId, 'frozen', { actorId: actor.id })
+    return updated!
+  })
 }
 
 /** Разморозка: конец подписки сдвигается ровно на длительность заморозки. */
 export async function unfreeze(actor: Actor, userId: string): Promise<SubscriptionRow> {
   await assertGrant(actor, userId)
 
-  const current = await findSub(userId)
-  if (!current) throw new Error('Подписки нет')
-  if (current.status !== 'frozen' || !current.frozenAt) {
-    throw new Error('Подписка не заморожена')
-  }
+  return db.transaction(async (tx) => {
+    const current = await findSub(userId, tx, true)
+    if (!current) throw new Error('Подписки нет')
+    if (current.status !== 'frozen' || !current.frozenAt) {
+      throw new Error('Подписка не заморожена')
+    }
 
-  const now = new Date()
-  const frozenMs = now.getTime() - current.frozenAt.getTime()
-  const endsAt = new Date(current.endsAt.getTime() + frozenMs)
+    const now = new Date()
+    const frozenMs = now.getTime() - current.frozenAt.getTime()
+    const endsAt = new Date(current.endsAt.getTime() + frozenMs)
 
-  const [updated] = await db
-    .update(subscriptions)
-    .set({
-      status: current.statusBeforeFreeze ?? 'active',
-      frozenAt: null,
-      statusBeforeFreeze: null,
-      endsAt,
-      updatedAt: now,
-    })
-    .where(eq(subscriptions.userId, userId))
-    .returning()
+    const [updated] = await tx
+      .update(subscriptions)
+      .set({
+        status: current.statusBeforeFreeze ?? 'active',
+        frozenAt: null,
+        statusBeforeFreeze: null,
+        endsAt,
+        updatedAt: now,
+      })
+      .where(eq(subscriptions.userId, userId))
+      .returning()
 
-  await writeEvent(userId, 'unfrozen', { actorId: actor.id })
-  return updated!
+    await writeEvent(tx, userId, 'unfrozen', { actorId: actor.id })
+    return updated!
+  })
 }
 
 /** Отключение доступа (например, клиент ушёл из зала). */
 export async function disable(actor: Actor, userId: string): Promise<SubscriptionRow> {
   await assertGrant(actor, userId)
 
-  const current = await findSub(userId)
-  if (!current) throw new Error('Подписки нет')
+  return db.transaction(async (tx) => {
+    const current = await findSub(userId, tx, true)
+    if (!current) throw new Error('Подписки нет')
 
-  const now = new Date()
-  const [updated] = await db
-    .update(subscriptions)
-    .set({ status: 'disabled', updatedAt: now })
-    .where(eq(subscriptions.userId, userId))
-    .returning()
+    const now = new Date()
+    const [updated] = await tx
+      .update(subscriptions)
+      .set({ status: 'disabled', updatedAt: now })
+      .where(eq(subscriptions.userId, userId))
+      .returning()
 
-  await writeEvent(userId, 'disabled', { actorId: actor.id })
-  return updated!
+    await writeEvent(tx, userId, 'disabled', { actorId: actor.id })
+    return updated!
+  })
 }
 
 /**

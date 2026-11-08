@@ -274,3 +274,49 @@ test('история подписки: не больше 10 событий ко�
     ForbiddenError,
   )
 })
+
+test('grant замороженному: оставшиеся дни не сгорают', async () => {
+  await startTrialIfEligible(clientId, '+79990000011')
+  // осталось 20 дней, заморозили 10 дней назад
+  vi.setSystemTime(new Date(NOW.getTime() + 10 * DAY))
+  await freeze(owner, clientId)
+  const frozen = await currentSub(clientId)
+  vi.setSystemTime(new Date(NOW.getTime() + 20 * DAY))
+
+  const granted = await grant(owner, clientId, { months: 1 })
+
+  const base = new Date(frozen.endsAt.getTime() + 10 * DAY)
+  const expected = new Date(base)
+  expected.setUTCMonth(expected.getUTCMonth() + 1)
+  expect(granted.endsAt.toISOString()).toBe(expected.toISOString())
+  expect(granted.status).toBe('active')
+  expect(granted.frozenAt).toBeNull()
+})
+
+test('grant до прошедшей даты — ошибка', async () => {
+  await expect(
+    grant(owner, clientId, { untilDate: new Date(NOW.getTime() - DAY) }),
+  ).rejects.toThrow('Дата должна быть в будущем')
+})
+
+test('посторонний не узнаёт, есть ли пользователь', async () => {
+  await expect(
+    grant(client, '00000000-0000-0000-0000-000000000000', { months: 1 }),
+  ).rejects.toBeInstanceOf(ForbiddenError)
+})
+
+test('два параллельных startTrialIfEligible для одного номера — одна подписка', async () => {
+  const results = await Promise.all([
+    startTrialIfEligible(clientId, '+79990000011'),
+    startTrialIfEligible(clientId, '+79990000011'),
+  ])
+  expect(results.filter(Boolean)).toHaveLength(1)
+
+  const rows = await db.select().from(subscriptions).where(eq(subscriptions.userId, clientId))
+  expect(rows).toHaveLength(1)
+  const events = await db
+    .select()
+    .from(subscriptionEvents)
+    .where(eq(subscriptionEvents.userId, clientId))
+  expect(events.filter((event) => event.type === 'trial_started')).toHaveLength(1)
+})
