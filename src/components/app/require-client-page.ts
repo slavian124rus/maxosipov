@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation'
 import { getAccessForUser } from '@/modules/access'
 import { getCurrentUser, type CurrentUser } from '@/modules/auth'
+import { appUrl } from '@/shared/app-url'
 import { decideRoute } from './guard'
 
 /** Пути клиентских экранов: охрана получает путь от страницы, а не из заголовков запроса. */
 export type ClientPath =
   | '/'
+  | '/workout'
   | '/workouts'
   | '/coach'
   | '/exercises'
@@ -30,6 +32,6 @@ export async function requireClientPage(path: ClientPath): Promise<CurrentUser> 
     path,
   })
 
-  if ('redirect' in decision) redirect(decision.redirect)
+  if ('redirect' in decision) redirect(appUrl(decision.redirect).toString())
   return current!
 }

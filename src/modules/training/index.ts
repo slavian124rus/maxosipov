@@ -28,10 +28,12 @@ export type { ChangeActorKind } from './programs'
 export {
   finishSession,
   getHistoryForExercise,
+  getLastFinishedDayId,
   getNextWeight,
   getRecommendations,
   getSessionDetail,
   getSessionSummary,
+  getWeekWorkoutDays,
   listSessions,
   setExerciseFeeling,
   setNextWeight,

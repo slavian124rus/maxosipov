@@ -4,6 +4,7 @@ import { requireClientPage } from '@/components/app/require-client-page'
 export const instant = false
 import { getAccessForUser } from '@/modules/access'
 import { formatPhone } from '@/modules/auth'
+import { setWorkoutModeAction } from '../actions'
 
 /** Дата в формате «7 декабря» по Красноярску. */
 function formatDateRu(date: Date): string {
@@ -35,6 +36,36 @@ export default async function ProfilePage() {
         <p className="text-[15px] text-text-secondary">
           {accessLabel(access.status, access.endsAt, access.hasAccess)}
         </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] text-text-muted">Режим тренировки</p>
+        <form action={setWorkoutModeAction} className="flex gap-2">
+          <input type="hidden" name="mode" value="free" />
+          <button
+            type="submit"
+            className={`h-12 flex-1 rounded-control border text-[15px] ${
+              user.workoutMode === 'free'
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
+          >
+            Свободный
+          </button>
+        </form>
+        <form action={setWorkoutModeAction} className="flex gap-2">
+          <input type="hidden" name="mode" value="guided" />
+          <button
+            type="submit"
+            className={`h-12 flex-1 rounded-control border text-[15px] ${
+              user.workoutMode === 'guided'
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
+          >
+            Пошаговый
+          </button>
+        </form>
       </div>
 
       <form action="/api/auth/logout" method="post">

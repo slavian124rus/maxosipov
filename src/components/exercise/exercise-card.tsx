@@ -132,17 +132,16 @@ export function ExerciseCard({ exercise }: { exercise: ExerciseDetail }) {
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[480px] gap-2 border-t border-border bg-surface-1 px-4 py-3">
         <Link
           href={`/coach?exercise=${exercise.slug}`}
-          className="flex h-12 flex-1 items-center justify-center rounded-control bg-accent text-[15px] text-white"
+          className="flex h-12 flex-1 items-center justify-center rounded-control border border-border text-[15px] text-text"
         >
           Спросить МаксИИма
         </Link>
-        <button
-          type="button"
-          disabled
-          className="h-12 flex-1 rounded-control border border-border text-[15px] text-text-muted"
+        <Link
+          href={`/workout?exercise=${exercise.id}`}
+          className="flex h-12 flex-1 items-center justify-center rounded-control bg-accent text-[15px] text-white"
         >
           В тренировку
-        </button>
+        </Link>
       </div>
     </div>
   )

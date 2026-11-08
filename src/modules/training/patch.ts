@@ -83,10 +83,9 @@ export type ProgramPatch = z.infer<typeof programPatchSchema>
 export type ProgramPatchOp = ProgramPatch['ops'][number]
 
 /** «3 подхода · 10–12 раз» / «3 подхода · 10 раз». */
-export function formatScheme(setsCount: number, repMin: number, repMax: number): string {
-  const repsText = repMin === repMax ? `${repMin} раз` : `${repMin}–${repMax} раз`
-  return `${setsCount} подхода · ${repsText}`
-}
+import { formatScheme } from '@/shared/scheme'
+
+export { formatScheme }
 
 function clone(tree: ProgramTree): ProgramTree {
   return {

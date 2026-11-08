@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { offlineDb, type ActiveSessionRecord, type OfflineFeeling } from './db'
+import { getOfflineDb, type ActiveSessionRecord, type OfflineFeeling } from './db'
 import { enqueueSet, flushQueue, pendingCount } from './queue'
 
 const FLUSH_INTERVAL_MS = 15_000
@@ -39,15 +39,18 @@ export function useActiveSession() {
   }, [refreshPending])
 
   useEffect(() => {
-    void offlineDb.activeSession
-      .toCollection()
-      .first()
-      .then((record) => {
+    void (async () => {
+      try {
+        const db = await getOfflineDb()
+        const record = await db.activeSession.toCollection().first()
         const active = record ?? null
         sessionRef.current = active
         setSession(active)
-        void refreshPending()
-      })
+        await refreshPending()
+      } catch (error) {
+        console.error('[offline] не удалось открыть локальную базу', error)
+      }
+    })()
   }, [refreshPending])
 
   useEffect(() => {
@@ -76,7 +79,7 @@ export function useActiveSession() {
         programSnapshot: input.programSnapshot,
       }
 
-      await offlineDb.activeSession.put(record)
+      await (await getOfflineDb()).activeSession.put(record)
       sessionRef.current = record
       setSession(record)
 
@@ -129,13 +132,13 @@ export function useActiveSession() {
       const active = sessionRef.current
       if (!active) return
 
-      await offlineDb.feelings.add({
+      await (await getOfflineDb()).feelings.add({
         sessionClientUuid: active.clientUuid,
         exerciseId,
         feeling,
         synced: 0,
       })
-      await offlineDb.sets
+      await (await getOfflineDb()).sets
         .where('sessionClientUuid')
         .equals(active.clientUuid)
         .and((row) => row.exerciseId === exerciseId)
@@ -176,7 +179,7 @@ export function useActiveSession() {
       // офлайн — завершим позже
     }
 
-    await offlineDb.activeSession.clear()
+    await (await getOfflineDb()).activeSession.clear()
     sessionRef.current = null
     setSession(null)
   }, [flush])

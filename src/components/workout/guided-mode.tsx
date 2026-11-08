@@ -1,0 +1,133 @@
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { ExerciseLogger } from './exercise-logger'
+import { FeelingPicker, type Feeling } from './feeling-picker'
+import { RecommendationCard } from './recommendation-card'
+import { RestTimer } from './rest-timer'
+import { formatScheme } from '@/shared/scheme'
+import type { LoggedSet, WorkoutExercise } from './free-mode'
+
+type Props = {
+  exercises: WorkoutExercise[]
+  logged: Record<string, LoggedSet[]>
+  onLog: (exercise: WorkoutExercise, weightKg: number, reps: number) => void
+  onFeeling: (exercise: WorkoutExercise, feeling: Feeling) => void
+  onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void
+}
+
+/** Пошаговый режим: одно упражнение на экран, таймер отдыха (DESIGN.md §8.4). */
+export function GuidedMode({ exercises, logged, onLog, onFeeling, onNextWeight }: Props) {
+  const [index, setIndex] = useState(0)
+  const [phase, setPhase] = useState<'idle' | 'logging' | 'rest'>('idle')
+
+  const exercise = exercises[index]
+  if (!exercise) return <p className="text-[15px] text-text-secondary">Упражнений нет</p>
+
+  const done = logged[exercise.programExerciseId] ?? []
+  const complete = done.length >= exercise.sets
+  const isLast = index === exercises.length - 1
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between text-[13px] text-text-muted">
+        <span>
+          {index + 1} из {exercises.length}
+        </span>
+        <span>{formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}</span>
+      </div>
+
+      {exercise.videoMp4Url ? (
+        <video
+          className="aspect-[9/16] w-full rounded-card bg-black object-cover"
+          src={exercise.videoMp4Url}
+          poster={exercise.posterUrl ?? undefined}
+          muted
+          loop
+          autoPlay
+          playsInline
+          preload="metadata"
+          onClick={(event) => {
+            const video = event.currentTarget
+            if (video.paused) void video.play()
+            else video.pause()
+          }}
+        />
+      ) : null}
+
+      <h2 className="font-display text-[34px] leading-none">{exercise.name}</h2>
+
+      {exercise.recommendation ? (
+        <p className="text-[15px] text-text-secondary">{exercise.recommendation.text}</p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {done.map((set) => (
+          <span
+            key={set.index}
+            className="rounded-full bg-surface-2 px-3 py-1 text-[13px] text-text-secondary"
+          >
+            {set.index}: {set.weightKg} кг · {set.reps} раз
+          </span>
+        ))}
+      </div>
+
+      {!complete && phase === 'idle' ? (
+        <Button type="button" onClick={() => setPhase('logging')}>
+          Старт подхода
+        </Button>
+      ) : null}
+
+      {!complete && phase === 'logging' ? (
+        <ExerciseLogger
+          setNumber={done.length + 1}
+          stepKg={exercise.stepKg}
+          initialWeightKg={done.at(-1)?.weightKg ?? exercise.startWeightKg}
+          initialReps={done.at(-1)?.reps ?? exercise.repMax}
+          onLog={(weightKg, reps) => {
+            onLog(exercise, weightKg, reps)
+            setPhase('rest')
+          }}
+        />
+      ) : null}
+
+      {!complete && phase === 'rest' ? (
+        <RestTimer
+          seconds={exercise.restSec}
+          onDone={() => setPhase('idle')}
+          onSkip={() => setPhase('idle')}
+        />
+      ) : null}
+
+      {complete ? (
+        <div className="flex flex-col gap-3">
+          <FeelingPicker onPick={(feeling) => onFeeling(exercise, feeling)} />
+          {exercise.recommendation ? (
+            <RecommendationCard
+              text={exercise.recommendation.text}
+              weightKg={exercise.recommendation.weightKg}
+              onAccept={() =>
+                onNextWeight(exercise, exercise.recommendation?.weightKg ?? exercise.startWeightKg)
+              }
+              onKeep={() => onNextWeight(exercise, done.at(-1)?.weightKg ?? exercise.startWeightKg)}
+            />
+          ) : null}
+          {!isLast ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setIndex(index + 1)
+                setPhase('idle')
+              }}
+            >
+              Дальше
+            </Button>
+          ) : (
+            <p className="text-[13px] text-text-muted">Это последнее упражнение — заверши тренировку</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}

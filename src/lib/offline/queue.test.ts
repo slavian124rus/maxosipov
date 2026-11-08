@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, expect, test } from 'vitest'
-import { offlineDb, type OfflineSet } from './db'
+import { getOfflineDb, type OfflineSet } from './db'
 import { enqueueSet, flushQueue, pendingCount } from './queue'
 
 function set(index: number): Omit<OfflineSet, 'synced'> {
@@ -16,9 +16,9 @@ function set(index: number): Omit<OfflineSet, 'synced'> {
 }
 
 beforeEach(async () => {
-  await offlineDb.sets.clear()
-  await offlineDb.feelings.clear()
-  await offlineDb.activeSession.clear()
+  await (await getOfflineDb()).sets.clear()
+  await (await getOfflineDb()).feelings.clear()
+  await (await getOfflineDb()).activeSession.clear()
 })
 
 test('сеть падает: все три подхода остаются в очереди', async () => {
@@ -53,7 +53,7 @@ test('сервер принял только два: третий остаётс
   expect(result).toEqual({ sent: 2, failed: 1 })
   expect(await pendingCount()).toBe(1)
 
-  const left = await offlineDb.sets.where('synced').equals(0).toArray()
+  const left = await (await getOfflineDb()).sets.where('synced').equals(0).toArray()
   expect(left.map((row) => row.clientUuid)).toEqual(['set-3'])
 })
 

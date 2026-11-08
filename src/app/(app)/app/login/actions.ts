@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { appUrl } from '@/shared/app-url'
 import { clientIpFrom } from '@/shared/client-ip'
 import {
   createSession,
@@ -38,7 +39,7 @@ export async function requestCodeAction(
   const result = await requestOtp(phone, await clientIp())
   if (!result.ok) return { error: RATE_MESSAGE }
 
-  redirect(`/login/code?phone=${encodeURIComponent(phone)}`)
+  redirect(appUrl(`/login/code?phone=${encodeURIComponent(phone)}`).toString())
 }
 
 /** Повторная отправка кода с того же экрана (без перехода). */
@@ -92,5 +93,5 @@ export async function verifyCodeAction(
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt))
 
-  redirect(isNew ? '/onboarding' : '/')
+  redirect(appUrl(isNew ? '/onboarding' : '/').toString())
 }

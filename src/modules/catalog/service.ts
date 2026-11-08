@@ -39,6 +39,8 @@ export type ExerciseDetail = ExerciseListItem & {
   videoWebmUrl: string | null
   musclesMp4Url: string | null
   hasMuscles: boolean
+  /** Шаг веса тренажёра; для свободных весов — 2,5 кг. */
+  weightStepKg: number
 }
 
 async function uniqueSlug(gymId: string, name: string): Promise<string> {
@@ -347,7 +349,7 @@ export async function getExercise(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug)
 
   const [row] = await db
-    .select({ exercise: exercises, machineName: machines.name })
+    .select({ exercise: exercises, machineName: machines.name, weightStepKg: machines.weightStepKg })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
     .where(isUuid ? eq(exercises.id, idOrSlug) : eq(exercises.slug, idOrSlug))
@@ -386,5 +388,6 @@ export async function getExercise(
     musclesMp4Url: showMuscles ? sign(paths?.musclesMp4) : null,
     hasMuscles: showMuscles && Boolean(paths?.musclesMp4),
     videoStatus: video?.status ?? null,
+    weightStepKg: row.weightStepKg ?? 2.5,
   }
 }

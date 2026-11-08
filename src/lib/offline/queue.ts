@@ -1,10 +1,10 @@
-import { offlineDb, type OfflineSet } from './db'
+import { getOfflineDb, type OfflineSet } from './db'
 
 const BATCH_SIZE = 50
 
 /** Подход записывается локально мгновенно и ждёт отправки. */
 export async function enqueueSet(set: Omit<OfflineSet, 'synced'>): Promise<void> {
-  await offlineDb.sets.put({ ...set, synced: 0 })
+  await (await getOfflineDb()).sets.put({ ...set, synced: 0 })
 }
 
 /**
@@ -14,7 +14,7 @@ export async function enqueueSet(set: Omit<OfflineSet, 'synced'>): Promise<void>
 export async function flushQueue(
   fetchFn: typeof fetch = fetch,
 ): Promise<{ sent: number; failed: number }> {
-  const pending = await offlineDb.sets.where('synced').equals(0).limit(BATCH_SIZE).toArray()
+  const pending = await (await getOfflineDb()).sets.where('synced').equals(0).limit(BATCH_SIZE).toArray()
 
   if (pending.length === 0) return { sent: 0, failed: 0 }
 
@@ -44,7 +44,7 @@ export async function flushQueue(
     const accepted = new Set(body.accepted ?? [])
 
     if (accepted.size > 0) {
-      await offlineDb.sets.where('clientUuid').anyOf([...accepted]).modify({ synced: 1 })
+      await (await getOfflineDb()).sets.where('clientUuid').anyOf([...accepted]).modify({ synced: 1 })
     }
 
     return { sent: accepted.size, failed: pending.length - accepted.size }
@@ -55,5 +55,5 @@ export async function flushQueue(
 
 /** Сколько подходов ещё не ушло на сервер. */
 export async function pendingCount(): Promise<number> {
-  return offlineDb.sets.where('synced').equals(0).count()
+  return (await getOfflineDb()).sets.where('synced').equals(0).count()
 }

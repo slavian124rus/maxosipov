@@ -353,7 +353,61 @@ export async function getSessionDetail(
   }
 }
 
-/** История тренировок клиента (только завершённые). */
+/** День последней завершённой тренировки — от него считаем «следующий день». */
+export async function getLastFinishedDayId(userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ dayId: workoutSessions.programDayId })
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, userId), sql`${workoutSessions.finishedAt} is not null`))
+    .orderBy(desc(workoutSessions.startedAt))
+    .limit(1)
+
+  return row?.dayId ?? null
+}
+
+const WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Krasnoyarsk',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+function localDateKey(date: Date): string {
+  return WEEKDAY_FORMATTER.format(date)
+}
+
+/** Серия недели: 7 флагов Пн–Вс, заполненные — дни с завершённой тренировкой. */
+export async function getWeekWorkoutDays(
+  userId: string,
+  now: Date = new Date(),
+): Promise<boolean[]> {
+  const rows = await db
+    .select({ finishedAt: workoutSessions.finishedAt })
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, userId), sql`${workoutSessions.finishedAt} is not null`))
+
+  const todayKey = localDateKey(now)
+  const [year, month, day] = todayKey.split('-').map(Number)
+  const todayUtc = Date.UTC(year!, month! - 1, day!)
+  const weekday = new Date(todayUtc).getUTCDay()
+  const mondayUtc = todayUtc - ((weekday + 6) % 7) * 24 * 60 * 60 * 1000
+
+  const result = [false, false, false, false, false, false, false]
+
+  for (const row of rows) {
+    if (!row.finishedAt) continue
+
+    const key = localDateKey(row.finishedAt)
+    const [rowYear, rowMonth, rowDay] = key.split('-').map(Number)
+    const diff = Math.round(
+      (Date.UTC(rowYear!, rowMonth! - 1, rowDay!) - mondayUtc) / (24 * 60 * 60 * 1000),
+    )
+
+    if (diff >= 0 && diff < 7) result[diff] = true
+  }
+
+  return result
+}
 export async function listSessions(
   userId: string,
   limit = 30,

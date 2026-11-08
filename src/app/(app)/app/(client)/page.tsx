@@ -1,8 +1,18 @@
-import { requireClientPage } from '@/components/app/require-client-page'
-
-// Экран зависит от сессии и подписки.
-export const instant = false
 import Link from 'next/link'
+import { requireClientPage } from '@/components/app/require-client-page'
+import { getAccessForUser } from '@/modules/access'
+import {
+  getActiveProgram,
+  getLastFinishedDayId,
+  getWeekWorkoutDays,
+  listTemplates,
+} from '@/modules/training'
+import { copyTemplateAction } from './actions'
+
+// Экран зависит от сессии, программы и подписки.
+export const instant = false
+
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -16,8 +26,20 @@ function initials(name: string): string {
 export default async function TodayPage() {
   const { user } = await requireClientPage('/')
 
+  const [program, access, streak, lastDayId, templates] = await Promise.all([
+    getActiveProgram(user.id),
+    getAccessForUser(user.id),
+    getWeekWorkoutDays(user.id),
+    getLastFinishedDayId(user.id),
+    listTemplates(),
+  ])
+
+  const days = program?.days ?? []
+  const lastIndex = days.findIndex((day) => day.id === lastDayId)
+  const nextDay = days.length > 0 ? days[(lastIndex + 1) % days.length] : null
+
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
+    <main className="flex flex-col gap-5 px-4 py-6">
       <header className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <p className="text-[13px] text-text-muted">Сегодня</p>
@@ -32,9 +54,61 @@ export default async function TodayPage() {
         </Link>
       </header>
 
-      <p className="text-[15px] text-text-secondary">
-        Тренировка на сегодня появится здесь, когда Максим назначит программу.
-      </p>
+      {nextDay ? (
+        <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
+          <p className="text-[13px] text-text-muted">Сегодня</p>
+          <p className="text-[17px]">{nextDay.name}</p>
+          <p className="text-[15px] text-text-secondary">
+            Упражнений: {nextDay.exercises.length}
+          </p>
+          <Link
+            href="/workout"
+            className="flex h-12 items-center justify-center rounded-control bg-accent text-[15px] text-white"
+          >
+            Начать тренировку
+          </Link>
+        </section>
+      ) : (
+        <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
+          <p className="text-[15px] text-text-secondary">Максим скоро подберёт тебе программу</p>
+          {templates.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px] text-text-muted">Или выбери шаблон сам</p>
+              {templates.map((template) => (
+                <form key={template.id} action={copyTemplateAction}>
+                  <input type="hidden" name="templateId" value={template.id} />
+                  <button
+                    type="submit"
+                    className="min-h-12 w-full rounded-control border border-border bg-surface-2 px-4 text-left text-[15px]"
+                  >
+                    {template.name}
+                  </button>
+                </form>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )}
+
+      <section className="flex flex-col gap-2">
+        <p className="text-[13px] text-text-muted">Серия за неделю</p>
+        <div className="flex justify-between">
+          {WEEKDAYS.map((label, index) => (
+            <div key={label} className="flex flex-col items-center gap-1">
+              <span
+                className={`h-3 w-3 rounded-full ${streak[index] ? 'bg-accent' : 'bg-surface-2'}`}
+              />
+              <span className="text-[11px] text-text-muted">{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {access.hasAccess && (access.daysLeft ?? 99) <= 7 ? (
+        <p className="text-[15px] text-warning">
+          {access.status === 'trial' ? 'Пробный период' : 'Подписка'}: осталось {access.daysLeft} дн.
+        </p>
+      ) : null}
     </main>
   )
 }
