@@ -69,6 +69,9 @@ export async function verifyCodeAction(
   const result = await verifyOtp(phone, code)
   if (!result.ok) {
     if (result.reason === 'expired') return { error: 'Код устарел — запроси новый' }
+    if (result.reason === 'locked_day') {
+      return { error: 'Слишком много попыток. Попробуй завтра или войди через VK/Яндекс' }
+    }
     if (result.reason === 'too_many_attempts') {
       return { error: 'Слишком много попыток — запроси новый код' }
     }

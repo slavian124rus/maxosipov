@@ -1,5 +1,5 @@
-import { createHash, randomInt } from 'node:crypto'
-import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm'
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
+import { and, desc, eq, gt, gte, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/shared/db'
 import { otpCodes } from './schema'
 import { getSmsProvider } from './sms'
@@ -17,7 +17,7 @@ const DEV_CODE = '1111'
 export type RequestOtpResult = { ok: true } | { ok: false; reason: 'rate_phone' | 'rate_ip' }
 export type VerifyOtpResult =
   | { ok: true }
-  | { ok: false; reason: 'invalid' | 'expired' | 'too_many_attempts' }
+  | { ok: false; reason: 'invalid' | 'expired' | 'too_many_attempts' | 'locked_day' }
 
 function hashOtp(phone: string, code: string): string {
   return createHash('sha256').update(`${phone}:${code}`).digest('hex')
@@ -79,8 +79,39 @@ export async function requestOtp(phone: string, ip: string): Promise<RequestOtpR
   return { ok: true }
 }
 
-/** Проверяет код: 5 минут, не больше 5 попыток, один раз. */
+const OTP_MAX_FAILED_PER_DAY = 10
+const DAY_MS = 24 * HOUR_MS
+
+function hashesEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'hex')
+  const right = Buffer.from(b, 'hex')
+  return left.length === right.length && timingSafeEqual(left, right)
+}
+
+/** Неверные вводы по номеру за последние сутки (успешный ввод тоже тратит попытку — вычитаем его). */
+async function failedAttemptsLastDay(phone: string, now: Date): Promise<number> {
+  const dayAgo = new Date(now.getTime() - DAY_MS)
+  const [row] = await db
+    .select({
+      failed: sql<number>`coalesce(sum(${otpCodes.attempts}), 0)::int - count(${otpCodes.consumedAt})::int`,
+    })
+    .from(otpCodes)
+    .where(and(eq(otpCodes.phone, phone), gte(otpCodes.createdAt, dayAgo)))
+  return row?.failed ?? 0
+}
+
+/**
+ * Проверяет код: 5 минут, не больше 5 попыток на код и 10 неверных вводов на номер в сутки,
+ * один раз. Попытка «забирается» атомарным UPDATE до сравнения — параллельные запросы
+ * не могут обойти лимит (ревью F2).
+ */
 export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpResult> {
+  const now = new Date()
+
+  if ((await failedAttemptsLastDay(phone, now)) >= OTP_MAX_FAILED_PER_DAY) {
+    return { ok: false, reason: 'locked_day' }
+  }
+
   const [row] = await db
     .select()
     .from(otpCodes)
@@ -89,23 +120,37 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     .limit(1)
 
   if (!row) return { ok: false, reason: 'invalid' }
-  if (row.attempts >= OTP_MAX_ATTEMPTS) return { ok: false, reason: 'too_many_attempts' }
-  if (row.expiresAt.getTime() <= Date.now()) return { ok: false, reason: 'expired' }
+  if (row.expiresAt.getTime() <= now.getTime()) return { ok: false, reason: 'expired' }
 
-  const now = new Date()
+  const [claimed] = await db
+    .update(otpCodes)
+    .set({ attempts: sql`${otpCodes.attempts} + 1`, updatedAt: now })
+    .where(
+      and(
+        eq(otpCodes.id, row.id),
+        lt(otpCodes.attempts, OTP_MAX_ATTEMPTS),
+        isNull(otpCodes.consumedAt),
+        gt(otpCodes.expiresAt, now),
+      ),
+    )
+    .returning({ id: otpCodes.id })
 
-  if (row.codeHash !== hashOtp(phone, code)) {
-    await db
-      .update(otpCodes)
-      .set({ attempts: row.attempts + 1, updatedAt: now })
-      .where(eq(otpCodes.id, row.id))
+  if (!claimed) {
+    const [latest] = await db.select().from(otpCodes).where(eq(otpCodes.id, row.id)).limit(1)
+    if (latest?.consumedAt) return { ok: false, reason: 'invalid' }
+    if (latest && latest.expiresAt.getTime() <= now.getTime()) return { ok: false, reason: 'expired' }
+    return { ok: false, reason: 'too_many_attempts' }
+  }
+
+  if (!hashesEqual(row.codeHash, hashOtp(phone, code))) {
     return { ok: false, reason: 'invalid' }
   }
 
-  await db
+  const [consumed] = await db
     .update(otpCodes)
     .set({ consumedAt: now, updatedAt: now })
-    .where(eq(otpCodes.id, row.id))
+    .where(and(eq(otpCodes.id, row.id), isNull(otpCodes.consumedAt)))
+    .returning({ id: otpCodes.id })
 
-  return { ok: true }
+  return consumed ? { ok: true } : { ok: false, reason: 'invalid' }
 }

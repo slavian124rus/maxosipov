@@ -112,3 +112,53 @@ test('в dev для тестового номера код 1111 и СМС не �
 
   expect(await verifyOtp(DEV_PHONE, '1111')).toEqual({ ok: true })
 })
+
+test('20 параллельных неверных вводов: проверено ровно 5, остальные отклонены лимитом', async () => {
+  await requestOtp(REAL_PHONE, '10.0.0.1')
+  const code = codeFromSms(send.mock.calls[0]![1])
+  const wrong = code === '0000' ? '0001' : '0000'
+
+  const results = await Promise.all(
+    Array.from({ length: 20 }, () => verifyOtp(REAL_PHONE, wrong)),
+  )
+
+  const invalid = results.filter((r) => !r.ok && r.reason === 'invalid').length
+  const limited = results.filter((r) => !r.ok && r.reason === 'too_many_attempts').length
+  expect(invalid).toBe(5)
+  expect(limited).toBe(15)
+
+  const [row] = await db.select().from(otpCodes).where(eq(otpCodes.phone, REAL_PHONE))
+  expect(row?.attempts).toBe(5)
+})
+
+test('два параллельных ввода верного кода: вход только один', async () => {
+  await requestOtp(REAL_PHONE, '10.0.0.1')
+  const code = codeFromSms(send.mock.calls[0]![1])
+
+  const results = await Promise.all([verifyOtp(REAL_PHONE, code), verifyOtp(REAL_PHONE, code)])
+  expect(results.filter((r) => r.ok)).toHaveLength(1)
+})
+
+test('больше 10 неверных вводов за сутки — номер блокируется до завтра', async () => {
+  for (let round = 0; round < 3; round += 1) {
+    send.mockClear()
+    await requestOtp(REAL_PHONE, '10.0.0.1')
+    const code = codeFromSms(send.mock.calls[0]![1])
+    const wrong = code === '0000' ? '0001' : '0000'
+    const attempts = round < 2 ? 5 : 1
+    for (let i = 0; i < attempts; i += 1) await verifyOtp(REAL_PHONE, wrong)
+    advance(HOUR + MINUTE) // обходим лимит «3 запроса в час»
+  }
+
+  // 11 неверных вводов за ~3 часа
+  send.mockClear()
+  await requestOtp(REAL_PHONE, '10.0.0.1')
+  const code = codeFromSms(send.mock.calls[0]![1])
+  expect(await verifyOtp(REAL_PHONE, code)).toEqual({ ok: false, reason: 'locked_day' })
+
+  advance(24 * HOUR)
+  send.mockClear()
+  await requestOtp(REAL_PHONE, '10.0.0.1')
+  const fresh = codeFromSms(send.mock.calls[0]![1])
+  expect(await verifyOtp(REAL_PHONE, fresh)).toEqual({ ok: true })
+})
