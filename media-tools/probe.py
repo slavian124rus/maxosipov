@@ -1,6 +1,7 @@
 """Проба видео: размер, поворот, длительность, fps.
 
-Печатает JSON в stdout. Поворот берём из side_data_list (displaymatrix) или tags.rotate —
+Печатает JSON в stdout. Берём -show_streams целиком: имена секций side_data различаются
+между версиями ffprobe. Поворот берём из side_data_list (displaymatrix) или tags.rotate —
 iPhone пишет его именно там, и без поворота вертикальный ролик станет горизонтальным.
 """
 import json
@@ -16,8 +17,7 @@ def probe(path: str) -> dict:
             "error",
             "-select_streams",
             "v:0",
-            "-show_entries",
-            "stream=width,height,r_frame_rate:stream_tags=rotate:stream_side_data=rotation",
+            "-show_streams",
             "-of",
             "json",
             path,

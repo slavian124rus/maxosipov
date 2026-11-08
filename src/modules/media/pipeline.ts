@@ -48,14 +48,15 @@ export function buildPrepCommands(input: {
   let current = src
 
   if (rotation === 90 || rotation === 180 || rotation === 270) {
-    const filter = rotation === 90 ? 'transpose=1' : rotation === 270 ? 'transpose=2' : 'hflip,vflip'
+    // ffmpeg сам применяет тег поворота при чтении (autorotate) и убирает его из результата.
+    // Ручной transpose поверх этого поворачивает ролик второй раз, поэтому фильтр пустой.
     const normalized = `${outDir}/norm.mp4`
     commands.push([
       '-y',
       '-i',
       src,
       '-vf',
-      filter,
+      'null',
       '-c:v',
       'libx264',
       '-preset',

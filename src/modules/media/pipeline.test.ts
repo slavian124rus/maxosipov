@@ -31,13 +31,12 @@ test.each([
   expect(joined({ ...base, width: 1280, height: 720, cropX })).toContain(expected)
 })
 
-test('rotation 90 добавляет transpose=1', () => {
-  expect(joined({ ...base, rotation: 90 })).toContain('transpose=1')
-})
-
-test('rotation 270 добавляет transpose=2, 180 — переворот', () => {
-  expect(joined({ ...base, rotation: 270 })).toContain('transpose=2')
-  expect(joined({ ...base, rotation: 180 })).toContain('hflip,vflip')
+test.each([90, 180, 270])('rotation %s: один шаг нормализации без ручного поворота', (rotation) => {
+  const commands = buildPipelineCommands({ ...base, rotation })
+  expect(commands[0]!.at(-1)).toBe('/out/norm.mp4')
+  expect(commands[0]).toContain('null')
+  expect(joined({ ...base, rotation })).not.toContain('transpose')
+  expect(joined({ ...base, rotation })).not.toContain('hflip')
 })
 
 test('без поворота нет transpose', () => {
