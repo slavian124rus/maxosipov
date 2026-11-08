@@ -70,10 +70,10 @@
 - `createUpload(actor, { kind, fileName, sizeBytes, mime }): Promise<{ id; chunkSize: 5242880; totalChunks }>`; `putChunk(id, index, body: ReadableStream | Buffer)`; `completeUpload(id): Promise<void>` (проверяет, что все куски есть, склеивает в `original.<ext>`, ставит `status='uploaded'`, кладёт задачу `media.process` в очередь); `getMediaStatus(id)`.
 - Права: `exercise_video` — `catalog.edit`; `progress_photo` — сам клиент или `clients.measurements` (используется на этапе 3).
 
-- [ ] **Шаг 1.** Тесты `paths.test.ts`, `sign.test.ts` (валидная подпись → true; изменён путь/exp → false; истекло → false; `safeJoin('/data/media','../etc/passwd')` бросает). → реализация → PASS.
-- [ ] **Шаг 2.** Тесты `upload.test.ts` (временная папка как `MEDIA_ROOT`): 3 куска по порядку → `complete` склеивает, размер совпадает; кусок 2 повторно — идемпотентно; `complete` без куска 1 → ошибка `Не все части загружены`; файл 301 МБ → ошибка `Видео больше 300 МБ`; `mime` `image/gif` → ошибка формата. → реализация → PASS.
-- [ ] **Шаг 3.** `/api/media/auth`: читает заголовки `X-Forwarded-Uri` от Caddy, разбирает путь/`exp`/`sig`, `verifyMediaRequest` → 200 или 403; путь с `..` → 400.
-- [ ] **Шаг 4.** Caddyfile — в блок `app.maxosipov.ru`:
+- [x] **Шаг 1.** Тесты `paths.test.ts`, `sign.test.ts` (валидная подпись → true; изменён путь/exp → false; истекло → false; `safeJoin('/data/media','../etc/passwd')` бросает). → реализация → PASS.
+- [x] **Шаг 2.** Тесты `upload.test.ts` (временная папка как `MEDIA_ROOT`): 3 куска по порядку → `complete` склеивает, размер совпадает; кусок 2 повторно — идемпотентно; `complete` без куска 1 → ошибка `Не все части загружены`; файл 301 МБ → ошибка `Видео больше 300 МБ`; `mime` `image/gif` → ошибка формата. → реализация → PASS.
+- [x] **Шаг 3.** `/api/media/auth`: читает заголовки `X-Forwarded-Uri` от Caddy, разбирает путь/`exp`/`sig`, `verifyMediaRequest` → 200 или 403; путь с `..` → 400.
+- [x] **Шаг 4.** Caddyfile — в блок `app.maxosipov.ru`:
   ```
   handle_path /media/* {
     forward_auth web:3000 {
@@ -86,8 +86,8 @@
   }
   ```
   Сверь синтаксис `forward_auth` с документацией Caddy 2. В dev (без Caddy) — роут `src/app/media/[...path]/route.ts`, отдающий файл после той же проверки (только при `NODE_ENV !== 'production'`), с поддержкой `Range` для видео.
-- [ ] **Шаг 5.** Клиентский загрузчик `src/components/upload/use-chunked-upload.ts`: режет файл на куски по 5 МБ, отправляет последовательно с 3 повторами на кусок, при обрыве спрашивает статус (`GET /api/media/[id]` → `received_chunks`) и продолжает с недостающих; прогресс 0–100.
-- [ ] **Шаг 6.** `pnpm verify` → коммит `feat(media): chunked upload, storage, signed urls`.
+- [x] **Шаг 5.** Клиентский загрузчик `src/components/upload/use-chunked-upload.ts`: режет файл на куски по 5 МБ, отправляет последовательно с 3 повторами на кусок, при обрыве спрашивает статус (`GET /api/media/[id]` → `received_chunks`) и продолжает с недостающих; прогресс 0–100.
+- [x] **Шаг 6.** `pnpm verify` → коммит `feat(media): chunked upload, storage, signed urls`.
 
 ### Задача 4. Тренажёры и упражнения
 

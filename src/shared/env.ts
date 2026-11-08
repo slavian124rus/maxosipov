@@ -59,7 +59,10 @@ const envSchema = z.object({
 
   // Медиа
   MEDIA_ROOT: z.preprocess(emptyToUndefined, z.string().min(1).default('/data/media')),
-  MEDIA_URL_SIGNING_SECRET: optionalString,
+  MEDIA_URL_SIGNING_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string().min(16, 'MEDIA_URL_SIGNING_SECRET должен быть не короче 16 символов'),
+  ),
 
   // Бэкапы
   BACKUP_S3_ENDPOINT: optionalUrl,

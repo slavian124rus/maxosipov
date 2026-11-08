@@ -1,1 +1,12 @@
-export {}
+export { assertCanAccessMedia } from './access'
+
+export { media } from './schema'
+export type { Media, MediaKind, MediaStatus as MediaRowStatus, NewMedia, ProcessedPaths, ProcessingOptions } from './schema'
+
+export { mediaDir, mediaRoot, safeJoin } from './paths'
+
+export { PHOTO_URL_TTL_SEC, signMediaPath, verifyMediaRequest, VIDEO_URL_TTL_SEC } from './sign'
+
+export { CHUNK_SIZE, completeUpload, createUpload, getMediaStatus, putChunk } from './upload'
+export type { CompleteDeps, CreateUploadInput, CreatedUpload } from './upload'
+

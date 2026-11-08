@@ -78,6 +78,13 @@
       "when": 1794112867045,
       "tag": "0010_dark_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794113382836,
+      "tag": "0011_illegal_santa_claus",
+      "breakpoints": true
     }
   ]
 }

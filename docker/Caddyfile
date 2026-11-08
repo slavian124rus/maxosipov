@@ -1,5 +1,17 @@
 maxosipov.ru, app.maxosipov.ru {
 	encode zstd gzip
+
+	# Медиа: Caddy сам отдаёт файлы, но только по подписанной ссылке.
+	# forward_auth передаёт исходный URI в X-Forwarded-Uri автоматически.
+	handle_path /media/* {
+		forward_auth web:3000 {
+			uri /api/media/auth
+		}
+		root * /srv/media
+		header Cache-Control "private, max-age=21600"
+		file_server
+	}
+
 	reverse_proxy web:3000
 }
 
