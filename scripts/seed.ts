@@ -1,11 +1,17 @@
 import 'dotenv/config'
+import { randomUUID } from 'node:crypto'
+import { copyFile, mkdir } from 'node:fs/promises'
+import path from 'node:path'
 import { eq, inArray } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
-import { MUSCLES, muscles, svgLayerId } from '@/modules/catalog'
+import { MUSCLES, exercises, machines, muscles, svgLayerId, type MuscleCode } from '@/modules/catalog'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
+import { mediaDir, mediaRoot } from '@/modules/media'
 import { DEFAULT_ROLES, roles } from '@/modules/rbac'
 import { client, db } from '@/shared/db'
+import { media } from '@/shared/db/schema'
+import { SEED_EXERCISES, SEED_MACHINES } from './seed-catalog'
 
 const GYM_NAME = 'Колизей'
 
@@ -161,6 +167,93 @@ async function ensureSubscriptions(clientIds: string[]): Promise<void> {
   }
 }
 
+/** Тестовый каталог: тренажёры, упражнения с видео из прототипа и черновики. */
+async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
+  const machineIds = new Map<string, string>()
+
+  for (const machine of SEED_MACHINES) {
+    const [existing] = await db
+      .select({ id: machines.id })
+      .from(machines)
+      .where(eq(machines.name, machine.name))
+      .limit(1)
+
+    if (existing) {
+      machineIds.set(machine.name, existing.id)
+      continue
+    }
+
+    const [created] = await db
+      .insert(machines)
+      .values({ gymId, ...machine })
+      .returning({ id: machines.id })
+
+    if (created) machineIds.set(machine.name, created.id)
+  }
+
+  for (const exercise of SEED_EXERCISES) {
+    const [existing] = await db
+      .select({ id: exercises.id })
+      .from(exercises)
+      .where(eq(exercises.slug, exercise.slug))
+      .limit(1)
+
+    if (existing) continue
+
+    let videoMediaId: string | null = null
+
+    if (exercise.source && exercise.poster) {
+      const id = randomUUID()
+      const createdAt = new Date()
+      const relDir = mediaDir({ id, createdAt })
+      const dir = path.join(mediaRoot(), relDir)
+      await mkdir(dir, { recursive: true })
+
+      await copyFile(exercise.source, path.join(dir, 'video.mp4'))
+      await copyFile(exercise.poster, path.join(dir, 'poster.jpg'))
+      if (exercise.muscles) await copyFile(exercise.muscles, path.join(dir, 'muscles.mp4'))
+
+      const [row] = await db
+        .insert(media)
+        .values({
+          id,
+          kind: 'exercise_video',
+          ownerId,
+          status: 'ready',
+          sizeBytes: 0,
+          mime: 'video/mp4',
+          totalChunks: 1,
+          processedPaths: {
+            mp4: `${relDir}/video.mp4`,
+            poster: `${relDir}/poster.jpg`,
+            ...(exercise.muscles ? { musclesMp4: `${relDir}/muscles.mp4` } : {}),
+          },
+          createdAt,
+          updatedAt: createdAt,
+        })
+        .returning({ id: media.id })
+
+      videoMediaId = row?.id ?? null
+    }
+
+    await db.insert(exercises).values({
+      gymId,
+      machineId: machineIds.get(exercise.machine) ?? null,
+      name: exercise.name,
+      slug: exercise.slug,
+      primaryMuscles: exercise.primary as MuscleCode[],
+      secondaryMuscles: exercise.secondary as MuscleCode[],
+      videoMediaId,
+      overlayProfile: exercise.profile,
+      steps: exercise.steps,
+      mistakes: exercise.mistakes,
+      defaultRepMin: 10,
+      defaultRepMax: 12,
+      status: exercise.status,
+    })
+  }
+}
+
 /** Идемпотентный сид: зал, роли и пользователи. Возвращает количество созданных сущностей. */
 export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
@@ -205,6 +298,7 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       roleId: roleId(roleIds, 'Главный тренер'),
     })
     await ensureHeadTrainer(gymId, trainerId)
+    await ensureCatalog(gymId, trainerId)
 
     const clientIds: string[] = []
     for (const [index, phone] of DEV_CLIENT_PHONES.entries()) {

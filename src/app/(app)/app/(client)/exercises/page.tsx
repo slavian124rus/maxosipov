@@ -1,17 +1,22 @@
 import { requireClientPage } from '@/components/app/require-client-page'
+import { CatalogClient } from '@/components/exercise/catalog-client'
+import { assertClientAccess } from '@/modules/access'
+import { listExercises, listMachines } from '@/modules/catalog'
 
-// Экран зависит от сессии и подписки.
+// Экран зависит от сессии, подписки и каталога.
 export const instant = false
 
 export default async function ExercisesPage() {
-  await requireClientPage('/exercises')
+  const { user } = await requireClientPage('/exercises')
+  await assertClientAccess(user.id)
+
+  const [items, machines] = await Promise.all([listExercises(), listMachines()])
 
   return (
-    <main className="flex flex-col gap-3 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Упражнения</h1>
-      <p className="text-[15px] text-text-secondary">
-        Каталог с видео и фигурой мышц появится на этапе «Каталог и медиа».
-      </p>
-    </main>
+    <CatalogClient
+      items={items}
+      machines={machines.map((machine) => ({ id: machine.id, name: machine.name }))}
+    />
   )
 }
+

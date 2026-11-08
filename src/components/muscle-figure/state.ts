@@ -1,4 +1,4 @@
-import { muscleView, type MuscleCode } from '@/modules/catalog'
+import { muscleView, type MuscleCode } from '@/shared/muscles'
 
 export type FigureSide = 'front' | 'back'
 

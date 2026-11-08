@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { muscleName, type MuscleCode } from '@/modules/catalog'
+import { muscleName, type MuscleCode } from '@/shared/muscles'
 import { defaultView, type FigureSide } from './state'
 
 const IDLE_FILL = '#3A3A40'
