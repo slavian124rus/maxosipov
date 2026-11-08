@@ -308,3 +308,70 @@ test('при профиле «none» клиент не видит старую �
   expect(detail?.hasMuscles).toBe(false)
   expect(detail?.musclesMp4Url).toBeNull()
 })
+
+test('к упражнению нельзя привязать фото вместо видео', async () => {
+  const [photo] = await db
+    .insert(media)
+    .values({
+      kind: 'progress_photo',
+      ownerId: actor.id,
+      status: 'ready',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+    })
+    .returning()
+
+  await expect(createExercise(actor, { ...baseInput, videoMediaId: photo!.id })).rejects.toThrow(
+    'Видео не найдено',
+  )
+
+  const exercise = await createExercise(actor, baseInput)
+  await expect(
+    updateExercise(actor, exercise.id, { ...baseInput, videoMediaId: photo!.id }),
+  ).rejects.toThrow('Видео не найдено')
+})
+
+test('опубликованное упражнение после правки без шагов возвращается в черновики', async () => {
+  const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const updated = await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    videoMediaId: readyVideoId,
+    steps: [],
+  })
+  expect(updated.status).toBe('draft')
+
+  const detail = await getExercise(exercise.id)
+  expect(detail).toBeNull() // клиентам не показывается
+})
+
+test('смена видео опубликованного на ещё не обработанное возвращает в черновики', async () => {
+  const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const updated = await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    videoMediaId: processingVideoId,
+  })
+  expect(updated.status).toBe('draft')
+})
+
+test('безобидная правка опубликованного статус не меняет', async () => {
+  const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const updated = await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    videoMediaId: readyVideoId,
+    tips: 'Спина прямая',
+  })
+  expect(updated.status).toBe('published')
+})
+
+test('черновик правится без проверок публикации', async () => {
+  const exercise = await createExercise(actor, baseInput)
+  const updated = await updateExercise(actor, exercise.id, { ...baseInput, steps: [] })
+  expect(updated.status).toBe('draft')
+})

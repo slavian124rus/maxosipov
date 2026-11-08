@@ -82,6 +82,35 @@ async function scheduleOverlay(exercise: Exercise): Promise<void> {
   }
 }
 
+type PublishData = { videoMediaId: string | null; primaryMuscles: string[]; steps: string[] }
+
+/** Что мешает опубликовать упражнение; `null`, если всё в порядке. */
+async function findPublishProblem(data: PublishData): Promise<string | null> {
+  if (!data.videoMediaId) return 'Добавь видео'
+
+  const [video] = await db.select().from(media).where(eq(media.id, data.videoMediaId)).limit(1)
+
+  if (!video) return 'Добавь видео'
+  if (video.status === 'processing') return 'Видео ещё обрабатывается'
+  if (video.status !== 'ready') return 'Видео не обработалось — загрузи новое'
+
+  if (data.primaryMuscles.length === 0) return 'Отметь хотя бы одну основную мышцу'
+  if (data.steps.length === 0) return 'Добавь хотя бы один шаг «Как делать»'
+
+  return null
+}
+
+/** К упражнению можно привязать только видео упражнения, не фото и не чужие файлы. */
+async function assertExerciseVideo(videoMediaId: string | null): Promise<void> {
+  if (!videoMediaId) return
+  const [row] = await db
+    .select({ kind: media.kind })
+    .from(media)
+    .where(eq(media.id, videoMediaId))
+    .limit(1)
+  if (!row || row.kind !== 'exercise_video') throw new Error('Видео не найдено')
+}
+
 export async function createMachine(actor: Actor, input: MachineInput): Promise<Machine> {
   assertCan(actor, 'catalog.edit')
   const data = machineInputSchema.parse(input)
@@ -133,6 +162,7 @@ export async function listMachines(): Promise<Machine[]> {
 export async function createExercise(actor: Actor, input: ExerciseInput): Promise<Exercise> {
   assertCan(actor, 'catalog.edit')
   const data = exerciseInputSchema.parse(input)
+  await assertExerciseVideo(data.videoMediaId)
   const gym = await getGym()
   const slug = await uniqueSlug(gym.id, data.name)
 
@@ -167,6 +197,14 @@ export async function updateExercise(
 ): Promise<Exercise> {
   assertCan(actor, 'catalog.edit')
   const data = exerciseInputSchema.parse(input)
+  await assertExerciseVideo(data.videoMediaId)
+
+  const [existing] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1)
+  if (!existing) throw new Error('Упражнение не найдено')
+
+  // Правка не должна оставлять в каталоге пустую карточку: если опубликованное упражнение
+  // перестало удовлетворять правилам публикации, оно возвращается в черновики.
+  const problem = existing.status === 'published' ? await findPublishProblem(data) : null
 
   const [row] = await db
     .update(exercises)
@@ -182,6 +220,7 @@ export async function updateExercise(
       tips: data.tips,
       defaultRepMin: data.defaultRepMin,
       defaultRepMax: data.defaultRepMax,
+      status: problem ? 'draft' : existing.status,
       updatedAt: new Date(),
     })
     .where(eq(exercises.id, id))
@@ -199,16 +238,8 @@ export async function publishExercise(actor: Actor, id: string): Promise<Exercis
   const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1)
   if (!exercise) throw new Error('Упражнение не найдено')
 
-  if (!exercise.videoMediaId) throw new Error('Добавь видео')
-
-  const [video] = await db.select().from(media).where(eq(media.id, exercise.videoMediaId)).limit(1)
-
-  if (!video) throw new Error('Добавь видео')
-  if (video.status === 'processing') throw new Error('Видео ещё обрабатывается')
-  if (video.status !== 'ready') throw new Error('Видео не обработалось — загрузи новое')
-
-  if (exercise.primaryMuscles.length === 0) throw new Error('Отметь хотя бы одну основную мышцу')
-  if (exercise.steps.length === 0) throw new Error('Добавь хотя бы один шаг «Как делать»')
+  const problem = await findPublishProblem(exercise)
+  if (problem) throw new Error(problem)
 
   const [row] = await db
     .update(exercises)

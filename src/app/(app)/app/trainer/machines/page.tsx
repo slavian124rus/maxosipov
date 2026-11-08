@@ -1,4 +1,6 @@
+import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
+import { can } from '@/modules/rbac'
 import { listMachines } from '@/modules/catalog'
 import { MachineForm } from '@/components/trainer/machine-form'
 
@@ -6,7 +8,8 @@ import { MachineForm } from '@/components/trainer/machine-form'
 export const instant = false
 
 export default async function TrainerMachinesPage() {
-  await requireUser()
+  const { actor } = await requireUser()
+  if (!can(actor, 'catalog.edit')) notFound()
   const machines = await listMachines()
 
   return (

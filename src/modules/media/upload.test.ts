@@ -1,12 +1,20 @@
-﻿import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
 import type { Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
 import { media } from './schema'
-import { CHUNK_SIZE, completeUpload, createUpload, getMediaStatus, putChunk } from './upload'
+import {
+  CHUNK_SIZE,
+  completeUpload,
+  createUpload,
+  getMediaStatus,
+  putChunk,
+  setProcessingOptions,
+} from './upload'
 
 const actor: Actor = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -137,4 +145,38 @@ test('complete ставит задачу media.process', async () => {
 
 afterAll(async () => {
   await rm(root, { recursive: true, force: true })
+})
+
+test('setProcessingOptions: клиент не может, метки петли сохраняются, фото нельзя', async () => {
+  const { id } = await createUpload(actor, {
+    kind: 'exercise_video',
+    fileName: 'v.mp4',
+    sizeBytes: 100,
+    mime: 'video/mp4',
+  })
+
+  await expect(setProcessingOptions(client, id, { cropX: 0.2 })).rejects.toThrow('Недостаточно прав')
+
+  await db
+    .update(media)
+    .set({ processingOptions: { cropX: 0.5, loopStart: 1, loopEnd: 6 } })
+    .where(eq(media.id, id))
+  await setProcessingOptions(actor, id, { cropX: 0.2 })
+
+  const [row] = await db.select().from(media).where(eq(media.id, id))
+  expect(row?.processingOptions).toEqual({ cropX: 0.2, loopStart: 1, loopEnd: 6 })
+
+  const [photo] = await db
+    .insert(media)
+    .values({
+      kind: 'photo',
+      ownerId: actor.id,
+      sizeBytes: 10,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+    })
+    .returning()
+  await expect(setProcessingOptions(actor, photo!.id, { cropX: 0.3 })).rejects.toThrow(
+    'только у видео',
+  )
 })

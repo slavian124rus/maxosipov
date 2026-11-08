@@ -240,6 +240,7 @@ export function ExerciseForm({ machines, initial }: Props) {
 
             {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
             {state.id ? <p className="text-[15px] text-success">Сохранено</p> : null}
+            {state.notice ? <p className="text-[15px] text-text-secondary">{state.notice}</p> : null}
           </>
         ) : null}
       </div>

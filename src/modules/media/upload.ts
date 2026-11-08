@@ -178,10 +178,22 @@ export async function getMediaStatus(id: string): Promise<MediaStatus> {
   }
 }
 
-/** Настройки обработки: `cropX` для горизонтального видео, ручные метки петли. */
+/**
+ * Настройки обработки видео упражнения: `cropX` и ручные метки петли.
+ * Меняет только тот, кто правит каталог, и только у видео упражнений; метки петли сохраняются.
+ */
 export async function setProcessingOptions(
+  actor: Actor,
   id: string,
   options: ProcessingOptions,
 ): Promise<void> {
-  await db.update(media).set({ processingOptions: options, updatedAt: new Date() }).where(eq(media.id, id))
+  assertCan(actor, 'catalog.edit')
+
+  const row = await findMedia(id)
+  if (row.kind !== 'exercise_video') throw new Error('Настройки есть только у видео упражнений')
+
+  await db
+    .update(media)
+    .set({ processingOptions: { ...row.processingOptions, ...options }, updatedAt: new Date() })
+    .where(eq(media.id, id))
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import {
   createExercise,
   createMachine,
+  getExercise,
   publishExercise,
   unpublishExercise,
   updateExercise,
@@ -11,9 +12,10 @@ import {
 } from '@/modules/catalog'
 import { requireUser } from '@/modules/auth'
 import { setProcessingOptions } from '@/modules/media'
+import { assertCan } from '@/modules/rbac'
 import type { MuscleCode } from '@/shared/muscles'
 
-export type SaveExerciseState = { error: string | null; id: string | null }
+export type SaveExerciseState = { error: string | null; id: string | null; notice?: string | null }
 
 function text(value: FormDataEntryValue | null): string {
   return String(value ?? '').trim()
@@ -42,6 +44,13 @@ export async function saveExerciseAction(
 ): Promise<SaveExerciseState> {
   const { actor } = await requireUser()
 
+  // Серверные действия — публичные адреса: права проверяем до любых изменений.
+  try {
+    assertCan(actor, 'catalog.edit')
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Недостаточно прав', id: null }
+  }
+
   const input: ExerciseInput = {
     name: text(formData.get('name')),
     machineId: text(formData.get('machineId')) || null,
@@ -62,8 +71,10 @@ export async function saveExerciseAction(
 
   try {
     if (input.videoMediaId) {
-      await setProcessingOptions(input.videoMediaId, { cropX: Math.min(Math.max(cropX, 0), 1) })
+      await setProcessingOptions(actor, input.videoMediaId, { cropX: Math.min(Math.max(cropX, 0), 1) })
     }
+
+    const before = id ? await getExercise(id, { includeDrafts: true }) : null
 
     const exercise = id
       ? await updateExercise(actor, id, input)
@@ -76,7 +87,15 @@ export async function saveExerciseAction(
     revalidatePath('/trainer/exercises')
     revalidatePath('/exercises')
 
-    return { error: null, id: exercise.id }
+    const returnedToDraft = before?.status === 'published' && exercise.status === 'draft' && !publish
+
+    return {
+      error: null,
+      id: exercise.id,
+      notice: returnedToDraft
+        ? 'Упражнение вернулось в черновики: после правки его нельзя показывать клиентам. Опубликуй его снова, когда видео обработается.'
+        : null,
+    }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Не удалось сохранить', id: null }
   }
@@ -106,7 +125,15 @@ export async function saveMachineAction(
 
 export async function unpublishAction(formData: FormData): Promise<void> {
   const { actor } = await requireUser()
-  await unpublishExercise(actor, text(formData.get('id')))
+
+  try {
+    await unpublishExercise(actor, text(formData.get('id')))
+  } catch (error) {
+    // Нет прав или упражнения — ничего не меняем; экран просто не обновится.
+    console.error('[catalog] unpublish', error instanceof Error ? error.message : error)
+    return
+  }
+
   revalidatePath('/trainer/exercises')
   revalidatePath('/exercises')
 }
