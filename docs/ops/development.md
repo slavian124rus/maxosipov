@@ -40,6 +40,4 @@ docker compose -f docker/compose.dev.yml exec -T db createdb -U app maxosipov_te
 
 - `pnpm-workspace.yaml` содержит `allowBuilds` — pnpm 12 иначе блокирует установку
   пакетов со скриптами сборки (`esbuild`, `sharp`, `@swc/core`, `unrs-resolver`).
-- Next 16 предупреждает, что конвенция файла `middleware.ts` устарела в пользу `proxy.ts`.
-  Планы этапов пишут `middleware.ts`, поэтому оставлено как есть — решить на ревью
-  (см. `docs/reports/00-report.md`).
+- Разделение сайта и приложения по `Host` — в `src/proxy.ts` (конвенция Next 16, бывший `middleware.ts`).

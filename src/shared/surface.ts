@@ -29,7 +29,7 @@ function isFileRequest(pathname: string): boolean {
 }
 
 /**
- * Куда переписать запрос в `middleware.ts`.
+ * Куда переписать запрос в `proxy.ts`.
  * `null` — оставить путь как есть, `/404` — отдать страницу 404.
  */
 export function rewriteTarget(surface: Surface, pathname: string): string | null {

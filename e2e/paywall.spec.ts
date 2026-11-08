@@ -6,7 +6,7 @@ test('просроченный клиент: /exercises → /paywall, /progress 
 
   await page.goto('http://app.localhost:3000/exercises')
   await expect(page).toHaveURL(/\/paywall/, { timeout: 15_000 })
-  await expect(page.getByText('Подписка закончилась')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Подписка закончилась' })).toBeVisible()
 
   await page.goto('http://app.localhost:3000/progress')
   await expect(page.getByRole('heading', { name: 'Прогресс' })).toBeVisible()
@@ -23,7 +23,7 @@ test('просроченный клиент не попадает в «Упра�
   // клиентская навигация: layout не перерисовывается — охраняет сама страница
   await page.getByRole('link', { name: 'Упражнения' }).click()
   await expect(page).toHaveURL(/\/paywall/, { timeout: 15_000 })
-  await expect(page.getByText('Подписка закончилась')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Подписка закончилась' })).toBeVisible()
 })
 
 test('внутренние пути /app/* на хосте приложения не открываются, заголовок x-pathname не помогает', async ({

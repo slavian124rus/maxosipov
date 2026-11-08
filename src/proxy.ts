@@ -5,7 +5,7 @@ const WWW_HOST = 'www.maxosipov.ru'
 const CANONICAL_HOST = 'maxosipov.ru'
 
 /** Разделяет сайт и приложение по `Host`: ARCHITECTURE.md §4. */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get('host')
   const hostname = (host ?? '').toLowerCase().replace(/:\d+$/, '')
 
