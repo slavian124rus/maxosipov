@@ -16,7 +16,7 @@ export const users = pgTable('users', {
   onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
   /** Согласие на обработку персональных данных (152-ФЗ). */
   pdConsentAt: timestamp('pd_consent_at', { withTimezone: true }),
-  workoutMode: text('workout_mode').$type<'free' | 'guided'>().notNull().default('guided'),
+  workoutMode: text('workout_mode').$type<'free' | 'guided'>().notNull().default('free'),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

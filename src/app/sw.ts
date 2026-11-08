@@ -2,7 +2,14 @@
 /// <reference lib="webworker" />
 import { defaultCache } from '@serwist/turbopack/worker'
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { CacheFirst, ExpirationPlugin, Serwist, Strategy, type StrategyHandler } from 'serwist'
+import {
+  CacheFirst,
+  ExpirationPlugin,
+  RangeRequestsPlugin,
+  Serwist,
+  Strategy,
+  type StrategyHandler,
+} from 'serwist'
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -55,10 +62,8 @@ serwist.registerCapture(
   new PagesWithOfflineFallback(serwist),
 )
 
-for (const entry of defaultCache) {
-  serwist.registerCapture(entry.matcher, entry.handler, entry.method)
-}
-
+// Правило для /media/ регистрируется ДО defaultCache: в production там есть общий перехватчик
+// «любой same-origin → NetworkFirst», который иначе забрал бы видео себе (первое совпадение выигрывает).
 // Видео и постеры упражнений: кэшируем без query-параметров подписи,
 // иначе каждая новая ссылка считалась бы новым файлом.
 serwist.registerCapture(
@@ -67,6 +72,8 @@ serwist.registerCapture(
   new CacheFirst({
     cacheName: 'media',
     plugins: [
+      // <video> просит диапазоны (iOS Safari — обязательно): отдаём 206 из целого файла в кэше
+      new RangeRequestsPlugin(),
       {
         cacheKeyWillBeUsed: async ({ request }) => {
           const url = new URL(request.url)
@@ -78,5 +85,9 @@ serwist.registerCapture(
     ],
   }),
 )
+
+for (const entry of defaultCache) {
+  serwist.registerCapture(entry.matcher, entry.handler, entry.method)
+}
 
 serwist.addEventListeners()

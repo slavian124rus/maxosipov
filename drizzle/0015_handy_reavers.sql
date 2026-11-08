@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "workout_mode" SET DEFAULT 'free';

@@ -7,7 +7,7 @@ import { FeelingPicker, type Feeling } from './feeling-picker'
 import { RecommendationCard } from './recommendation-card'
 import { RestTimer } from './rest-timer'
 import { formatScheme } from '@/shared/scheme'
-import type { LoggedSet, WorkoutExercise } from './free-mode'
+import type { LoggedSet, NextRecommendation, WorkoutExercise } from './free-mode'
 
 type Props = {
   exercises: WorkoutExercise[]
@@ -15,10 +15,18 @@ type Props = {
   onLog: (exercise: WorkoutExercise, weightKg: number, reps: number) => void
   onFeeling: (exercise: WorkoutExercise, feeling: Feeling) => void
   onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void
+  nextRecommendations: Record<string, NextRecommendation>
 }
 
 /** Пошаговый режим: одно упражнение на экран, таймер отдыха (DESIGN.md §8.4). */
-export function GuidedMode({ exercises, logged, onLog, onFeeling, onNextWeight }: Props) {
+export function GuidedMode({
+  exercises,
+  logged,
+  onLog,
+  onFeeling,
+  onNextWeight,
+  nextRecommendations,
+}: Props) {
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'idle' | 'logging' | 'rest'>('idle')
 
@@ -103,12 +111,18 @@ export function GuidedMode({ exercises, logged, onLog, onFeeling, onNextWeight }
       {complete ? (
         <div className="flex flex-col gap-3">
           <FeelingPicker onPick={(feeling) => onFeeling(exercise, feeling)} />
-          {exercise.recommendation ? (
+          {nextRecommendations[exercise.programExerciseId] ? (
             <RecommendationCard
-              text={exercise.recommendation.text}
-              weightKg={exercise.recommendation.weightKg}
+              text={nextRecommendations[exercise.programExerciseId]!.text}
+              weightKg={nextRecommendations[exercise.programExerciseId]!.weightKg}
+              action={nextRecommendations[exercise.programExerciseId]!.action}
               onAccept={() =>
-                onNextWeight(exercise, exercise.recommendation?.weightKg ?? exercise.startWeightKg)
+                onNextWeight(
+                  exercise,
+                  nextRecommendations[exercise.programExerciseId]?.weightKg ??
+                    done.at(-1)?.weightKg ??
+                    exercise.startWeightKg,
+                )
               }
               onKeep={() => onNextWeight(exercise, done.at(-1)?.weightKg ?? exercise.startWeightKg)}
             />

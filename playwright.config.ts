@@ -24,7 +24,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
+    // E2E_PROD=1: проверка Service Worker и офлайн-режима на production-сборке (`pnpm build` заранее)
+    command: process.env.E2E_PROD ? 'pnpm start' : 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
     timeout: 180_000,

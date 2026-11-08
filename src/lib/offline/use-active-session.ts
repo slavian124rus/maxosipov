@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { getOfflineDb, type ActiveSessionRecord, type OfflineFeeling } from './db'
-import { enqueueSet, flushQueue, pendingCount } from './queue'
+import { enqueueSet, findActiveSession, flushAll, pendingCount } from './queue'
 
-const FLUSH_INTERVAL_MS = 15_000
+/** Незавершённая тренировка старше этого срока считается брошенной. */
+const STALE_SESSION_MS = 12 * 60 * 60 * 1000
 
 export type StartInput = {
   programDayId: string | null
@@ -21,8 +22,8 @@ export type LogInput = {
 }
 
 /**
- * Активная тренировка: всё пишется в Dexie мгновенно, отправка — сразу,
- * затем каждые 15 секунд и по событию `online`.
+ * Активная тренировка: всё пишется в IndexedDB мгновенно, отправка — в фоне
+ * (`flushAll`: старт → подходы → завершение; периодически его запускает `OfflineSync`).
  */
 export function useActiveSession() {
   const [session, setSession] = useState<ActiveSessionRecord | null>(null)
@@ -34,74 +35,55 @@ export function useActiveSession() {
   }, [])
 
   const flush = useCallback(async () => {
-    await flushQueue()
-    await refreshPending()
+    try {
+      await flushAll()
+    } finally {
+      await refreshPending()
+    }
   }, [refreshPending])
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const db = await getOfflineDb()
-        const record = await db.activeSession.toCollection().first()
-        const active = record ?? null
-        sessionRef.current = active
-        setSession(active)
-        await refreshPending()
-      } catch (error) {
-        console.error('[offline] не удалось открыть локальную базу', error)
-      }
-    })()
-  }, [refreshPending])
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      void flush()
-    }, FLUSH_INTERVAL_MS)
-
-    const onOnline = (): void => {
-      void flush()
-    }
-
-    window.addEventListener('online', onOnline)
-    return () => {
-      clearInterval(timer)
-      window.removeEventListener('online', onOnline)
-    }
-  }, [flush])
-
-  const start = useCallback(
+  /**
+   * Продолжает незавершённую тренировку того же дня или начинает новую.
+   * Решение принимается по данным из IndexedDB, а не по React-состоянию (оно ещё пустое).
+   */
+  const startOrResume = useCallback(
     async (input: StartInput): Promise<ActiveSessionRecord> => {
+      const db = await getOfflineDb()
+      const existing = await findActiveSession()
+
+      if (existing) {
+        const fresh = Date.now() - new Date(existing.startedAt).getTime() < STALE_SESSION_MS
+
+        if (fresh && existing.programDayId === input.programDayId) {
+          sessionRef.current = existing
+          setSession(existing)
+          void refreshPending()
+          return existing
+        }
+
+        // брошенная или от другого дня: закрываем (уйдёт на сервер как завершённая)
+        await db.activeSession.update(existing.clientUuid, {
+          finishRequestedAt: new Date().toISOString(),
+        })
+      }
+
       const record: ActiveSessionRecord = {
         clientUuid: crypto.randomUUID(),
         programDayId: input.programDayId,
         mode: input.mode,
         startedAt: new Date().toISOString(),
         programSnapshot: input.programSnapshot,
+        startSynced: false,
       }
 
-      await (await getOfflineDb()).activeSession.put(record)
+      await db.activeSession.put(record)
       sessionRef.current = record
       setSession(record)
-
-      // Сервер узнает о старте, когда появится сеть; подходы всё равно сохранятся локально.
-      try {
-        await fetch('/api/training/start', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            clientUuid: record.clientUuid,
-            programDayId: record.programDayId,
-            mode: record.mode,
-            startedAt: record.startedAt,
-          }),
-        })
-      } catch {
-        // офлайн — отправим позже вместе с подходами
-      }
+      void flush()
 
       return record
     },
-    [],
+    [flush, refreshPending],
   )
 
   const logSet = useCallback(
@@ -127,75 +109,50 @@ export function useActiveSession() {
     [flush, refreshPending],
   )
 
+  /** Ощущение пишется во все подходы упражнения и помечает их неотправленными — уйдут вместе. */
   const setFeeling = useCallback(
     async (exerciseId: string, feeling: OfflineFeeling): Promise<void> => {
       const active = sessionRef.current
       if (!active) return
 
-      await (await getOfflineDb()).feelings.add({
-        sessionClientUuid: active.clientUuid,
-        exerciseId,
-        feeling,
-        synced: 0,
-      })
       await (await getOfflineDb()).sets
         .where('sessionClientUuid')
         .equals(active.clientUuid)
         .and((row) => row.exerciseId === exerciseId)
-        .modify({ feeling })
+        .modify({ feeling, synced: 0 })
 
-      try {
-        await fetch('/api/training/sync', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            items: [],
-            feelings: [{ sessionClientUuid: active.clientUuid, exerciseId, feeling }],
-          }),
-        })
-      } catch {
-        // офлайн — ощущение уйдёт при следующей синхронизации
-      }
+      await refreshPending()
+      void flush()
     },
-    [],
+    [flush, refreshPending],
   )
 
+  /** Завершение фиксируется локально; на сервер уйдёт, когда доставлены все подходы. */
   const finish = useCallback(async (): Promise<void> => {
     const active = sessionRef.current
     if (!active) return
 
-    await flush()
-
-    try {
-      await fetch('/api/training/finish', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sessionClientUuid: active.clientUuid,
-          finishedAt: new Date().toISOString(),
-        }),
-      })
-    } catch {
-      // офлайн — завершим позже
-    }
-
-    await (await getOfflineDb()).activeSession.clear()
+    await (await getOfflineDb()).activeSession.update(active.clientUuid, {
+      finishRequestedAt: new Date().toISOString(),
+    })
     sessionRef.current = null
     setSession(null)
+
+    await flush()
   }, [flush])
 
-  /** Предзагрузка видео упражнений: SW кладёт их в кэш `media`. */
+  /** Предзагрузка видео и постеров: Service Worker кладёт их в кэш `media`. */
   const precacheMedia = useCallback(async (urls: string[]): Promise<void> => {
     const unique = [...new Set(urls)].filter((url) => url.startsWith('/media/'))
 
     for (const url of unique) {
       try {
-        await fetch(url, { cache: 'default' })
+        await fetch(url)
       } catch {
         // без сети просто пропускаем
       }
     }
   }, [])
 
-  return { session, pending, start, logSet, setFeeling, finish, flush, precacheMedia }
+  return { session, pending, startOrResume, logSet, setFeeling, finish, flush, precacheMedia }
 }

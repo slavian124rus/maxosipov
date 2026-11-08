@@ -395,7 +395,6 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
     })
     await ensureHeadTrainer(gymId, trainerId)
     await ensureCatalog(gymId, trainerId)
-    await ensureTraining(gymId, trainerId, roleId(roleIds, 'Главный тренер'))
 
     const clientIds: string[] = []
     for (const [index, phone] of DEV_CLIENT_PHONES.entries()) {
@@ -408,6 +407,9 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       })
       clientIds.push(id)
     }
+
+    // Программы выдаём после создания клиентов — иначе на чистой БД их никому не достанется.
+    await ensureTraining(gymId, trainerId, roleId(roleIds, 'Главный тренер'))
 
     // Тестовые клиенты — «давно в зале»: анкета и согласия уже пройдены.
     const consentAt = new Date()

@@ -1,15 +1,19 @@
-import type { Table } from 'dexie'
+import Dexie, { type Table } from 'dexie'
 
 export type OfflineFeeling = 'easy' | 'good' | 'hard'
 
-/** Активная тренировка: одна запись, живёт до завершения. */
+/** Тренировка на устройстве. Живёт, пока сервер не подтвердит и старт, и завершение. */
 export type ActiveSessionRecord = {
   clientUuid: string
   programDayId: string | null
   mode: 'free' | 'guided'
   startedAt: string
-  /** Снимок программы на момент старта — по нему рисуем экран без сети. */
+  /** Снимок программы на момент старта. */
   programSnapshot: unknown
+  /** Сервер узнал о тренировке (`/api/training/start` вернул ok). */
+  startSynced: boolean
+  /** Клиент нажал «Завершить»; запись удаляется после подтверждения сервером. */
+  finishRequestedAt?: string
 }
 
 export type OfflineSet = {
@@ -26,107 +30,48 @@ export type OfflineSet = {
   synced: 0 | 1
 }
 
-export type OfflineFeelingRecord = {
-  id?: number
-  sessionClientUuid: string
-  exerciseId: string
-  feeling: OfflineFeeling
-  synced: 0 | 1
-}
-
 export type OfflineDb = {
   activeSession: Table<ActiveSessionRecord, string>
   sets: Table<OfflineSet, string>
-  feelings: Table<OfflineFeelingRecord, number>
 }
 
-let instancePromise: Promise<OfflineDb> | null = null
+class MaxosipovDb extends Dexie implements OfflineDb {
+  activeSession!: Table<ActiveSessionRecord, string>
+  sets!: Table<OfflineSet, string>
 
-type Row = Record<string, unknown>
+  constructor() {
+    super('maxosipov')
 
-/** Резервное хранилище в памяти: если IndexedDB/Dexie недоступны, тренировка не ломается. */
-function createMemoryDb(): OfflineDb {
-  const tables = {
-    activeSession: new Map<unknown, Row>(),
-    sets: new Map<unknown, Row>(),
-    feelings: new Map<unknown, Row>(),
-  }
-
-  function tableApi(map: Map<unknown, Row>) {
-    const matches = (row: Row, key: string, value: unknown): boolean => row[key] === value
-
-    const query = (key: string, value: unknown) => ({
-      toArray: async () => [...map.values()].filter((row) => matches(row, key, value)),
-      count: async () => [...map.values()].filter((row) => matches(row, key, value)).length,
-      limit: (count: number) => ({
-        toArray: async () =>
-          [...map.values()].filter((row) => matches(row, key, value)).slice(0, count),
-      }),
-      modify: async (patch: Row) => {
-        for (const [id, row] of map) {
-          if (matches(row, key, value)) map.set(id, { ...row, ...patch })
-        }
-      },
-      anyOf: (values: unknown[]) => ({
-        modify: async (patch: Row) => {
-          for (const [id, row] of map) {
-            if (values.includes(row[key])) map.set(id, { ...row, ...patch })
-          }
-        },
-      }),
-      and: (predicate: (row: Row) => boolean) => ({
-        modify: async (patch: Row) => {
-          for (const [id, row] of map) {
-            if (matches(row, key, value) && predicate(row)) map.set(id, { ...row, ...patch })
-          }
-        },
-      }),
+    // v1 не индексировала `sessionClientUuid`, из-за чего `where('sessionClientUuid')` падал
+    // с SchemaError. v2 добавляет индекс и убирает неиспользуемую таблицу `feelings`
+    // (ощущение теперь хранится в самих подходах и уходит вместе с ними).
+    this.version(1).stores({
+      activeSession: 'clientUuid',
+      sets: 'clientUuid, synced',
+      feelings: '++id, sessionClientUuid, synced',
     })
-
-    return {
-      put: async (row: Row) => void map.set(String(row.clientUuid ?? map.size), row),
-      add: async (row: Row) => void map.set(map.size, row),
-      clear: async () => map.clear(),
-      where: (key: string) => ({
-        equals: (value: unknown) => query(key, value),
-        anyOf: (values: unknown[]) => query('clientUuid', values[0]),
-      }),
-      toCollection: () => ({
-        first: async () => [...map.values()][0],
-      }),
-    }
-  }
-
-  return {
-    activeSession: tableApi(tables.activeSession) as unknown as OfflineDb['activeSession'],
-    sets: tableApi(tables.sets) as unknown as OfflineDb['sets'],
-    feelings: tableApi(tables.feelings) as unknown as OfflineDb['feelings'],
+    this.version(2)
+      .stores({
+        activeSession: 'clientUuid',
+        sets: 'clientUuid, synced, sessionClientUuid',
+        feelings: null,
+      })
+      .upgrade(async (tx) => {
+        // записи v1 не знали про `startSynced`: считаем старт неотправленным — повтор безопасен
+        await tx
+          .table('activeSession')
+          .toCollection()
+          .modify((record: Partial<ActiveSessionRecord>) => {
+            record.startSynced = record.startSynced ?? false
+          })
+      })
   }
 }
 
-/**
- * Dexie подключается динамическим импортом: модуль попадает и в серверный бандл
- * (SSR клиентского компонента), где IndexedDB нет. Если Dexie всё же недоступен,
- * работаем на хранилище в памяти — подходы не потеряются до перезагрузки.
- */
-export function getOfflineDb(): Promise<OfflineDb> {
-  if (!instancePromise) {
-    instancePromise = (async () => {
-      try {
-        const { default: Dexie } = await import('dexie')
-        const db = new Dexie('maxosipov')
-        db.version(1).stores({
-          activeSession: 'clientUuid',
-          sets: 'clientUuid, synced',
-          feelings: '++id, sessionClientUuid, synced',
-        })
-        return db as unknown as OfflineDb
-      } catch (error) {
-        console.error('[offline] IndexedDB недоступен, работаем в памяти', error)
-        return createMemoryDb()
-      }
-    })()
-  }
+let instance: MaxosipovDb | null = null
 
-  return instancePromise
+/** Лениво создаёт базу: на сервере (SSR) её не трогаем, пока не вызвали из браузера. */
+export async function getOfflineDb(): Promise<OfflineDb> {
+  instance ??= new MaxosipovDb()
+  return instance
 }

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getOfflineDb } from '@/lib/offline/db'
 import { useActiveSession } from '@/lib/offline/use-active-session'
-import { FreeMode, type LoggedSet, type WorkoutExercise } from './free-mode'
+import { recommend, recommendationText, type ProgressionRules } from '@/modules/progression'
+import { FreeMode, type LoggedSet, type NextRecommendation, type WorkoutExercise } from './free-mode'
 import { GuidedMode } from './guided-mode'
 import { FinishSummary } from './finish-summary'
 import type { Feeling } from './feeling-picker'
@@ -15,10 +16,11 @@ type Props = {
   dayName: string
   mode: 'free' | 'guided'
   exercises: WorkoutExercise[]
+  rules: ProgressionRules
 }
 
 /** Оболочка тренировки: старт сессии, запись подходов, завершение. */
-export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props) {
+export function WorkoutClient({ programDayId, dayName, mode, exercises, rules }: Props) {
   const session = useActiveSession()
   const [logged, setLogged] = useState<Record<string, LoggedSet[]>>({})
   const [finished, setFinished] = useState<{
@@ -28,51 +30,102 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
   } | null>(null)
   const router = useRouter()
   const startedRef = useRef(false)
+  const loggedRef = useRef<Record<string, LoggedSet[]>>({})
+  const [storageFailed, setStorageFailed] = useState(false)
+  const [nextRecommendations, setNextRecommendations] = useState<Record<string, NextRecommendation>>({})
 
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
 
     async function boot(): Promise<void> {
-      if (!session.session) {
-        await session.start({ programDayId, mode, programSnapshot: exercises })
+      try {
+        // Продолжаем незавершённую тренировку (в том числе после закрытия приложения офлайн)
+        // или начинаем новую; решение — по данным IndexedDB.
+        const active = await session.startOrResume({ programDayId, mode, programSnapshot: exercises })
+
+        const rows = await (await getOfflineDb()).sets
+          .where('sessionClientUuid')
+          .equals(active.clientUuid)
+          .toArray()
+
+        // подходы хранятся по `exerciseId`, экран ведёт учёт по карточкам (`programExerciseId`)
+        const cardByExercise = new Map(exercises.map((item) => [item.exerciseId, item.programExerciseId]))
+        const restored: Record<string, LoggedSet[]> = {}
+
+        for (const row of rows.sort((a, b) => a.setIndex - b.setIndex)) {
+          const key = cardByExercise.get(row.exerciseId)
+          if (!key) continue
+          const list = restored[key] ?? []
+          list.push({ index: row.setIndex, weightKg: row.weightKg, reps: row.reps })
+          restored[key] = list
+        }
+
+        loggedRef.current = restored
+        setLogged(restored)
+      } catch (error) {
+        console.error('[offline] не удалось открыть локальную базу', error)
+        setStorageFailed(true)
       }
-
-      // Восстанавливаем записанные подходы после перезагрузки (в том числе офлайн).
-      const active = await (await getOfflineDb()).activeSession.toCollection().first()
-      if (!active) return
-
-      const rows = await (await getOfflineDb()).sets.where('sessionClientUuid').equals(active.clientUuid).toArray()
-      const restored: Record<string, LoggedSet[]> = {}
-
-      for (const row of rows) {
-        const list = restored[row.exerciseId] ?? []
-        list.push({ index: row.setIndex, weightKg: row.weightKg, reps: row.reps })
-        restored[row.exerciseId] = list
-      }
-
-      setLogged(restored)
     }
 
     void boot()
+    void session.precacheMedia(
+      exercises.flatMap((item) => [item.videoMp4Url, item.posterUrl].filter((url): url is string => !!url)),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps -- старт нужен один раз
   }, [])
 
+  /**
+   * Подход появляется на экране только после записи в IndexedDB: что видно — то и сохранено
+   * (иначе мгновенная перезагрузка потеряла бы «показанный» подход). Актуальный список держим
+   * в ref, чтобы быстрые повторные нажатия получали правильные номера подходов.
+   */
   function log(exercise: WorkoutExercise, weightKg: number, reps: number): void {
-    const list = logged[exercise.exerciseId] ?? []
+    const key = exercise.programExerciseId
+    const list = loggedRef.current[key] ?? []
     const next = [...list, { index: list.length + 1, weightKg, reps }]
-    setLogged({ ...logged, [exercise.exerciseId]: next })
+    loggedRef.current = { ...loggedRef.current, [key]: next }
 
-    void session.logSet({
-      exerciseId: exercise.exerciseId,
-      setIndex: next.length,
-      weightKg,
-      reps,
-    })
+    void session
+      .logSet({ exerciseId: exercise.exerciseId, setIndex: next.length, weightKg, reps })
+      .then(() => setLogged(loggedRef.current))
+      .catch((error: unknown) => {
+        console.error('[offline] подход не сохранён', error)
+        loggedRef.current = { ...loggedRef.current, [key]: list }
+        setStorageFailed(true)
+      })
   }
 
   function feel(exercise: WorkoutExercise, feeling: Feeling): void {
     void session.setFeeling(exercise.exerciseId, feeling)
+
+    // «В следующий раз»: сегодняшние подходы с выбранным ощущением + завершённые тренировки
+    const today = (loggedRef.current[exercise.programExerciseId] ?? []).map((set) => ({
+      weightKg: set.weightKg,
+      reps: set.reps,
+      feeling,
+    }))
+    const recommendation = recommend(
+      {
+        target: { sets: exercise.sets, repMin: exercise.repMin, repMax: exercise.repMax },
+        stepKg: exercise.stepKg,
+        history: [
+          { date: new Date(), sets: today },
+          ...exercise.history.map((item) => ({ date: new Date(item.date), sets: item.sets })),
+        ],
+      },
+      rules,
+    )
+
+    setNextRecommendations((current) => ({
+      ...current,
+      [exercise.programExerciseId]: {
+        weightKg: recommendation.weightKg,
+        action: recommendation.action,
+        text: recommendationText(recommendation, { repMax: exercise.repMax }),
+      },
+    }))
   }
 
   function nextWeight(exercise: WorkoutExercise, weightKg: number): void {
@@ -80,7 +133,7 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ exerciseId: exercise.exerciseId, weightKg }),
-    })
+    }).catch(() => undefined) // офлайн: вес на следующий раз не критичен
   }
 
   async function finish(): Promise<void> {
@@ -94,7 +147,7 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
       .reduce((sum, set) => sum + set.weightKg * set.reps, 0)
 
     await session.finish()
-    setFinished({ durationMin, volumeKg: Math.round(volumeKg), count: Object.keys(logged).length })
+    setFinished({ durationMin, volumeKg: Math.round(volumeKg), count: Object.values(logged).filter((sets) => sets.length > 0).length })
   }
 
   if (finished) {
@@ -119,6 +172,12 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
         ) : null}
       </header>
 
+      {storageFailed ? (
+        <p className="rounded-card border border-warning/40 px-3 py-2 text-[13px] text-warning">
+          Не удалось открыть память устройства: подходы не сохранятся без сети. Обнови страницу.
+        </p>
+      ) : null}
+
       {mode === 'guided' ? (
         <GuidedMode
           exercises={exercises}
@@ -126,6 +185,7 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
           onLog={log}
           onFeeling={feel}
           onNextWeight={nextWeight}
+          nextRecommendations={nextRecommendations}
         />
       ) : (
         <FreeMode
@@ -134,6 +194,7 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises }: Props)
           onLog={log}
           onFeeling={feel}
           onNextWeight={nextWeight}
+          nextRecommendations={nextRecommendations}
         />
       )}
 

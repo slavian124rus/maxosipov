@@ -22,6 +22,14 @@ export type WorkoutExercise = {
   videoWebmUrl: string | null
   recommendation: { action: string; weightKg: number | null; text: string } | null
   startWeightKg: number
+  history: { date: string; sets: { weightKg: number; reps: number; feeling: Feeling | null }[] }[]
+}
+
+/** «В следующий раз» после упражнения: считается по текущим подходам и ощущению. */
+export type NextRecommendation = {
+  text: string
+  weightKg: number | null
+  action: 'increase' | 'keep' | 'decrease' | 'none'
 }
 
 export type LoggedSet = { index: number; weightKg: number; reps: number }
@@ -32,10 +40,18 @@ type Props = {
   onLog: (exercise: WorkoutExercise, weightKg: number, reps: number) => void
   onFeeling: (exercise: WorkoutExercise, feeling: Feeling) => void
   onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void
+  nextRecommendations: Record<string, NextRecommendation>
 }
 
 /** Свободный режим: список карточек, активная раскрывается (DESIGN.md §8.3). */
-export function FreeMode({ exercises, logged, onLog, onFeeling, onNextWeight }: Props) {
+export function FreeMode({
+  exercises,
+  logged,
+  onLog,
+  onFeeling,
+  onNextWeight,
+  nextRecommendations,
+}: Props) {
   const [activeId, setActiveId] = useState<string | null>(exercises[0]?.programExerciseId ?? null)
 
   return (
@@ -130,14 +146,17 @@ export function FreeMode({ exercises, logged, onLog, onFeeling, onNextWeight }: 
             {isActive && complete ? (
               <div className="flex flex-col gap-3">
                 <FeelingPicker onPick={(feeling) => onFeeling(exercise, feeling)} />
-                {exercise.recommendation ? (
+                {nextRecommendations[exercise.programExerciseId] ? (
                   <RecommendationCard
-                    text={exercise.recommendation.text}
-                    weightKg={exercise.recommendation.weightKg}
+                    text={nextRecommendations[exercise.programExerciseId]!.text}
+                    weightKg={nextRecommendations[exercise.programExerciseId]!.weightKg}
+                    action={nextRecommendations[exercise.programExerciseId]!.action}
                     onAccept={() =>
                       onNextWeight(
                         exercise,
-                        exercise.recommendation?.weightKg ?? exercise.startWeightKg,
+                        nextRecommendations[exercise.programExerciseId]?.weightKg ??
+                          done.at(-1)?.weightKg ??
+                          exercise.startWeightKg,
                       )
                     }
                     onKeep={() => onNextWeight(exercise, done.at(-1)?.weightKg ?? exercise.startWeightKg)}

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { exercises } from '@/modules/catalog'
 import { getGym } from '@/modules/gym'
 import { recommend, recommendationText, type Recommendation } from '@/modules/progression'
@@ -54,25 +54,74 @@ export async function startSession(
       clientUuid: input.clientUuid,
       startedAt: input.startedAt,
     })
+    .onConflictDoNothing({ target: workoutSessions.clientUuid })
     .returning({ id: workoutSessions.id })
 
-  if (!created) throw new Error('Тренировка не создана')
-  return { sessionId: created.id }
+  if (created) return { sessionId: created.id }
+
+  // параллельный повторный старт: сессию уже создал соседний запрос
+  const raced = await findSessionByClientUuid(input.clientUuid)
+  if (!raced) throw new Error('Тренировка не создана')
+  if (raced.userId !== userId) throw new ForbiddenError('Это чужая тренировка')
+  return { sessionId: raced.id }
 }
 
-/** Идемпотентная запись подходов: upsert по `client_uuid`, чужая сессия — ошибка. */
+function isValidSetItem(item: SyncSetItem): boolean {
+  return (
+    item.clientUuid.length > 0 &&
+    item.clientUuid.length <= 64 &&
+    Number.isInteger(item.setIndex) &&
+    item.setIndex >= 1 &&
+    item.setIndex <= 100 &&
+    Number.isFinite(item.weightKg) &&
+    item.weightKg >= 0 &&
+    item.weightKg <= 1000 &&
+    Number.isInteger(item.reps) &&
+    item.reps >= 1 &&
+    item.reps <= 200 &&
+    (item.feeling === undefined || ['easy', 'good', 'hard'].includes(item.feeling)) &&
+    (item.startedAt === undefined || !Number.isNaN(item.startedAt.getTime())) &&
+    (item.finishedAt === undefined || !Number.isNaN(item.finishedAt.getTime()))
+  )
+}
+
+/**
+ * Идемпотентная запись подходов: upsert по `client_uuid`.
+ * - `accepted` — записаны (в том числе повторно);
+ * - `rejected` — навсегда непригодны (кривые числа, нет такого упражнения, `client_uuid` уже занят
+ *   чужим подходом): клиент больше их не шлёт, очередь не блокируется;
+ * - всё остальное (например, сессия ещё не создана) клиент отправит повторно.
+ * Чужая сессия — `ForbiddenError`.
+ */
 export async function syncSets(
   userId: string,
   items: SyncSetItem[],
-): Promise<{ accepted: string[] }> {
+): Promise<{ accepted: string[]; rejected: string[] }> {
   const accepted: string[] = []
+  const rejected: string[] = []
+
+  const exerciseIds = [...new Set(items.map((item) => item.exerciseId))].filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
+  )
+  const known = new Set(
+    exerciseIds.length
+      ? (
+          await db.select({ id: exercises.id }).from(exercises).where(inArray(exercises.id, exerciseIds))
+        ).map((row) => row.id)
+      : [],
+  )
 
   for (const item of items) {
+    if (!isValidSetItem(item) || !known.has(item.exerciseId)) {
+      rejected.push(item.clientUuid)
+      continue
+    }
+
     const session = await findSessionByClientUuid(item.sessionClientUuid)
-    if (!session) throw new Error('Тренировка не найдена')
+    if (!session) continue // старт ещё не дошёл — повторим позже
     if (session.userId !== userId) throw new ForbiddenError('Это чужая тренировка')
 
-    await db
+    const written = await db
       .insert(setLogs)
       .values({
         sessionId: session.id,
@@ -88,20 +137,25 @@ export async function syncSets(
       })
       .onConflictDoUpdate({
         target: setLogs.clientUuid,
+        // чужой `client_uuid` не перезаписываем: обновляем только подход этой же сессии
+        setWhere: eq(setLogs.sessionId, session.id),
         set: {
           weightKg: item.weightKg,
           reps: item.reps,
           setIndex: item.setIndex,
-          feeling: item.feeling ?? null,
+          // повторная отправка без ощущения не стирает уже выставленное
+          feeling: sql`coalesce(excluded.feeling, ${setLogs.feeling})`,
           loggedOffline: item.loggedOffline ? 1 : 0,
           updatedAt: new Date(),
         },
       })
+      .returning({ id: setLogs.id })
 
-    accepted.push(item.clientUuid)
+    if (written.length > 0) accepted.push(item.clientUuid)
+    else rejected.push(item.clientUuid)
   }
 
-  return { accepted }
+  return { accepted, rejected }
 }
 
 /** Ощущение ставится всем подходам упражнения в этой тренировке. */
@@ -131,6 +185,8 @@ export async function finishSession(
   const session = await findSessionByClientUuid(sessionClientUuid)
   if (!session) throw new Error('Тренировка не найдена')
   if (session.userId !== userId) throw new ForbiddenError('Это чужая тренировка')
+  // повторное завершение (ответ потерялся, клиент повторил) — ничего не меняет и не дублирует задачу
+  if (session.finishedAt) return
 
   await db
     .update(workoutSessions)
@@ -180,6 +236,7 @@ export async function getHistoryForExercise(
   userId: string,
   exerciseId: string,
   limit = 6,
+  options: { finishedOnly?: boolean } = {},
 ): Promise<HistorySession[]> {
   const rows = await db
     .select({
@@ -192,7 +249,13 @@ export async function getHistoryForExercise(
     })
     .from(setLogs)
     .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(setLogs.exerciseId, exerciseId)))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        eq(setLogs.exerciseId, exerciseId),
+        options.finishedOnly ? sql`${workoutSessions.finishedAt} is not null` : undefined,
+      ),
+    )
     .orderBy(desc(workoutSessions.startedAt), asc(setLogs.setIndex))
 
   const bySession = new Map<string, HistorySession>()

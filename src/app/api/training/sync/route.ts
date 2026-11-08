@@ -1,67 +1,84 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { assertClientAccess } from '@/modules/access'
 import { getCurrentUser } from '@/modules/auth'
-import { syncSets, setExerciseFeeling, type SyncSetItem } from '@/modules/training'
+import { ForbiddenError } from '@/modules/rbac'
+import { setExerciseFeeling, syncSets, type SyncSetItem } from '@/modules/training'
 
-type Body = {
-  items?: {
-    clientUuid?: string
-    sessionClientUuid?: string
-    exerciseId?: string
-    setIndex?: number
-    weightKg?: number
-    reps?: number
-    feeling?: 'easy' | 'good' | 'hard'
-    startedAt?: string
-    finishedAt?: string
-    loggedOffline?: boolean
-  }[]
-  feelings?: { sessionClientUuid?: string; exerciseId?: string; feeling?: 'easy' | 'good' | 'hard' }[]
-}
+const feelingSchema = z.enum(['easy', 'good', 'hard'])
 
-/** Приём подходов из офлайн-очереди. Идемпотентно по `clientUuid`. */
+const bodySchema = z.object({
+  items: z.array(z.unknown()).max(50).default([]),
+  feelings: z
+    .array(
+      z.object({
+        sessionClientUuid: z.string().min(1).max(64),
+        exerciseId: z.string().uuid(),
+        feeling: feelingSchema,
+      }),
+    )
+    .max(50)
+    .default([]),
+})
+
+const itemSchema = z.object({
+  clientUuid: z.string().min(1).max(64),
+  sessionClientUuid: z.string().min(1).max(64),
+  exerciseId: z.string().uuid(),
+  setIndex: z.number().int().min(1).max(100),
+  weightKg: z.number().min(0).max(1000),
+  reps: z.number().int().min(1).max(200),
+  feeling: feelingSchema.optional(),
+  startedAt: z.string().datetime().optional(),
+  finishedAt: z.string().datetime().optional(),
+  loggedOffline: z.boolean().default(false),
+})
+
+/**
+ * Приём подходов из офлайн-очереди. Идемпотентно по `clientUuid`.
+ * Отвечает `accepted` (записаны) и `rejected` (непригодны навсегда — клиент их больше не шлёт).
+ */
 export async function POST(request: Request) {
   const current = await getCurrentUser()
   if (!current) return NextResponse.json({ error: 'Требуется вход' }, { status: 401 })
 
-  await assertClientAccess(current.user.id)
-
-  let body: Body
   try {
-    body = (await request.json()) as Body
-  } catch {
-    return NextResponse.json({ error: 'Неверный запрос' }, { status: 400 })
+    await assertClientAccess(current.user.id)
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    }
+    throw error
   }
 
-  const items: SyncSetItem[] = (body.items ?? []).map((item) => ({
-    clientUuid: String(item.clientUuid ?? ''),
-    sessionClientUuid: String(item.sessionClientUuid ?? ''),
-    exerciseId: String(item.exerciseId ?? ''),
-    setIndex: Number(item.setIndex ?? 0),
-    weightKg: Number(item.weightKg ?? 0),
-    reps: Number(item.reps ?? 0),
-    ...(item.feeling ? { feeling: item.feeling } : {}),
-    ...(item.startedAt ? { startedAt: new Date(item.startedAt) } : {}),
-    ...(item.finishedAt ? { finishedAt: new Date(item.finishedAt) } : {}),
-    loggedOffline: Boolean(item.loggedOffline),
-  }))
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) return NextResponse.json({ error: 'Неверный запрос' }, { status: 400 })
 
-  const feelings = (body.feelings ?? []).filter(
-    (item) => item.sessionClientUuid && item.exerciseId && item.feeling,
-  )
+  const items: SyncSetItem[] = []
+  const rejected: string[] = []
 
-  if (items.length > 50) {
-    return NextResponse.json({ error: 'Не больше 50 подходов за раз' }, { status: 400 })
-  }
-  if (items.length === 0 && feelings.length === 0) {
-    return NextResponse.json({ error: 'Нужно от 1 до 50 подходов' }, { status: 400 })
+  for (const raw of parsed.data.items) {
+    const item = itemSchema.safeParse(raw)
+
+    if (!item.success) {
+      const uuid = (raw as { clientUuid?: unknown } | null)?.clientUuid
+      if (typeof uuid === 'string') rejected.push(uuid)
+      continue
+    }
+
+    const { startedAt, finishedAt, feeling, ...rest } = item.data
+    items.push({
+      ...rest,
+      ...(feeling ? { feeling } : {}),
+      ...(startedAt ? { startedAt: new Date(startedAt) } : {}),
+      ...(finishedAt ? { finishedAt: new Date(finishedAt) } : {}),
+    })
   }
 
   try {
-    const { accepted } = await syncSets(current.user.id, items)
+    const result = await syncSets(current.user.id, items)
 
-    for (const feeling of body.feelings ?? []) {
-      if (!feeling.sessionClientUuid || !feeling.exerciseId || !feeling.feeling) continue
+    for (const feeling of parsed.data.feelings) {
       await setExerciseFeeling(
         current.user.id,
         feeling.sessionClientUuid,
@@ -70,9 +87,14 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ accepted })
+    return NextResponse.json({
+      accepted: result.accepted,
+      rejected: [...rejected, ...result.rejected],
+    })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Не удалось сохранить подходы'
-    return NextResponse.json({ error: message }, { status: 400 })
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    }
+    throw error
   }
 }

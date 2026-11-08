@@ -283,3 +283,89 @@ test('finishSession ставит задачу session.summary', async () => {
   const [session] = await db.select().from(workoutSessions)
   expect(session?.finishedAt).toBeInstanceOf(Date)
 })
+test('нет такого упражнения и кривые числа → rejected, остальные принимаются', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-rej',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  const result = await syncSets(clientId, [
+    { ...setItem('s-rej', 1), exerciseId: '00000000-0000-4000-8000-0000000000aa' },
+    setItem('s-rej', 2, -5),
+    setItem('s-rej', 3, 50, 0),
+    setItem('s-rej', 4),
+  ])
+
+  expect(result.accepted).toEqual(['s-rej-4'])
+  expect(result.rejected.sort()).toEqual(['s-rej-1', 's-rej-2', 's-rej-3'])
+})
+
+test('сессия ещё не создана: подход не принят и не отклонён — клиент повторит', async () => {
+  const result = await syncSets(clientId, [setItem('s-none', 1)])
+  expect(result).toEqual({ accepted: [], rejected: [] })
+
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-none',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+  expect((await syncSets(clientId, [setItem('s-none', 1)])).accepted).toEqual(['s-none-1'])
+})
+
+test('чужой client_uuid не перезаписывает подход другого пользователя', async () => {
+  const [me] = await db.select().from(users).where(eq(users.id, clientId))
+  const [other] = await db
+    .insert(users)
+    .values({ phone: '+79990000012', name: 'Другой', gymId, roleId: me!.roleId })
+    .returning()
+
+  const now = new Date('2026-11-07T09:00:00Z')
+  await startSession(clientId, { programDayId: null, mode: 'free', clientUuid: 'mine', startedAt: now })
+  await startSession(other!.id, { programDayId: null, mode: 'free', clientUuid: 'theirs', startedAt: now })
+
+  await syncSets(clientId, [setItem('mine', 1, 50, 12, 'shared-uuid')])
+  const result = await syncSets(other!.id, [setItem('theirs', 1, 999, 1, 'shared-uuid')])
+
+  expect(result).toEqual({ accepted: [], rejected: ['shared-uuid'] })
+  const [row] = await db.select().from(setLogs).where(eq(setLogs.clientUuid, 'shared-uuid'))
+  expect(row?.weightKg).toBe(50)
+  expect(row?.reps).toBe(12)
+})
+
+test('повторная отправка подхода без ощущения не стирает выставленное', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-feel',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  await syncSets(clientId, [setItem('s-feel', 1)])
+  await setExerciseFeeling(clientId, 's-feel', exerciseId, 'easy')
+  await syncSets(clientId, [setItem('s-feel', 1)])
+
+  const [row] = await db.select().from(setLogs).where(eq(setLogs.clientUuid, 's-feel-1'))
+  expect(row?.feeling).toBe('easy')
+})
+
+test('повторное завершение тренировки не ставит задачу второй раз', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-fin',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  const queued: string[] = []
+  const enqueue = async (name: string): Promise<void> => void queued.push(name)
+
+  await finishSession(clientId, 's-fin', { finishedAt: new Date('2026-11-07T10:00:00Z') }, { enqueue })
+  await finishSession(clientId, 's-fin', { finishedAt: new Date('2026-11-07T11:00:00Z') }, { enqueue })
+
+  expect(queued).toEqual(['session.summary'])
+  const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.clientUuid, 's-fin'))
+  expect(session?.finishedAt?.toISOString()).toBe('2026-11-07T10:00:00.000Z')
+})

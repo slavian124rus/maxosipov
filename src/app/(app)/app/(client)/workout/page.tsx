@@ -3,8 +3,10 @@ import { requireClientPage } from '@/components/app/require-client-page'
 import { WorkoutClient } from '@/components/workout/workout-client'
 import { assertClientAccess } from '@/modules/access'
 import { getExercise } from '@/modules/catalog'
+import { getGym } from '@/modules/gym'
 import {
   getActiveProgram,
+  getHistoryForExercise,
   getLastFinishedDayId,
   getNextWeight,
   getRecommendations,
@@ -30,6 +32,7 @@ export default async function WorkoutPage({
 
   const { exercise: extraExerciseId } = await searchParams
   const recommendations = await getRecommendations(user.id, day.id)
+  const gym = await getGym()
 
   const baseEntries = day.exercises.map((item) => ({
     programExerciseId: item.id,
@@ -57,6 +60,8 @@ export default async function WorkoutPage({
       const detail = await getExercise(entry.exerciseId)
       const nextWeight = await getNextWeight(user.id, entry.exerciseId)
       const recommendation = recommendations[entry.exerciseId]
+      // История завершённых тренировок: по ней и по текущим подходам экран считает «В следующий раз»
+      const history = await getHistoryForExercise(user.id, entry.exerciseId, 6, { finishedOnly: true })
 
       return {
         programExerciseId: entry.programExerciseId,
@@ -79,6 +84,7 @@ export default async function WorkoutPage({
             }
           : null,
         startWeightKg: nextWeight ?? recommendation?.weightKg ?? 0,
+        history: history.map((session) => ({ date: session.date.toISOString(), sets: session.sets })),
       }
     }),
   )
@@ -89,6 +95,7 @@ export default async function WorkoutPage({
       dayName={day.name}
       mode={user.workoutMode === 'guided' ? 'guided' : 'free'}
       exercises={exercises}
+      rules={gym.settings.progressionRules}
     />
   )
 }
