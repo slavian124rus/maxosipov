@@ -111,9 +111,9 @@
 - `useActiveSession()` — React-хук: старт/запись подхода/ощущение/завершение, всё сначала в Dexie.
 - SW: runtime-кэш `CacheFirst` для `/media/*.mp4|webm|webp` с ключом **без query-параметров** (плагин `cacheKeyWillBeUsed` убирает `exp`, `sig`), лимит 60 записей, 30 дней; при открытии программы клиент вызывает `caches`-предзагрузку видео и постеров упражнений программы (через `postMessage` в SW или прямой `fetch` — опиши выбор).
 
-- [ ] **Шаг 1.** Тесты `queue.test.ts` (`fake-indexeddb`, dev-зависимость): 3 подхода, сеть падает → `failed:3`, все остаются `synced:0`; сеть вернулась → `sent:3`; сервер принял только 2 → третий остаётся в очереди.
-- [ ] **Шаг 2.** Реализация → PASS. Повтор отправки каждые 15 с и на `window.online`.
-- [ ] **Шаг 3.** `pnpm verify` → коммит `feat(offline): dexie session store and sync queue`.
+- [x] **Шаг 1.** Тесты `queue.test.ts` (`fake-indexeddb`, dev-зависимость): 3 подхода, сеть падает → `failed:3`, все остаются `synced:0`; сеть вернулась → `sent:3`; сервер принял только 2 → третий остаётся в очереди.
+- [x] **Шаг 2.** Реализация → PASS. Повтор отправки каждые 15 с и на `window.online`.
+- [x] **Шаг 3.** `pnpm verify` → коммит `feat(offline): dexie session store and sync queue`.
 
 ### Задача 5. Экраны тренировки
 

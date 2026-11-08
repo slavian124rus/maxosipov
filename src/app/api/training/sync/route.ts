@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { assertClientAccess } from '@/modules/access'
 import { getCurrentUser } from '@/modules/auth'
-import { syncSets, type SyncSetItem } from '@/modules/training'
+import { syncSets, setExerciseFeeling, type SyncSetItem } from '@/modules/training'
 
 type Body = {
   items?: {
@@ -16,6 +16,7 @@ type Body = {
     finishedAt?: string
     loggedOffline?: boolean
   }[]
+  feelings?: { sessionClientUuid?: string; exerciseId?: string; feeling?: 'easy' | 'good' | 'hard' }[]
 }
 
 /** Приём подходов из офлайн-очереди. Идемпотентно по `clientUuid`. */
@@ -45,12 +46,30 @@ export async function POST(request: Request) {
     loggedOffline: Boolean(item.loggedOffline),
   }))
 
-  if (items.length === 0 || items.length > 50) {
+  const feelings = (body.feelings ?? []).filter(
+    (item) => item.sessionClientUuid && item.exerciseId && item.feeling,
+  )
+
+  if (items.length > 50) {
+    return NextResponse.json({ error: 'Не больше 50 подходов за раз' }, { status: 400 })
+  }
+  if (items.length === 0 && feelings.length === 0) {
     return NextResponse.json({ error: 'Нужно от 1 до 50 подходов' }, { status: 400 })
   }
 
   try {
     const { accepted } = await syncSets(current.user.id, items)
+
+    for (const feeling of body.feelings ?? []) {
+      if (!feeling.sessionClientUuid || !feeling.exerciseId || !feeling.feeling) continue
+      await setExerciseFeeling(
+        current.user.id,
+        feeling.sessionClientUuid,
+        feeling.exerciseId,
+        feeling.feeling,
+      )
+    }
+
     return NextResponse.json({ accepted })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не удалось сохранить подходы'

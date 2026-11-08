@@ -2,7 +2,7 @@
 /// <reference lib="webworker" />
 import { defaultCache } from '@serwist/turbopack/worker'
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { Serwist, Strategy, type StrategyHandler } from 'serwist'
+import { CacheFirst, ExpirationPlugin, Serwist, Strategy, type StrategyHandler } from 'serwist'
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -58,5 +58,25 @@ serwist.registerCapture(
 for (const entry of defaultCache) {
   serwist.registerCapture(entry.matcher, entry.handler, entry.method)
 }
+
+// Видео и постеры упражнений: кэшируем без query-параметров подписи,
+// иначе каждая новая ссылка считалась бы новым файлом.
+serwist.registerCapture(
+  ({ url, sameOrigin }) =>
+    sameOrigin && url.pathname.startsWith('/media/') && /\.(mp4|webm|webp|jpg)$/.test(url.pathname),
+  new CacheFirst({
+    cacheName: 'media',
+    plugins: [
+      {
+        cacheKeyWillBeUsed: async ({ request }) => {
+          const url = new URL(request.url)
+          url.search = ''
+          return url.toString()
+        },
+      },
+      new ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60 }),
+    ],
+  }),
+)
 
 serwist.addEventListeners()
