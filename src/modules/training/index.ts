@@ -26,7 +26,29 @@ export {
 export type { ChangeActorKind } from './programs'
 
 export {
+  finishSession,
+  getHistoryForExercise,
+  getNextWeight,
+  getRecommendations,
+  getSessionDetail,
+  getSessionSummary,
+  listSessions,
+  setExerciseFeeling,
+  setNextWeight,
+  startSession,
+  syncSets,
+} from './sessions'
+export type {
+  DayRecommendation,
+  HistorySession,
+  SessionDetail,
+  SessionSummary,
+  SyncSetItem,
+} from './sessions'
+
+export {
   aiProposals,
+  nextWeights,
   programChanges,
   programDays,
   programExercises,

@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { integer, jsonb, pgTable, primaryKey, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 export type AuthorKind = 'trainer' | 'client' | 'client_ai'
 export type ProgramStatus = 'active' | 'archived'
@@ -91,6 +91,21 @@ export const setLogs = pgTable(
   },
   (table) => [unique('set_logs_client_uuid_unique').on(table.clientUuid)],
 )
+
+/** «Вес на следующий раз» — то, что клиент принял после упражнения. */
+export const nextWeights = pgTable(
+  'next_weights',
+  {
+    userId: uuid('user_id').notNull(),
+    exerciseId: uuid('exercise_id').notNull(),
+    weightKg: real('weight_kg').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.exerciseId] })],
+)
+
+export type NextWeight = typeof nextWeights.$inferSelect
 
 /** История изменений программы: кто, когда и что поменял. */
 export const programChanges = pgTable('program_changes', {

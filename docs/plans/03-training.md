@@ -98,8 +98,8 @@
 - `getHistoryForExercise(userId, exerciseId, limit = 6): Promise<SessionResult[]>`; `getRecommendations(userId, programDayId): Promise<Record<exerciseId, Recommendation & { text: string }>>`.
 - `GET /api/training/program-version?programId` → `{ version: string }` (хэш `updated_at` + число изменений) — для опроса изменений.
 
-- [ ] **Шаг 1.** Тесты: повторная отправка тех же `clientUuid` → одна запись; подходы из разных устройств в одну сессию — сохраняются оба; `setExerciseFeeling` ставит ощущение всем подходам упражнения в сессии; `getRecommendations` возвращает `increase 55` после двух подходящих сессий из сида-фикстуры; изменение программы тренером после `startSession` не меняет уже записанные `set_logs`.
-- [ ] **Шаг 2.** Реализация, роуты с `requireUser` и проверкой доступа (`getAccessForUser`) → PASS → коммит `feat(training): sessions and idempotent set sync`.
+- [x] **Шаг 1.** Тесты: повторная отправка тех же `clientUuid` → одна запись; подходы из разных устройств в одну сессию — сохраняются оба; `setExerciseFeeling` ставит ощущение всем подходам упражнения в сессии; `getRecommendations` возвращает `increase 55` после двух подходящих сессий из сида-фикстуры; изменение программы тренером после `startSession` не меняет уже записанные `set_logs`.
+- [x] **Шаг 2.** Реализация, роуты с `requireUser` и проверкой доступа (`getAccessForUser`) → PASS → коммит `feat(training): sessions and idempotent set sync`.
 
 ### Задача 4. Офлайн-хранилище и очередь (клиент)
 

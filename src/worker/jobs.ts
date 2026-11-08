@@ -22,6 +22,9 @@ async function createTunedQueue(boss: PgBoss, name: string): Promise<void> {
   if (tuning) await boss.updateQueue(name, tuning)
 }
 
+/** Итог тренировки от МаксИИма — обработчик появится на этапе 4. */
+export const SESSION_SUMMARY_QUEUE = 'session.summary'
+
 /**
  * Регистрирует фоновые задачи: пульс, подписки, очистку входа, обработку видео, уборку медиа.
  */
@@ -65,6 +68,12 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
     const originals = await cleanupOriginals(now)
     const abandoned = await cleanupAbandonedUploads(now)
     console.log(`[worker] media.cleanup: исходников — ${originals}, брошенных загрузок — ${abandoned}`)
+  })
+
+  // Обработчик итога появится на этапе 4; сейчас задача только принимается.
+  await boss.createQueue(SESSION_SUMMARY_QUEUE)
+  await boss.work<{ sessionId: string }>(SESSION_SUMMARY_QUEUE, async ([job]) => {
+    console.log(`[worker] session.summary ${job?.data.sessionId ?? ''} — обработчик на этапе 4`)
   })
 }
 
