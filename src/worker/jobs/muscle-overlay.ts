@@ -1,10 +1,10 @@
 import { and, eq, ne } from 'drizzle-orm'
-import { mediaDir, mediaRoot, runProcess, safeJoin } from '@/modules/media'
+import { MUSCLE_OVERLAY_QUEUE, mediaDir, mediaRoot, runProcess, safeJoin } from '@/modules/media'
 import { db } from '@/shared/db'
 import { exercises, media } from '@/shared/db/schema'
 import type { OverlayProfile } from '@/modules/catalog'
 
-export const MUSCLE_OVERLAY_QUEUE = 'media.muscles'
+export { MUSCLE_OVERLAY_QUEUE }
 
 export type MuscleOverlayData = {
   mediaId: string
@@ -56,7 +56,11 @@ export async function muscleOverlayJob(data: MuscleOverlayData): Promise<boolean
     await db
       .update(media)
       .set({
-        processedPaths: { ...row.processedPaths, musclesMp4: `${mediaDir(row)}/muscles.mp4` },
+        processedPaths: {
+          ...row.processedPaths,
+          musclesMp4: `${mediaDir(row)}/muscles.mp4`,
+          musclesProfile: data.profile,
+        },
         updatedAt: new Date(),
       })
       .where(eq(media.id, row.id))

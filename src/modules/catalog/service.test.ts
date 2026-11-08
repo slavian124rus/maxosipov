@@ -1,11 +1,15 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
+import { enqueueJob } from '@/shared/queue'
+import { eq } from 'drizzle-orm'
 import { db } from '@/shared/db'
 import { gyms } from '@/modules/gym'
 import { media } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
-import { createExercise, getExercise, listExercises, publishExercise } from './service'
+import { createExercise, getExercise, listExercises, publishExercise, updateExercise } from './service'
 import type { ExerciseInput } from './validation'
+
+vi.mock('@/shared/queue', () => ({ enqueueJob: vi.fn(async () => {}) }))
 
 let actor: Actor
 let client: Actor
@@ -233,4 +237,74 @@ test('getExercise отдаёт подписанные ссылки и скрыв
   expect(detail?.videoMp4Url).toMatch(/^\/media\/2026\/11\/ready\/video\.mp4\?exp=\d+&sig=[0-9a-f]+$/)
   expect(detail?.posterUrl).toContain('poster.webp')
   expect(detail?.hasMuscles).toBe(false)
+})
+
+test('упражнение с готовым видео и профилем ставит подсветку в очередь', async () => {
+  vi.mocked(enqueueJob).mockClear()
+
+  const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
+
+  expect(enqueueJob).toHaveBeenCalledWith('media.muscles', {
+    mediaId: readyVideoId,
+    profile: 'pull_vertical',
+  })
+
+  // профиль не менялся и подсветка уже есть — повторно не ставим
+  await db
+    .update(media)
+    .set({
+      processedPaths: {
+        mp4: '2026/11/ready/video.mp4',
+        musclesMp4: '2026/11/ready/muscles.mp4',
+        musclesProfile: 'pull_vertical',
+      },
+    })
+    .where(eq(media.id, readyVideoId))
+  vi.mocked(enqueueJob).mockClear()
+  await updateExercise(actor, exercise.id, { ...baseInput, videoMediaId: readyVideoId })
+  expect(enqueueJob).not.toHaveBeenCalled()
+
+  // смена профиля — пересчитываем
+  await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    videoMediaId: readyVideoId,
+    overlayProfile: 'pull_horizontal',
+  })
+  expect(enqueueJob).toHaveBeenCalledWith('media.muscles', {
+    mediaId: readyVideoId,
+    profile: 'pull_horizontal',
+  })
+})
+
+test('без профиля или с необработанным видео подсветку не ставим', async () => {
+  vi.mocked(enqueueJob).mockClear()
+
+  await createExercise(actor, { ...baseInput, name: 'Без профиля', videoMediaId: readyVideoId, overlayProfile: 'none' })
+  await createExercise(actor, { ...baseInput, name: 'Ещё в обработке', videoMediaId: processingVideoId })
+
+  expect(enqueueJob).not.toHaveBeenCalled()
+})
+
+test('при профиле «none» клиент не видит старую подсветку', async () => {
+  await db
+    .update(media)
+    .set({
+      processedPaths: {
+        mp4: '2026/11/ready/video.mp4',
+        musclesMp4: '2026/11/ready/muscles.mp4',
+        musclesProfile: 'pull_vertical',
+      },
+    })
+    .where(eq(media.id, readyVideoId))
+
+  const exercise = await createExercise(actor, {
+    ...baseInput,
+    videoMediaId: readyVideoId,
+    overlayProfile: 'none',
+  })
+  await publishExercise(actor, exercise.id)
+
+  const detail = await getExercise(exercise.id)
+  expect(detail?.hasMuscles).toBe(false)
+  expect(detail?.musclesMp4Url).toBeNull()
 })

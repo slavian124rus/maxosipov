@@ -8,6 +8,8 @@ export type ProcessedPaths = {
   webm?: string
   poster?: string
   musclesMp4?: string
+  /** Профиль, по которому сделан `musclesMp4`; при смене профиля подсветку пересчитываем. */
+  musclesProfile?: string
 }
 
 export type ProcessingOptions = {

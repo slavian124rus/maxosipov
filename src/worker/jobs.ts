@@ -1,4 +1,5 @@
 import type { PgBoss } from 'pg-boss'
+import { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE } from '@/modules/media'
 import { registerAuthCleanup } from './jobs/auth-cleanup'
 import { registerExpireSubscriptions } from './jobs/expire-subscriptions'
 import { cleanupOriginals } from './jobs/media-cleanup'
@@ -9,10 +10,9 @@ import { processMediaJob } from './jobs/process-media'
 export const HEARTBEAT_QUEUE = 'heartbeat'
 export const HEARTBEAT_CRON = '*/10 * * * *'
 
-/** Обработка видео: одно за раз, чтобы ffmpeg не съел всю память. */
-export const PROCESS_MEDIA_QUEUE = 'media.process'
-/** Ночная уборка исходников старше 30 дней. */
-export const MEDIA_CLEANUP_QUEUE = 'media.cleanup'
+export { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE }
+
+/** Ночная уборка исходников и временных файлов. */
 export const MEDIA_CLEANUP_CRON = '0 4 * * *'
 
 /**

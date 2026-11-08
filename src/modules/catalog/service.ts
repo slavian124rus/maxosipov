@@ -1,8 +1,9 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { getGym } from '@/modules/gym'
-import { signMediaPath, VIDEO_URL_TTL_SEC } from '@/modules/media'
+import { MUSCLE_OVERLAY_QUEUE, signMediaPath, VIDEO_URL_TTL_SEC } from '@/modules/media'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
+import { enqueueJob } from '@/shared/queue'
 import { media } from '@/shared/db/schema'
 import { exercises, machines, type Exercise, type Machine, type OverlayProfile } from './schema'
 import type { MuscleCode } from './muscles'
@@ -54,6 +55,31 @@ async function uniqueSlug(gymId: string, name: string): Promise<string> {
   }
 
   return `${base}-${Date.now()}`
+}
+
+/**
+ * Подсветка мышц делается по профилю упражнения. Видео обычно загружают раньше, чем создают
+ * упражнение, поэтому после сохранения проверяем: видео готово, профиль задан, а готовой подсветки
+ * с этим профилем ещё нет — тогда ставим задачу. Если видео ещё обрабатывается, задачу поставит
+ * `media.process` по окончании. Ошибка очереди не мешает сохранить упражнение.
+ */
+async function scheduleOverlay(exercise: Exercise): Promise<void> {
+  if (exercise.overlayProfile === 'none' || !exercise.videoMediaId) return
+
+  try {
+    const [video] = await db.select().from(media).where(eq(media.id, exercise.videoMediaId)).limit(1)
+    if (!video || video.status !== 'ready') return
+
+    const paths = video.processedPaths
+    if (paths?.musclesMp4 && paths.musclesProfile === exercise.overlayProfile) return
+
+    await enqueueJob(MUSCLE_OVERLAY_QUEUE, {
+      mediaId: video.id,
+      profile: exercise.overlayProfile,
+    })
+  } catch (error) {
+    console.error('[catalog] не удалось поставить подсветку мышц в очередь', error)
+  }
 }
 
 export async function createMachine(actor: Actor, input: MachineInput): Promise<Machine> {
@@ -130,6 +156,7 @@ export async function createExercise(actor: Actor, input: ExerciseInput): Promis
     .returning()
 
   if (!row) throw new Error('Упражнение не создано')
+  await scheduleOverlay(row)
   return row
 }
 
@@ -161,6 +188,7 @@ export async function updateExercise(
     .returning()
 
   if (!row) throw new Error('Упражнение не найдено')
+  await scheduleOverlay(row)
   return row
 }
 
@@ -276,7 +304,7 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
         status: exercise.status,
         posterUrl: poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null,
         videoStatus: video?.status ?? null,
-        hasMuscles: Boolean(video?.processedPaths?.musclesMp4),
+        hasMuscles: exercise.overlayProfile !== 'none' && Boolean(video?.processedPaths?.musclesMp4),
       }
     }),
   )
@@ -307,6 +335,7 @@ export async function getExercise(
     : []
 
   const paths = video?.processedPaths
+  const showMuscles = row.exercise.overlayProfile !== 'none'
   const sign = (value?: string): string | null =>
     value ? signMediaPath(value, VIDEO_URL_TTL_SEC) : null
 
@@ -327,8 +356,8 @@ export async function getExercise(
     overlayProfile: row.exercise.overlayProfile,
     videoMp4Url: sign(paths?.mp4),
     videoWebmUrl: sign(paths?.webm),
-    musclesMp4Url: sign(paths?.musclesMp4),
-    hasMuscles: Boolean(paths?.musclesMp4),
+    musclesMp4Url: showMuscles ? sign(paths?.musclesMp4) : null,
+    hasMuscles: showMuscles && Boolean(paths?.musclesMp4),
     videoStatus: video?.status ?? null,
   }
 }

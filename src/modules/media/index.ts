@@ -17,3 +17,5 @@ export { findLoop, hasFfmpeg, probeVideo, processVideo, runProcess } from './run
 export type { LoopResult, ProbeResult } from './runner'
 
 
+
+export { MEDIA_CLEANUP_QUEUE, MUSCLE_OVERLAY_QUEUE, PROCESS_MEDIA_QUEUE } from './queues'
