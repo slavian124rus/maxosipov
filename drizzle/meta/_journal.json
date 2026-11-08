@@ -64,6 +64,13 @@
       "when": 1794111918539,
       "tag": "0008_head_trainer",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794112200396,
+      "tag": "0009_drop_max_contact",
+      "breakpoints": true
     }
   ]
 }

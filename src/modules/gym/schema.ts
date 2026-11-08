@@ -27,7 +27,6 @@ export type GymSettings = {
   /** Контакты Максима для экрана «нет доступа». */
   contacts?: {
     phone: string | null
-    maxUrl: string | null
     photoUrl: string | null
   }
 }

@@ -108,7 +108,6 @@ test('один аккаунт Яндекса нельзя привязать к 
 
 test.each([
   ['vk', 'VK ID'],
-  ['max', 'MAX'],
 ] as const)('текст ошибки для провайдера %s', async (provider, title) => {
   await signInWithVerifiedPhone('+79990000099', { provider, providerUserId: 'p1' })
 

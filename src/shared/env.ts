@@ -36,8 +36,6 @@ const envSchema = z.object({
   VK_CLIENT_SECRET: optionalString,
   YANDEX_CLIENT_ID: optionalString,
   YANDEX_CLIENT_SECRET: optionalString,
-  MAX_BOT_TOKEN: optionalString,
-  MAX_WEBHOOK_SECRET: optionalString,
 
   // СМС
   SMS_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['smsru', 'console']).default('console')),

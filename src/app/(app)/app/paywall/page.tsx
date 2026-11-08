@@ -35,15 +35,9 @@ export default async function PaywallPage() {
       </div>
 
       <div className="flex w-full flex-col gap-3">
-        {contacts.maxUrl ? (
-          <Button asChild>
-            <a href={contacts.maxUrl}>Написать в MAX</a>
-          </Button>
-        ) : null}
-
         {contacts.phone ? (
           <>
-            <Button asChild variant="secondary">
+            <Button asChild>
               <a href={`tel:${contacts.phone}`}>Позвонить</a>
             </Button>
             <p className="text-[15px] text-text-secondary">{formatPhone(contacts.phone)}</p>

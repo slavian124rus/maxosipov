@@ -28,7 +28,6 @@ export async function getHeadTrainerId(): Promise<string | null> {
 
 export type TrainerContacts = {
   phone: string | null
-  maxUrl: string | null
   photoUrl: string | null
 }
 
@@ -39,7 +38,6 @@ export async function getTrainerContacts(): Promise<TrainerContacts> {
 
   return {
     phone: contacts?.phone ?? null,
-    maxUrl: contacts?.maxUrl ?? null,
     photoUrl: contacts?.photoUrl ?? null,
   }
 }

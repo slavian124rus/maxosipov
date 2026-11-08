@@ -9,7 +9,6 @@ import { authAccounts, users, type AuthProvider } from './schema'
 const PROVIDER_TITLES: Record<Exclude<AuthProvider, 'phone'>, string> = {
   vk: 'VK ID',
   yandex: 'Яндекса',
-  max: 'MAX',
 }
 
 export type SignInLink = {

@@ -48,11 +48,6 @@ export default async function LoginPage({
           </Button>
         ) : null}
 
-        <Button variant="secondary" disabled className="justify-between">
-          <span>Войти через MAX</span>
-          <span className="text-[13px] text-text-muted">скоро</span>
-        </Button>
-
         <Link
           href="/login/phone"
           className="text-center text-[15px] text-accent underline-offset-4 hover:underline"

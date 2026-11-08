@@ -39,7 +39,7 @@ export const sessions = pgTable(
   (table) => [index('sessions_user_id_idx').on(table.userId)],
 )
 
-export type AuthProvider = 'vk' | 'yandex' | 'max' | 'phone'
+export type AuthProvider = 'vk' | 'yandex' | 'phone'
 
 /** Способы входа, привязанные к пользователю. Один провайдерный аккаунт — один пользователь. */
 export const authAccounts = pgTable(

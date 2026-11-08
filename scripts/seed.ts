@@ -26,7 +26,7 @@ const SETTINGS: GymSettings = {
     dropPercent: 10,
   },
   aiMemo: '',
-  contacts: { phone: null, maxUrl: null, photoUrl: null },
+  contacts: { phone: null, photoUrl: null },
 }
 
 const DEV_OWNER_PHONE = '+79990000001'
