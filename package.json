@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:media": "vitest run tests/integration",
+    "test:py": "/opt/mt/bin/pytest media-tools",
     "verify": "pnpm lint && pnpm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

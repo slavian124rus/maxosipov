@@ -2,6 +2,7 @@ import type { PgBoss } from 'pg-boss'
 import { registerAuthCleanup } from './jobs/auth-cleanup'
 import { registerExpireSubscriptions } from './jobs/expire-subscriptions'
 import { cleanupOriginals } from './jobs/media-cleanup'
+import { MUSCLE_OVERLAY_QUEUE, muscleOverlayJob, profilesForMedia } from './jobs/muscle-overlay'
 import { processMediaJob } from './jobs/process-media'
 
 /** Очередь-пульс: раз в 10 минут пишет строку в лог. */
@@ -33,7 +34,22 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
     if (!job) return
     console.log(`[worker] media.process ${job.data.mediaId}`)
     await processMediaJob(job.data)
+
+    // Подсветка — отдельной задачей: её ошибка не мешает публикации.
+    for (const profile of await profilesForMedia(job.data.mediaId)) {
+      await boss.send(MUSCLE_OVERLAY_QUEUE, { mediaId: job.data.mediaId, profile })
+    }
   })
+
+  await boss.createQueue(MUSCLE_OVERLAY_QUEUE)
+  await boss.work<{ mediaId: string; profile: 'pull_vertical' | 'pull_horizontal' }>(
+    MUSCLE_OVERLAY_QUEUE,
+    { batchSize: 1 },
+    async ([job]) => {
+      if (!job) return
+      await muscleOverlayJob(job.data)
+    },
+  )
 
   await boss.createQueue(MEDIA_CLEANUP_QUEUE)
   await boss.schedule(MEDIA_CLEANUP_QUEUE, MEDIA_CLEANUP_CRON)
