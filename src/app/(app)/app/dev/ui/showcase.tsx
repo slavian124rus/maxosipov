@@ -2,6 +2,9 @@
 
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
+import { cycleMuscle, type MuscleState } from '@/components/muscle-figure/state'
+import { MUSCLES, type MuscleCode } from '@/modules/catalog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +20,50 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
+
+const INITIAL_MUSCLES: MuscleState = {
+  primary: ['lats'],
+  secondary: ['traps-middle', 'delts-rear', 'biceps', 'forearms-extensors'],
+}
+
+/** Витрина фигуры мышц: тап по мышце — основная → помогающая → убрать. */
+function MuscleFigureDemo() {
+  const [state, setState] = useState<MuscleState>(INITIAL_MUSCLES)
+
+  function toggle(code: MuscleCode): void {
+    setState((current) => cycleMuscle(current, code))
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <MuscleFigure
+        primary={state.primary}
+        secondary={state.secondary}
+        onMuscleTap={toggle}
+        size="md"
+      />
+      <p className="text-[13px] text-text-secondary">
+        Основные: {state.primary.join(', ') || 'нет'} · Помогают:{' '}
+        {state.secondary.join(', ') || 'нет'}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {(['front', 'back'] as const).map((view) => (
+          <MuscleFigure
+            key={view}
+            view={view}
+            primary={state.primary}
+            secondary={state.secondary}
+            pulse={false}
+            size="sm"
+          />
+        ))}
+      </div>
+      <p className="text-[13px] text-text-muted">Мышц в справочнике: {MUSCLES.length}</p>
+    </div>
+  )
+}
+
 
 const surfaceTokens = [
   'bg-bg',
@@ -154,6 +201,11 @@ export function UiShowcase() {
         <Button variant="outline" onClick={() => toast.success('Готово')}>
           Показать уведомление
         </Button>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[22px] font-semibold">Фигура мышц</h2>
+        <MuscleFigureDemo />
       </section>
 
       <Toaster />

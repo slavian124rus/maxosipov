@@ -165,7 +165,7 @@ async function ensureSubscriptions(clientIds: string[]): Promise<void> {
 export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
   const roleIds = await ensureRoles()
-  const muscleCount = await ensureMuscles()
+  await ensureMuscles()
 
   let createdUsers = 0
 

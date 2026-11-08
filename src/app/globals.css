@@ -146,6 +146,27 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Пульсация основных мышц фигуры: DESIGN.md §6.4 */
+@keyframes muscle-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.muscle-pulse {
+  animation: muscle-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-pulse {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
