@@ -1,4 +1,7 @@
-opencv-python-headless>=4.10
-numpy>=1.26
-scipy>=1.13
-mediapipe>=0.10.14
+# Версии закреплены: проверено вместе (поза + подсветка на lat-pulldown.mp4).
+# mediapipe сам тянет opencv-contrib-python; второй вариант opencv (headless) ставить нельзя —
+# они пишут в один каталог cv2 и ломают друг друга.
+mediapipe==1.2.2
+opencv-contrib-python==5.0.0.93
+numpy==2.2.6
+scipy==1.15.3

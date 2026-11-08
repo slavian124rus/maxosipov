@@ -60,3 +60,8 @@ next-env.d.ts
 
 # создаётся next dev автоматически
 /AGENTS.md
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -28,22 +28,29 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHON_PATH=/opt/mt/bin/python \
     MEDIA_TOOLS_DIR=/app/media-tools
 
-# ffmpeg из Debian собран с libvidstab (в alpine его нет), python — для MediaPipe
+# ffmpeg из Debian собран с libvidstab (в alpine его нет), python — для MediaPipe.
+# libgl1/libegl1/libgles2/libglib2.0-0 нужны MediaPipe и OpenCV: без них `import mediapipe`
+# падает с «libEGL.so.1: cannot open shared object file».
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv ca-certificates curl \
+ && apt-get install -y --no-install-recommends \
+    ffmpeg python3 python3-venv ca-certificates curl \
+    libgl1 libegl1 libgles2 libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY media-tools /app/media-tools
 
-# Окружение для подсветки мышц: opencv, numpy, scipy, mediapipe + модель позы
+# Окружение для подсветки мышц: opencv, numpy, scipy, mediapipe + модель позы.
+# Версии закреплены в requirements.txt; модель проверяется по sha256.
 RUN python3 -m venv /opt/mt \
  && /opt/mt/bin/pip install --no-cache-dir -r /app/media-tools/requirements.txt \
  && mkdir -p /opt/mt/models \
  && curl -fsSL -o /opt/mt/models/pose_landmarker_heavy.task \
-    https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task
+    https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task \
+ && echo "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b  /opt/mt/models/pose_landmarker_heavy.task" | sha256sum -c -
 
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
