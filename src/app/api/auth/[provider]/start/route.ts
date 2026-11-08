@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createPkce, oauthCookieOptions, OAUTH_COOKIE, sealState, vk, yandex } from '@/modules/auth'
+import { appUrl } from '@/shared/app-url'
 import { env } from '@/shared/env'
 
 function isProvider(value: string): value is 'vk' | 'yandex' {
@@ -9,11 +10,11 @@ function isProvider(value: string): value is 'vk' | 'yandex' {
 
 /** Начинает вход: state + PKCE в подписанной cookie, затем редирект к провайдеру. */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params
-  const loginUrl = new URL('/login?error=oauth', request.url)
+  const loginUrl = appUrl('/login?error=oauth')
 
   if (!isProvider(provider)) return NextResponse.redirect(loginUrl)
 

@@ -5,6 +5,12 @@ import { env } from '@/shared/env'
 // Сообщение об ошибке OAuth приходит в адресе.
 export const instant = false
 
+const LOGIN_ERRORS: Record<string, string> = {
+  oauth: 'Не получилось войти. Попробуй ещё раз или войди по номеру',
+  vk_linked: 'Этот аккаунт VK ID уже привязан к другому номеру. Войди по номеру телефона',
+  yandex_linked: 'Этот аккаунт Яндекса уже привязан к другому номеру. Войди по номеру телефона',
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -23,9 +29,9 @@ export default async function LoginPage({
         </p>
       </div>
 
-      {error === 'oauth' ? (
+      {error && LOGIN_ERRORS[error] ? (
         <p className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-danger">
-          Не получилось войти. Попробуй ещё раз или войди по номеру
+          {LOGIN_ERRORS[error]}
         </p>
       ) : null}
 

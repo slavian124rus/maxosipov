@@ -12,6 +12,7 @@ import {
   yandex,
   type OAuthProfile,
 } from '@/modules/auth'
+import { appUrl } from '@/shared/app-url'
 import { env } from '@/shared/env'
 
 function isProvider(value: string): value is 'vk' | 'yandex' {
@@ -25,7 +26,7 @@ export async function GET(
 ) {
   const { provider } = await params
   const url = new URL(request.url)
-  const fail = NextResponse.redirect(new URL('/login?error=oauth', request.url))
+  const fail = NextResponse.redirect(appUrl('/login?error=oauth'))
 
   if (!isProvider(provider)) return fail
 
@@ -59,18 +60,26 @@ export async function GET(
       providerUserId: profile.providerUserId,
       name: profile.name,
     })
-    return NextResponse.redirect(new URL(`/login/phone?link=${linkId}`, request.url))
+    return NextResponse.redirect(appUrl(`/login/phone?link=${linkId}`))
   }
 
-  const { userId, isNew } = await signInWithVerifiedPhone(profile.phone, {
-    provider,
-    providerUserId: profile.providerUserId,
-    ...(profile.name ? { name: profile.name } : {}),
-  })
+  let signedIn: { userId: string; isNew: boolean }
+  try {
+    signedIn = await signInWithVerifiedPhone(profile.phone, {
+      provider,
+      providerUserId: profile.providerUserId,
+      ...(profile.name ? { name: profile.name } : {}),
+    })
+  } catch (error) {
+    // Аккаунт провайдера уже привязан к другому номеру — понятный экран, а не 500.
+    console.error('[oauth] вход не выполнен', error)
+    return NextResponse.redirect(appUrl(`/login?error=${provider}_linked`))
+  }
+  const { userId, isNew } = signedIn
 
   const userAgent = request.headers.get('user-agent')
   const { token, expiresAt } = await createSession(userId, userAgent)
   cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt))
 
-  return NextResponse.redirect(new URL(isNew ? '/onboarding' : '/', request.url))
+  return NextResponse.redirect(appUrl(isNew ? '/onboarding' : '/'))
 }
