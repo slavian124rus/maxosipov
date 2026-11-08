@@ -1,0 +1,328 @@
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { getGym } from '@/modules/gym'
+import { signMediaPath, VIDEO_URL_TTL_SEC } from '@/modules/media'
+import { assertCan, type Actor } from '@/modules/rbac'
+import { db } from '@/shared/db'
+import { media } from '@/shared/db/schema'
+import { exercises, machines, type Exercise, type Machine, type OverlayProfile } from './schema'
+import type { MuscleCode } from './muscles'
+import { slugify } from './slug'
+import {
+  exerciseInputSchema,
+  machineInputSchema,
+  type ExerciseInput,
+  type MachineInput,
+} from './validation'
+
+export type ExerciseListItem = {
+  id: string
+  slug: string
+  name: string
+  machineName: string | null
+  primaryMuscles: string[]
+  secondaryMuscles: string[]
+  status: string
+  posterUrl: string | null
+}
+
+export type ExerciseDetail = ExerciseListItem & {
+  steps: string[]
+  mistakes: string[]
+  tips: string | null
+  defaultRepMin: number
+  defaultRepMax: number
+  overlayProfile: OverlayProfile
+  videoMp4Url: string | null
+  videoWebmUrl: string | null
+  musclesMp4Url: string | null
+  hasMuscles: boolean
+}
+
+async function uniqueSlug(gymId: string, name: string): Promise<string> {
+  const base = slugify(name) || 'exercise'
+
+  for (let suffix = 1; suffix <= 50; suffix += 1) {
+    const candidate = suffix === 1 ? base : `${base}-${suffix}`
+    const [existing] = await db
+      .select({ id: exercises.id })
+      .from(exercises)
+      .where(and(eq(exercises.gymId, gymId), eq(exercises.slug, candidate)))
+      .limit(1)
+    if (!existing) return candidate
+  }
+
+  return `${base}-${Date.now()}`
+}
+
+export async function createMachine(actor: Actor, input: MachineInput): Promise<Machine> {
+  assertCan(actor, 'catalog.edit')
+  const data = machineInputSchema.parse(input)
+  const gym = await getGym()
+
+  const [row] = await db
+    .insert(machines)
+    .values({
+      gymId: gym.id,
+      name: data.name,
+      zone: data.zone,
+      weightStepKg: data.weightStepKg,
+      photoMediaId: data.photoMediaId,
+    })
+    .returning()
+
+  if (!row) throw new Error('Тренажёр не создан')
+  return row
+}
+
+export async function updateMachine(
+  actor: Actor,
+  id: string,
+  input: MachineInput,
+): Promise<Machine> {
+  assertCan(actor, 'catalog.edit')
+  const data = machineInputSchema.parse(input)
+
+  const [row] = await db
+    .update(machines)
+    .set({
+      name: data.name,
+      zone: data.zone,
+      weightStepKg: data.weightStepKg,
+      photoMediaId: data.photoMediaId,
+      updatedAt: new Date(),
+    })
+    .where(eq(machines.id, id))
+    .returning()
+
+  if (!row) throw new Error('Тренажёр не найден')
+  return row
+}
+
+export async function listMachines(): Promise<Machine[]> {
+  return db.select().from(machines).where(isNull(machines.archivedAt)).orderBy(asc(machines.name))
+}
+
+export async function createExercise(actor: Actor, input: ExerciseInput): Promise<Exercise> {
+  assertCan(actor, 'catalog.edit')
+  const data = exerciseInputSchema.parse(input)
+  const gym = await getGym()
+  const slug = await uniqueSlug(gym.id, data.name)
+
+  const [row] = await db
+    .insert(exercises)
+    .values({
+      gymId: gym.id,
+      machineId: data.machineId,
+      name: data.name,
+      slug,
+      primaryMuscles: data.primaryMuscles,
+      secondaryMuscles: data.secondaryMuscles,
+      videoMediaId: data.videoMediaId,
+      overlayProfile: data.overlayProfile,
+      steps: data.steps,
+      mistakes: data.mistakes,
+      tips: data.tips,
+      defaultRepMin: data.defaultRepMin,
+      defaultRepMax: data.defaultRepMax,
+    })
+    .returning()
+
+  if (!row) throw new Error('Упражнение не создано')
+  return row
+}
+
+export async function updateExercise(
+  actor: Actor,
+  id: string,
+  input: ExerciseInput,
+): Promise<Exercise> {
+  assertCan(actor, 'catalog.edit')
+  const data = exerciseInputSchema.parse(input)
+
+  const [row] = await db
+    .update(exercises)
+    .set({
+      machineId: data.machineId,
+      name: data.name,
+      primaryMuscles: data.primaryMuscles,
+      secondaryMuscles: data.secondaryMuscles,
+      videoMediaId: data.videoMediaId,
+      overlayProfile: data.overlayProfile,
+      steps: data.steps,
+      mistakes: data.mistakes,
+      tips: data.tips,
+      defaultRepMin: data.defaultRepMin,
+      defaultRepMax: data.defaultRepMax,
+      updatedAt: new Date(),
+    })
+    .where(eq(exercises.id, id))
+    .returning()
+
+  if (!row) throw new Error('Упражнение не найдено')
+  return row
+}
+
+/** Публикация: видео готово, есть основная мышца и хотя бы один шаг. */
+export async function publishExercise(actor: Actor, id: string): Promise<Exercise> {
+  assertCan(actor, 'catalog.publish')
+
+  const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1)
+  if (!exercise) throw new Error('Упражнение не найдено')
+
+  if (!exercise.videoMediaId) throw new Error('Добавь видео')
+
+  const [video] = await db.select().from(media).where(eq(media.id, exercise.videoMediaId)).limit(1)
+
+  if (!video) throw new Error('Добавь видео')
+  if (video.status === 'processing') throw new Error('Видео ещё обрабатывается')
+  if (video.status !== 'ready') throw new Error('Видео не обработалось — загрузи новое')
+
+  if (exercise.primaryMuscles.length === 0) throw new Error('Отметь хотя бы одну основную мышцу')
+  if (exercise.steps.length === 0) throw new Error('Добавь хотя бы один шаг «Как делать»')
+
+  const [row] = await db
+    .update(exercises)
+    .set({ status: 'published', updatedAt: new Date() })
+    .where(eq(exercises.id, id))
+    .returning()
+
+  if (!row) throw new Error('Упражнение не найдено')
+  return row
+}
+
+export async function unpublishExercise(actor: Actor, id: string): Promise<Exercise> {
+  assertCan(actor, 'catalog.publish')
+
+  const [row] = await db
+    .update(exercises)
+    .set({ status: 'draft', updatedAt: new Date() })
+    .where(eq(exercises.id, id))
+    .returning()
+
+  if (!row) throw new Error('Упражнение не найдено')
+  return row
+}
+
+/** Архив: из каталога пропадает, в истории остаётся (CLAUDE.md, правило 6). */
+export async function archiveExercise(actor: Actor, id: string): Promise<void> {
+  assertCan(actor, 'catalog.edit')
+  await db
+    .update(exercises)
+    .set({ archivedAt: new Date(), status: 'draft', updatedAt: new Date() })
+    .where(eq(exercises.id, id))
+}
+
+export type ExerciseFilter = {
+  muscle?: string
+  machineId?: string
+  query?: string
+  status?: 'published' | 'draft' | 'all'
+}
+
+async function posterUrlFor(mediaId: string | null): Promise<string | null> {
+  if (!mediaId) return null
+  const [row] = await db.select().from(media).where(eq(media.id, mediaId)).limit(1)
+  const poster = row?.processedPaths?.poster
+  return poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null
+}
+
+/** Список каталога. По умолчанию — только опубликованные и неархивные. */
+export async function listExercises(filter: ExerciseFilter = {}): Promise<ExerciseListItem[]> {
+  const status = filter.status ?? 'published'
+  const conditions = [isNull(exercises.archivedAt)]
+
+  if (status === 'published') conditions.push(eq(exercises.status, 'published'))
+  if (status === 'draft') conditions.push(eq(exercises.status, 'draft'))
+  if (filter.machineId) conditions.push(eq(exercises.machineId, filter.machineId))
+
+  if (filter.muscle) {
+    conditions.push(
+      sql`(${filter.muscle} = ANY(${exercises.primaryMuscles}) OR ${filter.muscle} = ANY(${exercises.secondaryMuscles}))`,
+    )
+  }
+
+  const query = filter.query?.trim()
+  if (query) {
+    const normalized = `%${query.toLowerCase().replace(/ё/g, 'е')}%`
+    conditions.push(sql`replace(lower(${exercises.name}), 'ё', 'е') like ${normalized}`)
+  }
+
+  const rows = await db
+    .select({ exercise: exercises, machineName: machines.name })
+    .from(exercises)
+    .leftJoin(machines, eq(exercises.machineId, machines.id))
+    .where(and(...conditions))
+    .orderBy(asc(exercises.name))
+
+  const muscle = filter.muscle
+  if (muscle) {
+    rows.sort((a, b) => {
+      const aPrimary = a.exercise.primaryMuscles.includes(muscle as MuscleCode) ? 0 : 1
+      const bPrimary = b.exercise.primaryMuscles.includes(muscle as MuscleCode) ? 0 : 1
+      return aPrimary - bPrimary
+    })
+  }
+
+  return Promise.all(
+    rows.map(async ({ exercise, machineName }) => ({
+      id: exercise.id,
+      slug: exercise.slug,
+      name: exercise.name,
+      machineName,
+      primaryMuscles: exercise.primaryMuscles,
+      secondaryMuscles: exercise.secondaryMuscles,
+      status: exercise.status,
+      posterUrl: await posterUrlFor(exercise.videoMediaId),
+    })),
+  )
+}
+
+export type GetExerciseOptions = { includeDrafts?: boolean }
+
+/** Карточка упражнения по id или slug с подписанными ссылками на видео. */
+export async function getExercise(
+  idOrSlug: string,
+  options: GetExerciseOptions = {},
+): Promise<ExerciseDetail | null> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug)
+
+  const [row] = await db
+    .select({ exercise: exercises, machineName: machines.name })
+    .from(exercises)
+    .leftJoin(machines, eq(exercises.machineId, machines.id))
+    .where(isUuid ? eq(exercises.id, idOrSlug) : eq(exercises.slug, idOrSlug))
+    .limit(1)
+
+  if (!row) return null
+  if (row.exercise.archivedAt) return null
+  if (!options.includeDrafts && row.exercise.status !== 'published') return null
+
+  const [video] = row.exercise.videoMediaId
+    ? await db.select().from(media).where(eq(media.id, row.exercise.videoMediaId)).limit(1)
+    : []
+
+  const paths = video?.processedPaths
+  const sign = (value?: string): string | null =>
+    value ? signMediaPath(value, VIDEO_URL_TTL_SEC) : null
+
+  return {
+    id: row.exercise.id,
+    slug: row.exercise.slug,
+    name: row.exercise.name,
+    machineName: row.machineName,
+    primaryMuscles: row.exercise.primaryMuscles,
+    secondaryMuscles: row.exercise.secondaryMuscles,
+    status: row.exercise.status,
+    posterUrl: sign(paths?.poster),
+    steps: row.exercise.steps,
+    mistakes: row.exercise.mistakes,
+    tips: row.exercise.tips,
+    defaultRepMin: row.exercise.defaultRepMin,
+    defaultRepMax: row.exercise.defaultRepMax,
+    overlayProfile: row.exercise.overlayProfile,
+    videoMp4Url: sign(paths?.mp4),
+    videoWebmUrl: sign(paths?.webm),
+    musclesMp4Url: sign(paths?.musclesMp4),
+    hasMuscles: Boolean(paths?.musclesMp4),
+  }
+}

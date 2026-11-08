@@ -101,9 +101,9 @@
 - `listExercises(filter: { muscle?: MuscleCode; machineId?: string; query?: string; status?: 'published' | 'draft' | 'all' }): Promise<ExerciseListItem[]>`; `getExercise(idOrSlug): Promise<ExerciseDetail | null>` (с подписанными URL видео/постера/`muscles.mp4`).
 - Права: изменения — `catalog.edit`, публикация — `catalog.publish`.
 
-- [ ] **Шаг 1.** Тесты `slug.test.ts`: «Тяга верхнего блока к груди» → `tyaga-verkhnego-bloka-k-grudi`; «Жим ногами 45°» → `zhim-nogami-45`; дубликат слага в сервисе → `-2`.
-- [ ] **Шаг 2.** Тесты `service.test.ts`: публикация без видео → ошибка `Добавь видео`; без основной мышцы → `Отметь хотя бы одну основную мышцу`; без шагов → `Добавь хотя бы один шаг «Как делать»`; видео в статусе `processing` → `Видео ещё обрабатывается`; мышца одновременно в primary и secondary → ошибка валидации; клиент не может создать упражнение (`ForbiddenError`); `listExercises({muscle:'lats'})` находит упражнение, где `lats` основная **или** помогающая (основные — первыми); черновики не видны в `status:'published'`; поиск по `query` без учёта регистра и «ё/е».
-- [ ] **Шаг 3.** Реализация → PASS → коммит `feat(catalog): machines and exercises`.
+- [x] **Шаг 1.** Тесты `slug.test.ts`: «Тяга верхнего блока к груди» → `tyaga-verkhnego-bloka-k-grudi`; «Жим ногами 45°» → `zhim-nogami-45`; дубликат слага в сервисе → `-2`.
+- [x] **Шаг 2.** Тесты `service.test.ts`: публикация без видео → ошибка `Добавь видео`; без основной мышцы → `Отметь хотя бы одну основную мышцу`; без шагов → `Добавь хотя бы один шаг «Как делать»`; видео в статусе `processing` → `Видео ещё обрабатывается`; мышца одновременно в primary и secondary → ошибка валидации; клиент не может создать упражнение (`ForbiddenError`); `listExercises({muscle:'lats'})` находит упражнение, где `lats` основная **или** помогающая (основные — первыми); черновики не видны в `status:'published'`; поиск по `query` без учёта регистра и «ё/е».
+- [x] **Шаг 3.** Реализация → PASS → коммит `feat(catalog): machines and exercises`.
 
 ### Задача 5. Обработка видео (worker)
 
