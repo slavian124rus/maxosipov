@@ -41,3 +41,5 @@ docker compose -f docker/compose.dev.yml exec -T db createdb -U app maxosipov_te
 - `pnpm-workspace.yaml` содержит `allowBuilds` — pnpm 12 иначе блокирует установку
   пакетов со скриптами сборки (`esbuild`, `sharp`, `@swc/core`, `unrs-resolver`).
 - Разделение сайта и приложения по `Host` — в `src/proxy.ts` (конвенция Next 16, бывший `middleware.ts`).
+
+- Логи и разовые файлы исполнителя — в папку `tmp/` (в git не попадает), а не в корень проекта.
