@@ -1,16 +1,15 @@
+import { requireClientPage } from '@/components/app/require-client-page'
 import Image from 'next/image'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getTrainerContacts } from '@/modules/gym'
-import { formatPhone, getCurrentUser } from '@/modules/auth'
+import { formatPhone } from '@/modules/auth'
 
 // Экран зависит от сессии.
 export const instant = false
 
 export default async function PaywallPage() {
-  const current = await getCurrentUser()
-  if (!current) redirect('/login')
+  await requireClientPage('/paywall')
 
   const contacts = await getTrainerContacts()
 

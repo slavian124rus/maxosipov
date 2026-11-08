@@ -26,3 +26,5 @@ export { accessSettingsSchema, updateAccessSettings } from './settings'
 export type { AccessSettingsInput } from './settings'
 
 
+
+export { assertClientAccess, NO_ACCESS_MESSAGE } from './client-access'

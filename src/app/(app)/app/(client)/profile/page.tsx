@@ -1,5 +1,9 @@
+import { requireClientPage } from '@/components/app/require-client-page'
+
+// Экран зависит от сессии и подписки.
+export const instant = false
 import { getAccessForUser } from '@/modules/access'
-import { formatPhone, requireUser } from '@/modules/auth'
+import { formatPhone } from '@/modules/auth'
 
 /** Дата в формате «7 декабря» по Красноярску. */
 function formatDateRu(date: Date): string {
@@ -18,7 +22,7 @@ function accessLabel(status: string, endsAt: Date | null, hasAccess: boolean): s
 }
 
 export default async function ProfilePage() {
-  const { user } = await requireUser()
+  const { user } = await requireClientPage('/profile')
   const access = await getAccessForUser(user.id)
 
   return (

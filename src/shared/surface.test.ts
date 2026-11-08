@@ -16,7 +16,10 @@ test.each([
 
 test.each([
   ['app', '/workouts', '/app/workouts'],
-  ['app', '/app/workouts', null],
+  ['app', '/app/workouts', '/404'],
+  ['app', '/app/exercises', '/404'],
+  ['app', '/app', '/404'],
+  ['app', '/offline', '/app/offline'],
   ['app', '/sw.js', null],
   ['app', '/manifest.webmanifest', null],
   ['app', '/icons/icon-192.png', null],

@@ -1,5 +1,8 @@
+import { requireClientPage } from '@/components/app/require-client-page'
+
+// Экран зависит от сессии и подписки.
+export const instant = false
 import Link from 'next/link'
-import { requireUser } from '@/modules/auth'
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -11,7 +14,7 @@ function initials(name: string): string {
 }
 
 export default async function TodayPage() {
-  const { user } = await requireUser()
+  const { user } = await requireClientPage('/')
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">

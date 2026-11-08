@@ -12,7 +12,8 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
-const OFFLINE_URL = '/app/offline'
+// Публичный адрес на хосте приложения; `/app/offline` напрямую не открывается.
+const OFFLINE_URL = '/offline'
 
 /**
  * Навигации: сеть → кэш → офлайн-страница.

@@ -20,7 +20,7 @@ export function resolveSurface(host: string | null): Surface {
   return hostname.startsWith('app.') ? 'app' : 'site'
 }
 
-const PASSTHROUGH_PREFIXES = ['/app', '/api', '/_next', '/media'] as const
+const PASSTHROUGH_PREFIXES = ['/api', '/_next', '/media'] as const
 
 /** Файл — если в последнем сегменте пути есть точка (`/sw.js`, `/icons/icon-192.png`). */
 function isFileRequest(pathname: string): boolean {
@@ -33,9 +33,11 @@ function isFileRequest(pathname: string): boolean {
  * `null` — оставить путь как есть, `/404` — отдать страницу 404.
  */
 export function rewriteTarget(surface: Surface, pathname: string): string | null {
-  if (surface === 'site') {
-    return pathname === '/app' || pathname.startsWith('/app/') ? '/404' : null
-  }
+  // Внутренние пути `/app/*` напрямую не открываются ни на сайте, ни в приложении
+  // (ARCHITECTURE.md §8.4): в приложение попадают только через rewrite.
+  const isInternal = pathname === '/app' || pathname.startsWith('/app/')
+  if (surface === 'site') return isInternal ? '/404' : null
+  if (isInternal) return '/404'
 
   if (PASSTHROUGH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return null

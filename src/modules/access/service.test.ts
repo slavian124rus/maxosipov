@@ -229,3 +229,17 @@ test('getAccessForUser: владелец и тренер — bypass, клиен�
   expect(clientAccess.bypass).toBe(false)
   expect(clientAccess.hasAccess).toBe(true)
 })
+
+test('assertClientAccess: без подписки — ForbiddenError, с подпиской и тренеру — проходит', async () => {
+  const { assertClientAccess } = await import('./client-access')
+
+  await expect(assertClientAccess(clientId)).rejects.toBeInstanceOf(ForbiddenError)
+
+  await startTrialIfEligible(clientId, '+79990000011')
+  await expect(assertClientAccess(clientId)).resolves.toBeUndefined()
+
+  await expect(assertClientAccess(owner.id)).resolves.toBeUndefined()
+
+  vi.setSystemTime(new Date(NOW.getTime() + 31 * DAY))
+  await expect(assertClientAccess(clientId)).rejects.toThrow('Подписка закончилась')
+})

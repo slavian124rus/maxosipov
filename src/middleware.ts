@@ -22,12 +22,7 @@ export function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone()
   url.pathname = target
-
-  // Путь до rewrite нужен layout'у для охраны маршрутов.
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-pathname', request.nextUrl.pathname)
-
-  return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+  return NextResponse.rewrite(url)
 }
 
 export const config = {

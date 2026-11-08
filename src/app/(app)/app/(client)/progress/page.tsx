@@ -1,4 +1,11 @@
-export default function ProgressPage() {
+import { requireClientPage } from '@/components/app/require-client-page'
+
+// Экран зависит от сессии и подписки.
+export const instant = false
+
+export default async function ProgressPage() {
+  await requireClientPage('/progress')
+
   return (
     <main className="flex flex-col gap-3 px-4 py-6">
       <h1 className="text-[22px] font-semibold">Прогресс</h1>
