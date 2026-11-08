@@ -1,6 +1,6 @@
 import { PgBoss } from 'pg-boss'
-import { QUEUE_TUNING } from '@/modules/media/queues'
 import { env } from './env'
+import { QUEUE_TUNING } from './queues'
 
 let bossPromise: Promise<PgBoss> | null = null
 const createdQueues = new Set<string>()

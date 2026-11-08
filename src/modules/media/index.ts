@@ -18,4 +18,4 @@ export type { LoopResult, ProbeResult } from './runner'
 
 
 
-export { MEDIA_CLEANUP_QUEUE, MUSCLE_OVERLAY_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from './queues'
+export { MEDIA_CLEANUP_QUEUE, MUSCLE_OVERLAY_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from '@/shared/queues'
