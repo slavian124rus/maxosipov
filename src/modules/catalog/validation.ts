@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { MUSCLES } from './muscles'
+import { isMuscleCode, type MuscleCode } from './muscles'
 
-const muscleCodes = MUSCLES.map((muscle) => muscle.code) as [string, ...string[]]
-
-const muscleCodeSchema = z.enum(muscleCodes)
+/** Код мышцы: проверяем по справочнику и сохраняем узкий тип `MuscleCode`. */
+const muscleCodeSchema = z
+  .string()
+  .refine((value): value is MuscleCode => isMuscleCode(value), 'Неизвестная мышца') as z.ZodType<MuscleCode>
 
 /** Входные данные упражнения (Zod — одна схема для формы и сервера). */
 export const exerciseInputSchema = z
