@@ -10,3 +10,10 @@ export { PHOTO_URL_TTL_SEC, signMediaPath, verifyMediaRequest, VIDEO_URL_TTL_SEC
 export { CHUNK_SIZE, completeUpload, createUpload, getMediaStatus, putChunk } from './upload'
 export type { CompleteDeps, CreateUploadInput, CreatedUpload } from './upload'
 
+export { buildPipelineCommands, frameFilter } from './pipeline'
+export type { PipelineInput } from './pipeline'
+
+export { findLoop, hasFfmpeg, probeVideo, processVideo, runProcess } from './runner'
+export type { LoopResult, ProbeResult } from './runner'
+
+

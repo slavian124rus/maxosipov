@@ -16,19 +16,34 @@ COPY . .
 # На этапе сборки приложение импортирует env.ts — подставляем безопасные заглушки.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     DATABASE_URL=postgres://build:build@localhost:5432/build \
-    AUTH_SECRET=build-time-placeholder-secret-min-32-chars
+    AUTH_SECRET=build-time-placeholder-secret-min-32-chars \
+    MEDIA_URL_SIGNING_SECRET=build-time-placeholder-signing-secret
 RUN pnpm build \
  && pnpm exec esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --outfile=dist/migrate.js \
  && pnpm exec esbuild src/worker/index.ts --bundle --platform=node --format=cjs --outfile=dist/worker.js
 
-FROM node:22-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    NEXT_TELEMETRY_DISABLED=1
-# ffmpeg понадобится worker'у на этапе 2 (видео упражнений)
-RUN apk add --no-cache ffmpeg
+    NEXT_TELEMETRY_DISABLED=1 \
+    PYTHON_PATH=/opt/mt/bin/python \
+    MEDIA_TOOLS_DIR=/app/media-tools
+
+# ffmpeg из Debian собран с libvidstab (в alpine его нет), python — для MediaPipe
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg python3 python3-venv ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY media-tools /app/media-tools
+
+# Окружение для подсветки мышц: opencv, numpy, scipy, mediapipe + модель позы
+RUN python3 -m venv /opt/mt \
+ && /opt/mt/bin/pip install --no-cache-dir -r /app/media-tools/requirements.txt \
+ && mkdir -p /opt/mt/models \
+ && curl -fsSL -o /opt/mt/models/pose_landmarker_heavy.task \
+    https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task
 
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
