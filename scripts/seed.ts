@@ -6,6 +6,8 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
 import { MUSCLES, exercises, machines, muscles, svgLayerId, type MuscleCode } from '@/modules/catalog'
+import { bodyMeasurements } from '@/modules/body'
+import { dayKey } from '@/shared/dates'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
 import { mediaDir, mediaRoot } from '@/modules/media'
 import { DEFAULT_ROLES, roles, type Actor } from '@/modules/rbac'
@@ -350,6 +352,36 @@ async function ensureTraining(gymId: string, trainerId: string, trainerRoleId: s
   }
 }
 
+/** Замеры клиента 1 за 10 недель: чтобы график веса не был пустым. */
+async function ensureMeasurements(clientId: string, enteredBy: string): Promise<void> {
+  const [existing] = await db
+    .select({ id: bodyMeasurements.id })
+    .from(bodyMeasurements)
+    .where(eq(bodyMeasurements.userId, clientId))
+    .limit(1)
+
+  if (existing) return
+
+  const weights = [80.4, 79.8, 79.6, 79.1, 78.9, 78.1]
+  const now = new Date()
+
+  for (const [index, weightKg] of weights.entries()) {
+    const weeksAgo = (weights.length - 1 - index) * 2
+    const day = new Date(now.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000)
+
+    await db
+      .insert(bodyMeasurements)
+      .values({
+        userId: clientId,
+        date: dayKey(day, 'Asia/Krasnoyarsk'),
+        weightKg,
+        waistCm: index % 2 === 0 ? 90 - index : null,
+        enteredBy,
+      })
+      .onConflictDoNothing({ target: [bodyMeasurements.userId, bodyMeasurements.date] })
+  }
+}
+
 /** Идемпотентный сид: зал, роли и пользователи. Возвращает количество созданных сущностей. */
 export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   const gymId = await ensureGym()
@@ -419,6 +451,10 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       .where(inArray(users.id, clientIds))
 
     await ensureSubscriptions(clientIds)
+
+    // Замеры первому клиенту — чтобы на «Прогрессе» был график.
+    const firstClientId = clientIds[0]
+    if (firstClientId) await ensureMeasurements(firstClientId, firstClientId)
 
     createdUsers = 2 + DEV_CLIENT_PHONES.length
   }
