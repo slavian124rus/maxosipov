@@ -5,7 +5,7 @@ import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { addDays, subscriptions } from '@/modules/access'
 import { gyms } from '@/modules/gym'
-import { media, mediaDir, mediaRoot, safeJoin } from '@/modules/media'
+import { assertCanAccessMedia, media, mediaDir, mediaRoot, safeJoin } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
@@ -223,7 +223,7 @@ test('фото прогресса: своё медиа добавляется, �
 
 test('фото в очереди (uploaded) для клиента — «обрабатывается», без ссылок', async () => {
   const file = await makePhoto(clientId)
-  await db.update(media).set({ status: 'uploaded', processedPaths: null }).where(eq(media.id, file.id))
+  await db.update(media).set({ status: 'uploaded', originalPath: '2026/11/x/original.jpg', processedPaths: null }).where(eq(media.id, file.id))
   await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
 
   const [item] = await listProgressPhotos(client, clientId)
@@ -291,4 +291,45 @@ test('удаление фото убирает запись, медиа и фа�
   const [mediaRow] = await db.select().from(media).where(eq(media.id, file.id))
   expect(mediaRow).toBeUndefined()
   expect(existsSync(dir)).toBe(false)
+})
+
+test('фото прогресса: будущая или кривая дата и неверная поза → ошибка', async () => {
+  const file = await makePhoto(clientId)
+  const base = { pose: 'front' as const, mediaId: file.id }
+
+  await expect(addProgressPhoto(client, clientId, { ...base, date: '2999-01-01' })).rejects.toThrow(
+    'в будущем',
+  )
+  await expect(addProgressPhoto(client, clientId, { ...base, date: 'вчера' })).rejects.toThrow('ГГГГ-ММ-ДД')
+  await expect(
+    addProgressPhoto(client, clientId, { date: today, pose: 'top' as unknown as 'front', mediaId: file.id }),
+  ).rejects.toThrow('позу')
+})
+
+test('фото прогресса: недогруженный файл не привязывается', async () => {
+  const file = await makePhoto(clientId)
+  await db.update(media).set({ status: 'uploaded', originalPath: null }).where(eq(media.id, file.id))
+
+  await expect(
+    addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id }),
+  ).rejects.toThrow('ещё загружается')
+})
+
+test('доступ к файлу фото: «только свои» не открывает чужого клиента, писать в чужой файл нельзя', async () => {
+  const file = await makePhoto(clientId)
+  await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
+
+  const [owner] = await db.select().from(users).where(eq(users.id, clientId))
+  const ownTrainer: Actor = {
+    ...trainer,
+    id: owner!.trainerId ?? trainer.id,
+    permissions: [{ code: 'clients.view_photos', scope: 'own' }],
+  }
+  const strangerTrainer: Actor = { ...ownTrainer, id: otherClientId }
+
+  await expect(assertCanAccessMedia(strangerTrainer, file.id)).rejects.toThrow('Нет доступа')
+  expect(owner?.trainerId).toBeTruthy()
+  await expect(assertCanAccessMedia(ownTrainer, file.id)).resolves.toBeDefined()
+  await expect(assertCanAccessMedia(ownTrainer, file.id, { write: true })).rejects.toThrow('Нет доступа')
+  await expect(assertCanAccessMedia(client, file.id, { write: true })).resolves.toBeDefined()
 })

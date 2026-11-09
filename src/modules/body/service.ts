@@ -137,6 +137,15 @@ export async function addProgressPhoto(
 
   if (attached) throw new Error('Это фото уже добавлено')
 
+  // Файл должен быть догружен: иначе в списке повиснет «Обрабатывается…» без шанса на завершение.
+  if (file.status === 'uploaded' && !file.originalPath) throw new Error('Фото ещё загружается')
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || Number.isNaN(Date.parse(input.date))) {
+    throw new Error('Дата в формате ГГГГ-ММ-ДД')
+  }
+  assertDateRange(input.date, (await getGym()).timezone)
+  if (!['front', 'side', 'back'].includes(input.pose)) throw new Error('Выбери позу')
+
   const [row] = await db
     .insert(progressPhotos)
     .values({ userId: clientId, date: input.date, pose: input.pose, mediaId: input.mediaId })

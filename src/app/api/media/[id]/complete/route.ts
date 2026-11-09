@@ -13,7 +13,7 @@ export async function POST(
   const { id } = await params
 
   try {
-    await assertCanAccessMedia(current.actor, id)
+    await assertCanAccessMedia(current.actor, id, { write: true })
     await completeUpload(id)
     return NextResponse.json({ ok: true })
   } catch (error) {

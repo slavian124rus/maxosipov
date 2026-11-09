@@ -21,7 +21,7 @@ export async function PUT(
   const index = Number(new URL(request.url).searchParams.get('index'))
 
   try {
-    await assertCanAccessMedia(current.actor, id)
+    await assertCanAccessMedia(current.actor, id, { write: true })
     const body = new Uint8Array(await request.arrayBuffer())
     await putChunk(id, index, body)
     return NextResponse.json({ ok: true, index })
