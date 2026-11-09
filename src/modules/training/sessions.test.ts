@@ -14,8 +14,11 @@ import {
 } from './schema'
 import {
   finishSession,
+  getExerciseProgress,
   getHistoryForExercise,
   getRecommendations,
+  getTrainedExercises,
+  getWeeklyVolume,
   getWeekWorkoutDays,
   setExerciseFeeling,
   startSession,
@@ -428,4 +431,77 @@ test('getWeekWorkoutDays учитывает часовой пояс зала', a
   // В UTC тот же момент — воскресенье предыдущей недели
   const utc = await getWeekWorkoutDays(clientId, new Date('2026-11-02T10:00:00Z'), 'UTC')
   expect(utc[0]).toBe(false)
+})
+
+test('getExerciseProgress: максимум сессии, разминка и незавершённые не мешают', async () => {
+  for (const [uuid, date] of [
+    ['p-1', '2026-11-01T09:00:00Z'],
+    ['p-2', '2026-11-05T09:00:00Z'],
+  ] as const) {
+    await startSession(clientId, {
+      programDayId: dayId,
+      mode: 'free',
+      clientUuid: uuid,
+      startedAt: new Date(date),
+    })
+    await syncSets(clientId, [
+      setItem(uuid, 1, 20, 15, `${uuid}-warm`),
+      setItem(uuid, 2, uuid === 'p-1' ? 50 : 55, 10, `${uuid}-work`),
+    ])
+    await finishSession(clientId, uuid, { finishedAt: new Date(date) }, { enqueue: async () => {} })
+  }
+
+  // незавершённая тренировка с большим весом не попадает в график
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 'p-3',
+    startedAt: new Date('2026-11-06T09:00:00Z'),
+  })
+  await syncSets(clientId, [setItem('p-3', 1, 100, 5, 'p-3-work')])
+
+  const progress = await getExerciseProgress(clientId, exerciseId)
+  expect(progress.map((point) => point.workingWeightKg)).toEqual([50, 55])
+  expect(progress[0]?.date.toISOString()).toBe(new Date('2026-11-01T09:00:00Z').toISOString())
+})
+
+test('getWeeklyVolume: 8 недель подряд, пустые недели — нули', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 'vol-1',
+    startedAt: new Date(),
+  })
+  await syncSets(clientId, [setItem('vol-1', 1, 50, 10, 'vol-1-a')])
+  await finishSession(clientId, 'vol-1', { finishedAt: new Date() }, { enqueue: async () => {} })
+
+  const weeks = await getWeeklyVolume(clientId, 8, 'Asia/Krasnoyarsk')
+
+  expect(weeks).toHaveLength(8)
+  expect(weeks.at(-1)?.volumeKg).toBe(500)
+  expect(weeks.slice(0, -1).every((week) => week.volumeKg === 0)).toBe(true)
+  expect(weeks.map((week) => week.weekStart)).toEqual(
+    [...weeks.map((week) => week.weekStart)].sort(),
+  )
+})
+
+test('getTrainedExercises: только упражнения из завершённых тренировок', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 'te-1',
+    startedAt: new Date('2026-11-01T09:00:00Z'),
+  })
+  await syncSets(clientId, [setItem('te-1', 1, 50, 10, 'te-1-a')])
+  await finishSession(
+    clientId,
+    'te-1',
+    { finishedAt: new Date('2026-11-01T10:00:00Z') },
+    { enqueue: async () => {} },
+  )
+
+  const list = await getTrainedExercises(clientId)
+  expect(list).toHaveLength(1)
+  expect(list[0]?.exerciseId).toBe(exerciseId)
+  expect(list[0]?.sessions).toBe(1)
 })

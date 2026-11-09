@@ -27,13 +27,16 @@ export type { ChangeActorKind } from './programs'
 
 export {
   finishSession,
+  getExerciseProgress,
   getHistoryForExercise,
   getLastFinishedDayId,
   getNextWeight,
   getRecommendations,
   getSessionDetail,
   getSessionSummary,
+  getTrainedExercises,
   getWeekWorkoutDays,
+  getWeeklyVolume,
   listSessions,
   setExerciseFeeling,
   setNextWeight,
@@ -42,6 +45,7 @@ export {
 } from './sessions'
 export type {
   DayRecommendation,
+  ExerciseProgressPoint,
   HistorySession,
   SessionDetail,
   SessionSummary,

@@ -4,7 +4,7 @@ import { getGym } from '@/modules/gym'
 import { recommend, recommendationText, type Recommendation } from '@/modules/progression'
 import { ForbiddenError } from '@/modules/rbac'
 import { db } from '@/shared/db'
-import { dayKey } from '@/shared/dates'
+import { dayKey, mondayKey } from '@/shared/dates'
 import { enqueueJob } from '@/shared/queue'
 import { nextWeights, setLogs, workoutSessions } from './schema'
 
@@ -498,4 +498,110 @@ export async function listSessions(
     .where(and(eq(workoutSessions.userId, userId), sql`${workoutSessions.finishedAt} is not null`))
     .orderBy(desc(workoutSessions.startedAt))
     .limit(limit)
+}
+
+export type ExerciseProgressPoint = { date: Date; workingWeightKg: number }
+
+/**
+ * Рабочий вес по завершённым тренировкам: максимум сессии (как в `recommend()`),
+ * по возрастанию даты.
+ */
+export async function getExerciseProgress(
+  userId: string,
+  exerciseId: string,
+  options: { limit?: number } = {},
+): Promise<ExerciseProgressPoint[]> {
+  const limit = options.limit ?? 40
+
+  const rows = await db.execute<{ started_at: Date; weight_kg: number }>(sql`
+    with recent as (
+      select ws.id, ws.started_at
+      from workout_sessions ws
+      where ws.user_id = ${userId}
+        and ws.finished_at is not null
+        and exists (
+          select 1 from set_logs sl
+          where sl.session_id = ws.id and sl.exercise_id = ${exerciseId}
+        )
+      order by ws.started_at desc
+      limit ${limit}
+    )
+    select r.started_at, max(sl.weight_kg) as weight_kg
+    from set_logs sl
+    join recent r on r.id = sl.session_id
+    where sl.exercise_id = ${exerciseId}
+    group by r.id, r.started_at
+    order by r.started_at asc
+  `)
+
+  return rows.map((row) => ({
+    date: new Date(row.started_at),
+    workingWeightKg: Number(row.weight_kg),
+  }))
+}
+
+/** Упражнения, по которым есть хотя бы одна завершённая тренировка. */
+export async function getTrainedExercises(
+  userId: string,
+): Promise<{ exerciseId: string; name: string; sessions: number }[]> {
+  const rows = await db.execute<{ exercise_id: string; name: string | null; sessions: number }>(sql`
+    select sl.exercise_id, e.name, count(distinct ws.id)::int as sessions
+    from set_logs sl
+    join workout_sessions ws on ws.id = sl.session_id
+    left join exercises e on e.id = sl.exercise_id
+    where ws.user_id = ${userId} and ws.finished_at is not null
+    group by sl.exercise_id, e.name
+    order by sessions desc, e.name asc
+  `)
+
+  return rows.map((row) => ({
+    exerciseId: row.exercise_id,
+    name: row.name ?? 'Упражнение',
+    sessions: row.sessions,
+  }))
+}
+
+/** Сумма вес×повторения по неделям; недели без тренировок — нули, чтобы столбцы шли подряд. */
+export async function getWeeklyVolume(
+  userId: string,
+  weeks = 8,
+  timeZone = 'UTC',
+): Promise<{ weekStart: string; volumeKg: number }[]> {
+  const currentMonday = mondayKey(new Date(), timeZone)
+
+  const starts: string[] = []
+  for (let index = weeks - 1; index >= 0; index -= 1) {
+    const monday = new Date(`${currentMonday}T00:00:00Z`)
+    monday.setUTCDate(monday.getUTCDate() - index * 7)
+    starts.push(dayKey(monday, 'UTC'))
+  }
+
+  const oldest = new Date(`${starts[0]!}T00:00:00Z`)
+
+  const rows = await db
+    .select({
+      finishedAt: workoutSessions.finishedAt,
+      weightKg: setLogs.weightKg,
+      reps: setLogs.reps,
+    })
+    .from(setLogs)
+    .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        sql`${workoutSessions.finishedAt} is not null`,
+        sql`${workoutSessions.finishedAt} >= ${oldest.toISOString()}::timestamptz`,
+      ),
+    )
+
+  const totals = new Map<string, number>(starts.map((start) => [start, 0]))
+
+  for (const row of rows) {
+    if (!row.finishedAt) continue
+    const key = mondayKey(row.finishedAt, timeZone)
+    if (!totals.has(key)) continue
+    totals.set(key, (totals.get(key) ?? 0) + Number(row.weightKg) * row.reps)
+  }
+
+  return starts.map((start) => ({ weekStart: start, volumeKg: Math.round(totals.get(start) ?? 0) }))
 }
