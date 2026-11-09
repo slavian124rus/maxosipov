@@ -18,11 +18,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Неверный запрос' }, { status: 400 })
 
   try {
-    return await handleChatMessage(
-      current,
-      parsed.data.conversationId ?? null,
-      parsed.data.text,
-    )
+    return await handleChatMessage(current, parsed.data.conversationId ?? null, parsed.data.text)
   } catch (error) {
     if (error instanceof ForbiddenError) {
       return NextResponse.json({ error: error.message }, { status: 403 })

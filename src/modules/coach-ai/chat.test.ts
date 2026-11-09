@@ -12,7 +12,7 @@ import { AiUnavailableError } from './provider'
 import { aiMessages, aiUsageDaily } from './schema'
 import { handleChatMessage, LIMIT_REPLY, UNAVAILABLE_REPLY } from './chat'
 import { PAIN_REPLY } from './flags'
-import { recordUsage } from './usage'
+import { recordUsage, reserveMessage } from './usage'
 import { db } from '@/shared/db'
 import { closeDb, prepareTestDb, resetDb, seedDefaultRoles } from '../../../tests/db'
 
@@ -62,7 +62,12 @@ beforeEach(async () => {
       name: 'Колизей',
       address: 'Красноярск, ул. Говорова',
       timezone: 'Asia/Krasnoyarsk',
-      brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+      brand: {
+        name: 'Максим Осипов',
+        shortName: 'МаксИИм',
+        colors: { accent: '#E5322D' },
+        logoUrl: null,
+      },
       settings: {
         trialDays: 30,
         subscriptionPriceRub: null,
@@ -192,4 +197,44 @@ test('обычный вопрос: ответ стримится, сообщен
   const [usage] = await db.select().from(aiUsageDaily).where(eq(aiUsageDaily.userId, user.id))
   expect(usage?.messages).toBe(1)
   expect(usage?.tokens).toBe(120)
+})
+
+test('боль при исчерпанном лимите всё равно доходит до тренера', async () => {
+  const now = new Date()
+
+  for (let index = 0; index < 30; index += 1) {
+    await recordUsage(
+      user.id,
+      { model: 'mock-model', tokensIn: 1, tokensOut: 1, countsTowardLimit: true },
+      { now, timeZone: 'Asia/Krasnoyarsk', prices: {} },
+    )
+  }
+
+  const getModel = vi.fn()
+  const response = await handleChatMessage(current, null, 'болит колено', { getModel, now })
+
+  await expect(response.text()).resolves.toBe(PAIN_REPLY)
+  expect(getModel).not.toHaveBeenCalled()
+  expect(await db.select().from(notifications)).toHaveLength(1)
+})
+
+test('лимит занимается атомарно: 40 параллельных запросов → ровно 30 слотов', async () => {
+  const now = new Date()
+  const results = await Promise.all(
+    Array.from({ length: 40 }, () => reserveMessage(user.id, 30, now, 'Asia/Krasnoyarsk')),
+  )
+
+  expect(results.filter(Boolean)).toHaveLength(30)
+})
+
+test('провайдер недоступен — слот лимита возвращается', async () => {
+  await handleChatMessage(current, null, 'Какой вес на тягу?', {
+    getModel: () => {
+      throw new AiUnavailableError()
+    },
+    timeoutMs: 50,
+  })
+
+  const [usage] = await db.select().from(aiUsageDaily).where(eq(aiUsageDaily.userId, user.id))
+  expect(usage?.messages ?? 0).toBe(0)
 })

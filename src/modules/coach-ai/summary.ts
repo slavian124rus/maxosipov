@@ -4,12 +4,20 @@ import { exercises } from '@/modules/catalog'
 import type { Recommendation } from '@/modules/progression'
 import { getRecommendations, setLogs, workoutSessions } from '@/modules/training'
 import { db } from '@/shared/db'
-import { AiUnavailableError, withFallback } from './provider'
+import { AiUnavailableError, getModelName, withFallback } from './provider'
+import { recordUsage } from './usage'
 
 const SUMMARY_INSTRUCTION =
   'Напиши итог тренировки клиенту в 1–2 предложениях (до 240 символов), на „ты“, с одной конкретной деталью из данных. Без эмодзи.'
 
 export const SUMMARY_LIMIT = 240
+
+const FEELING_RU: Record<string, string> = { easy: 'легко', good: 'нормально', hard: 'тяжело' }
+
+/** Вес для модели: запятая и без хвоста «.0», чтобы итог не сыпал «62.3» и «×». */
+function formatKg(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(value).replace('.', ',')
+}
 
 export type SummaryExercise = {
   exerciseId: string
@@ -42,12 +50,15 @@ export function buildSummaryInput(
   for (const exercise of recordsByExercise) {
     volume += exercise.sets.reduce((sum, set) => sum + set.weightKg * set.reps, 0)
     const sets = exercise.sets
-      .map((set) => `${set.weightKg} кг × ${set.reps}${set.feeling ? ` (${set.feeling})` : ''}`)
+      .map(
+        (set) =>
+          `${formatKg(set.weightKg)} кг, ${set.reps} раз${set.feeling ? ` (${FEELING_RU[set.feeling] ?? set.feeling})` : ''}`,
+      )
       .join(', ')
     const recommendation = recommendations[exercise.exerciseId]
     const next =
       recommendation && recommendation.weightKg !== null
-        ? ` Следующий раз: ${recommendation.weightKg} кг (${recommendation.action}).`
+        ? ` Следующий раз: ${formatKg(recommendation.weightKg)} кг.`
         : ''
 
     lines.push(`- ${exercise.name}: ${sets}.${next}`)
@@ -122,6 +133,9 @@ export async function summarizeSession(
   const data = await loadSummaryData(sessionId)
   if (!data) return null
 
+  // Повторная доставка задачи или повторное завершение: итог уже есть, модель не зовём.
+  if (data.session.aiSummary) return data.session.aiSummary
+
   const input = buildSummaryInput(data.session, data.records, data.recommendations)
   const run = deps.generate ?? generateText
 
@@ -131,6 +145,13 @@ export async function summarizeSession(
       'fast',
       { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 30_000 },
     )
+
+    await recordUsage(data.session.userId, {
+      model: getModelName('fast'),
+      tokensIn: result.usage?.inputTokens ?? 0,
+      tokensOut: result.usage?.outputTokens ?? 0,
+      countsTowardLimit: false,
+    }).catch(() => undefined)
 
     const summary = trimToWord(result.text.trim())
     if (!summary) return null

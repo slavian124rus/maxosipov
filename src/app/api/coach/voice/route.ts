@@ -78,11 +78,11 @@ export async function POST(request: Request) {
 
     const dir = await mkdtemp(path.join(tmpdir(), 'voice-'))
     const filePath = path.join(dir, 'voice')
-    await writeFile(filePath, Buffer.from(await audio.arrayBuffer()))
 
     let text = ''
 
     try {
+      await writeFile(filePath, Buffer.from(await audio.arrayBuffer()))
       text = await getSpeechToText().transcribe({
         path: filePath,
         mime: audio.type || 'audio/webm',
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     }
 
     const list = await sessionExercises(current.user.id, sessionClientUuid)
-    const parsed = await parseVoiceLog(text, list)
+    const parsed = await parseVoiceLog(text, list, { userId: current.user.id })
 
     if (parsed.flag) {
       const trainerId = current.user.trainerId ?? (await getHeadTrainerId())
@@ -123,7 +123,11 @@ export async function POST(request: Request) {
     }
 
     const message = error instanceof Error ? error.message : 'Не удалось распознать'
-    if (message.includes('не настроено') || message.includes('SpeechKit') || message.includes('Распознавание')) {
+    if (
+      message.includes('не настроено') ||
+      message.includes('SpeechKit') ||
+      message.includes('Распознавание')
+    ) {
       return NextResponse.json({ error: message }, { status: 503 })
     }
 

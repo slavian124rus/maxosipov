@@ -24,7 +24,12 @@ beforeEach(async () => {
     name: 'Колизей',
     address: 'Красноярск, ул. Говорова',
     timezone: TZ,
-    brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+    brand: {
+      name: 'Максим Осипов',
+      shortName: 'МаксИИм',
+      colors: { accent: '#E5322D' },
+      logoUrl: null,
+    },
     settings: {
       trialDays: 30,
       subscriptionPriceRub: null,

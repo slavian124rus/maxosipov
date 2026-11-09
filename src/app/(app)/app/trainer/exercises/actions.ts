@@ -63,7 +63,8 @@ export async function saveExerciseAction(
     tips: text(formData.get('tips')) || null,
     defaultRepMin: Number(text(formData.get('repMin')) || 8),
     defaultRepMax: Number(text(formData.get('repMax')) || 12),
-    overlayProfile: (text(formData.get('overlayProfile')) || 'none') as ExerciseInput['overlayProfile'],
+    overlayProfile: (text(formData.get('overlayProfile')) ||
+      'none') as ExerciseInput['overlayProfile'],
   }
 
   const id = text(formData.get('id'))
@@ -72,7 +73,9 @@ export async function saveExerciseAction(
 
   try {
     if (input.videoMediaId) {
-      await setProcessingOptions(actor, input.videoMediaId, { cropX: Math.min(Math.max(cropX, 0), 1) })
+      await setProcessingOptions(actor, input.videoMediaId, {
+        cropX: Math.min(Math.max(cropX, 0), 1),
+      })
     }
 
     const before = id ? await getExercise(id, { includeDrafts: true }) : null
@@ -88,7 +91,8 @@ export async function saveExerciseAction(
     revalidatePath('/trainer/exercises')
     revalidatePath('/exercises')
 
-    const returnedToDraft = before?.status === 'published' && exercise.status === 'draft' && !publish
+    const returnedToDraft =
+      before?.status === 'published' && exercise.status === 'draft' && !publish
 
     return {
       error: null,
@@ -120,12 +124,15 @@ export async function draftExerciseAction(input: {
   }
 
   try {
-    const draft = await draftExerciseText({
-      name: input.name.trim(),
-      machine: input.machine,
-      primary: input.primary,
-      secondary: input.secondary,
-    })
+    const draft = await draftExerciseText(
+      {
+        name: input.name.trim(),
+        machine: input.machine,
+        primary: input.primary,
+        secondary: input.secondary,
+      },
+      { userId: actor.id },
+    )
     return { draft, error: null }
   } catch (error) {
     return {

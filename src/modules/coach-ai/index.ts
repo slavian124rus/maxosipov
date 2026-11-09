@@ -1,7 +1,13 @@
 export { aiConversations, aiMessages, aiUsageDaily } from './schema'
 export type { AiConversation, AiFlag, AiMessage, AiRole, AiUsageDailyRow } from './schema'
 
-export { COACH_CONVERSATION_HEADER, getChatHistory, handleChatMessage, LIMIT_REPLY, UNAVAILABLE_REPLY } from './chat'
+export {
+  COACH_CONVERSATION_HEADER,
+  getChatHistory,
+  handleChatMessage,
+  LIMIT_REPLY,
+  UNAVAILABLE_REPLY,
+} from './chat'
 export type { ChatDeps, ChatHistory } from './chat'
 
 export { acceptProposal, listProposalCards, listProposals, rejectProposal } from './proposals'
@@ -21,7 +27,14 @@ export type { CoachToolContext } from './tools'
 export { AiUnavailableError, getModel, getModelName, withFallback } from './provider'
 export type { ModelKind } from './provider'
 
-export { costRubFor, getTodayUsage, isOverLimit, recordUsage } from './usage'
+export {
+  costRubFor,
+  getTodayUsage,
+  isOverLimit,
+  recordUsage,
+  releaseMessage,
+  reserveMessage,
+} from './usage'
 export type { UsageDeps, UsageInput } from './usage'
 
 export {

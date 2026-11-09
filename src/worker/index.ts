@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { PgBoss } from 'pg-boss'
-import { env } from '@/shared/env'
+import { env, missingAiEnv } from '@/shared/env'
 import { registerJobs } from './jobs'
 
 /** Точка входа фоновых задач: очередь pg-boss на той же PostgreSQL. */
@@ -14,6 +14,13 @@ export async function startWorker(): Promise<void> {
   await boss.start()
   await registerJobs(boss)
   console.log('[worker] запущен')
+
+  if (env.NODE_ENV === 'production') {
+    const missing = missingAiEnv(env)
+    if (missing.length > 0) {
+      console.warn(`[worker] МаксИИм не настроен, не заполнено: ${missing.join(', ')}`)
+    }
+  }
 
   let stopping = false
   const shutdown = async (signal: string) => {

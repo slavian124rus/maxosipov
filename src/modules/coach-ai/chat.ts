@@ -12,7 +12,7 @@ import { buildSystemPrompt } from './prompt'
 import { AiUnavailableError, getModel, getModelName, withFallback } from './provider'
 import { aiConversations, aiMessages } from './schema'
 import { createCoachTools } from './tools'
-import { isOverLimit, recordUsage } from './usage'
+import { recordUsage, releaseMessage, reserveMessage } from './usage'
 
 /** Тексты состояний чата (DESIGN.md §8.6). */
 export const LIMIT_REPLY =
@@ -141,10 +141,7 @@ export async function handleChatMessage(
   const conversation = await resolveConversation(user.user.id, conversationId)
   const now = deps.now ?? new Date()
 
-  if (await isOverLimit(user.user.id, gym.settings.aiDailyLimit, now)) {
-    return textResponse(LIMIT_REPLY, conversation)
-  }
-
+  // Боль и травма обрабатываются раньше лимита: Максим должен узнать о ней всегда.
   const flag = detectFlag(text)
 
   if (flag) {
@@ -170,6 +167,10 @@ export async function handleChatMessage(
 
     return textResponse(PAIN_REPLY, conversation)
   }
+
+  // Слот занимается атомарно до вызова модели: параллельные запросы не обходят лимит.
+  const reserved = await reserveMessage(user.user.id, gym.settings.aiDailyLimit, now, gym.timezone)
+  if (!reserved) return textResponse(LIMIT_REPLY, conversation)
 
   await saveMessage({
     conversationId: conversation,
@@ -249,7 +250,7 @@ export async function handleChatMessage(
 
           await recordUsage(
             user.user.id,
-            { model: modelName, tokensIn, tokensOut, countsTowardLimit: true },
+            { model: modelName, tokensIn, tokensOut, countsTowardLimit: false },
             { now, timeZone: gym.timezone, prices: gym.settings.aiPrices },
           )
         } catch (error) {
@@ -267,6 +268,7 @@ export async function handleChatMessage(
       },
     })
   } catch (error) {
+    await releaseMessage(user.user.id, now, gym.timezone).catch(() => undefined)
     if (error instanceof AiUnavailableError) return textResponse(UNAVAILABLE_REPLY, conversation)
     throw error
   }

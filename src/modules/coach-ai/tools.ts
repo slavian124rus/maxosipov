@@ -105,11 +105,15 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
       const found = rows.filter((row) => {
         if (muscle) {
           const code = muscleCode(muscle)
-          if (!row.primary.includes(code as MuscleCode) && !row.secondary.includes(code as MuscleCode)) {
+          if (
+            !row.primary.includes(code as MuscleCode) &&
+            !row.secondary.includes(code as MuscleCode)
+          ) {
             return false
           }
         }
-        if (machine && !(row.machine ?? '').toLowerCase().includes(machine.toLowerCase())) return false
+        if (machine && !(row.machine ?? '').toLowerCase().includes(machine.toLowerCase()))
+          return false
         if (text && !row.name.toLowerCase().includes(text)) return false
         return true
       })
@@ -151,7 +155,7 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
       )
     },
   })
-const draft_workout = tool({
+  const draft_workout = tool({
     description:
       'Черновик новой тренировки или программы. Создаёт предложение, клиент нажмёт «Принять».',
     inputSchema: z.object({
@@ -162,12 +166,14 @@ const draft_workout = tool({
             name: z.string().trim().min(1).max(80),
             exercises: z
               .array(
-                z.object({
-                  exerciseId: z.string().uuid(),
-                  sets: z.number().int().min(1).max(10),
-                  repMin: z.number().int().min(1).max(100),
-                  repMax: z.number().int().min(1).max(100),
-                }),
+                z
+                  .object({
+                    exerciseId: z.string().uuid(),
+                    sets: z.number().int().min(1).max(10),
+                    repMin: z.number().int().min(1).max(100),
+                    repMax: z.number().int().min(1).max(100),
+                  })
+                  .refine((item) => item.repMin <= item.repMax, 'repMin не больше repMax'),
               )
               .min(1)
               .max(12),

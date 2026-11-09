@@ -35,3 +35,23 @@ test('MEDIA_URL_SIGNING_SECRET обязателен и не короче 16 си
 test('smsru без SMS_API_KEY — ошибка', () => {
   expect(() => parseEnv({ ...base, SMS_PROVIDER: 'smsru' })).toThrow(/SMS_API_KEY/)
 })
+
+test('missingAiEnv: перечисляет незаполненные переменные МаксИИма', async () => {
+  const { missingAiEnv } = await import('./env')
+  expect(missingAiEnv({})).toEqual([
+    'AI_API_KEY',
+    'AI_MODEL_MAIN',
+    'AI_MODEL_FAST',
+    'AI_MODEL_FALLBACK',
+    'STT_PROVIDER',
+  ])
+  expect(
+    missingAiEnv({
+      AI_API_KEY: 'k',
+      AI_MODEL_MAIN: 'a',
+      AI_MODEL_FAST: 'b',
+      AI_MODEL_FALLBACK: 'c',
+      STT_PROVIDER: 'yandex',
+    }),
+  ).toEqual(['YANDEX_SPEECHKIT_KEY'])
+})

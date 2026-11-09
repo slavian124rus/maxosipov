@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { users } from '@/modules/auth'
 import { exercises } from '@/modules/catalog'
+import { addDays, subscriptions } from '@/modules/access'
 import { gyms } from '@/modules/gym'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import {
@@ -60,7 +61,12 @@ beforeEach(async () => {
     .values({
       name: 'Колизей',
       address: 'Красноярск, ул. Говорова',
-      brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+      brand: {
+        name: 'Максим Осипов',
+        shortName: 'МаксИИм',
+        colors: { accent: '#E5322D' },
+        logoUrl: null,
+      },
       settings: {
         trialDays: 30,
         subscriptionPriceRub: null,
@@ -93,12 +99,25 @@ beforeEach(async () => {
     })
     .returning()
 
+  await db.insert(subscriptions).values({
+    userId: clientRow!.id,
+    status: 'trial',
+    startsAt: new Date(),
+    endsAt: addDays(new Date(), 30),
+  })
+
   const [otherRow] = await db
     .insert(users)
     .values({ phone: '+79990000012', name: 'Другой', gymId, roleId: roles['Клиент']!.id })
     .returning()
 
-  client = { id: clientRow!.id, roleId: roles['Клиент']!.id, gymId, isOwner: false, permissions: [] }
+  client = {
+    id: clientRow!.id,
+    roleId: roles['Клиент']!.id,
+    gymId,
+    isOwner: false,
+    permissions: [],
+  }
   otherClient = {
     id: otherRow!.id,
     roleId: roles['Клиент']!.id,
@@ -189,7 +208,10 @@ test('принятие new_program делает программу активн�
       payload: {
         name: 'Спина',
         days: [
-          { name: 'День 1', exercises: [{ exerciseId: exerciseB, sets: 4, repMin: 8, repMax: 10 }] },
+          {
+            name: 'День 1',
+            exercises: [{ exerciseId: exerciseB, sets: 4, repMin: 8, repMax: 10 }],
+          },
         ],
         rationale: 'Новая программа',
       },
@@ -228,4 +250,14 @@ test('отклонение не меняет программу', async () => {
 
   const program = await getProgramTree(programId)
   expect(program?.days[0]?.exercises[0]?.exerciseId).toBe(exerciseA)
+})
+
+test('без действующей подписки принять предложение нельзя, оно остаётся pending', async () => {
+  const proposalId = await createPatchProposal()
+  await db.update(subscriptions).set({ endsAt: new Date(Date.now() - 86400000) })
+
+  await expect(acceptProposal(client, proposalId)).rejects.toBeInstanceOf(ForbiddenError)
+
+  const [row] = await db.select().from(aiProposals).where(eq(aiProposals.id, proposalId))
+  expect(row?.status).toBe('pending')
 })

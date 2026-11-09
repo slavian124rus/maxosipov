@@ -1,7 +1,8 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import { detectFlag, type PainFlag } from './flags'
-import { withFallback } from './provider'
+import { getModelName, withFallback } from './provider'
+import { recordUsage } from './usage'
 
 export type VoiceRow = {
   exerciseId: string | null
@@ -38,6 +39,8 @@ const voiceSchema = z.object({
 export type VoiceDeps = {
   getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
   timeoutMs?: number
+  /** Для учёта расходов (в дневной лимит сообщений не входит). */
+  userId?: string
 }
 
 const INSTRUCTION =
@@ -65,6 +68,15 @@ export async function parseVoiceLog(
     'fast',
     { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 30_000 },
   )
+
+  if (deps.userId) {
+    await recordUsage(deps.userId, {
+      model: getModelName('fast'),
+      tokensIn: result.usage?.inputTokens ?? 0,
+      tokensOut: result.usage?.outputTokens ?? 0,
+      countsTowardLimit: false,
+    }).catch(() => undefined)
+  }
 
   const rows: VoiceRow[] = result.object.rows.map((row) => ({
     // Модель могла вернуть id не из списка — не доверяем.

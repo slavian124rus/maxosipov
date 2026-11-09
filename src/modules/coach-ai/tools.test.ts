@@ -69,7 +69,12 @@ beforeEach(async () => {
       name: 'Колизей',
       address: 'Красноярск, ул. Говорова',
       timezone: 'Asia/Krasnoyarsk',
-      brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+      brand: {
+        name: 'Максим Осипов',
+        shortName: 'МаксИИм',
+        colors: { accent: '#E5322D' },
+        logoUrl: null,
+      },
       settings: {
         trialDays: 30,
         subscriptionPriceRub: null,
@@ -194,7 +199,10 @@ test('draft_workout с упражнением не из каталога — о�
   const result = await run(tools.draft_workout, {
     name: 'Спина',
     days: [
-      { name: 'День 1', exercises: [{ exerciseId: randomUUID(), sets: 3, repMin: 10, repMax: 12 }] },
+      {
+        name: 'День 1',
+        exercises: [{ exerciseId: randomUUID(), sets: 3, repMin: 10, repMax: 12 }],
+      },
     ],
   })
 
@@ -257,4 +265,23 @@ test('get_progression возвращает ровно recommend()', async () => 
 
   expect(result).toEqual(expected)
   expect(result.action).toBe('increase')
+})
+
+test('draft_workout: repMin больше repMax отклоняется схемой', async () => {
+  const program = await getProgramTree(programId)
+  const tools = createCoachTools({ userId: clientId, conversationId: null, program })
+  const schema = tools.draft_workout?.inputSchema as unknown as {
+    safeParse: (value: unknown) => { success: boolean }
+  }
+
+  const exercises = (repMin: number, repMax: number) => [
+    { exerciseId: randomUUID(), sets: 3, repMin, repMax },
+  ]
+
+  expect(
+    schema.safeParse({ name: 'Х', days: [{ name: 'Д', exercises: exercises(12, 8) }] }).success,
+  ).toBe(false)
+  expect(
+    schema.safeParse({ name: 'Х', days: [{ name: 'Д', exercises: exercises(8, 12) }] }).success,
+  ).toBe(true)
 })

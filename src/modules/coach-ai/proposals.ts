@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
+import { assertClientAccess } from '@/modules/access'
 import { exercises } from '@/modules/catalog'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
@@ -40,7 +41,11 @@ export type ProposalView = {
 const ALREADY_DECIDED = 'Уже решено'
 
 async function loadProposal(actor: Actor, proposalId: string) {
-  const [proposal] = await db.select().from(aiProposals).where(eq(aiProposals.id, proposalId)).limit(1)
+  const [proposal] = await db
+    .select()
+    .from(aiProposals)
+    .where(eq(aiProposals.id, proposalId))
+    .limit(1)
 
   if (!proposal) throw new Error('Предложение не найдено')
   if (proposal.userId !== actor.id) throw new ForbiddenError('Это чужое предложение')
@@ -66,6 +71,9 @@ async function markDecided(
 /** Принятие предложения: патч применяется к программе, новая программа становится активной. */
 export async function acceptProposal(actor: Actor, proposalId: string): Promise<void> {
   const proposal = await loadProposal(actor, proposalId)
+
+  // Меняет программу только клиент с действующим доступом (ARCHITECTURE.md §8.4).
+  await assertClientAccess(actor.id)
 
   // Статус ставим первым: параллельное повторное нажатие увидит «Уже решено»
   // и не применит изменение дважды.

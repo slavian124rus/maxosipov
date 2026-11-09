@@ -50,7 +50,12 @@ beforeEach(async () => {
       name: 'Колизей',
       address: 'Красноярск, ул. Говорова',
       timezone: 'Asia/Krasnoyarsk',
-      brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+      brand: {
+        name: 'Максим Осипов',
+        shortName: 'МаксИИм',
+        colors: { accent: '#E5322D' },
+        logoUrl: null,
+      },
       settings: {
         trialDays: 30,
         subscriptionPriceRub: null,
@@ -69,7 +74,12 @@ beforeEach(async () => {
 
   const [trainer] = await db
     .insert(users)
-    .values({ phone: '+79990000002', name: 'Максим Осипов', gymId, roleId: roles['Главный тренер']!.id })
+    .values({
+      phone: '+79990000002',
+      name: 'Максим Осипов',
+      gymId,
+      roleId: roles['Главный тренер']!.id,
+    })
     .returning()
 
   const [client] = await db

@@ -91,6 +91,34 @@ function refineEnv(data: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void 
 
 export type Env = z.infer<typeof envSchema>
 
+/**
+ * Какие переменные МаксИИма не заполнены. Жёстко в `parseEnv` не требуем: `next build`
+ * в production выполняется без ключей. Список печатает воркер при старте на сервере.
+ */
+export function missingAiEnv(
+  data: Pick<
+    Env,
+    | 'AI_API_KEY'
+    | 'AI_MODEL_MAIN'
+    | 'AI_MODEL_FAST'
+    | 'AI_MODEL_FALLBACK'
+    | 'STT_PROVIDER'
+    | 'STT_MODEL'
+    | 'YANDEX_SPEECHKIT_KEY'
+  >,
+): string[] {
+  const missing: string[] = []
+  if (!data.AI_API_KEY) missing.push('AI_API_KEY')
+  if (!data.AI_MODEL_MAIN) missing.push('AI_MODEL_MAIN')
+  if (!data.AI_MODEL_FAST) missing.push('AI_MODEL_FAST')
+  if (!data.AI_MODEL_FALLBACK) missing.push('AI_MODEL_FALLBACK')
+  if (!data.STT_PROVIDER) missing.push('STT_PROVIDER')
+  else if (data.STT_PROVIDER === 'plusvibe' && !data.STT_MODEL) missing.push('STT_MODEL')
+  else if (data.STT_PROVIDER === 'yandex' && !data.YANDEX_SPEECHKIT_KEY)
+    missing.push('YANDEX_SPEECHKIT_KEY')
+  return missing
+}
+
 const fullEnvSchema = envSchema.superRefine(refineEnv)
 
 /**

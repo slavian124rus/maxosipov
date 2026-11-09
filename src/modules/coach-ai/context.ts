@@ -140,7 +140,7 @@ export function buildContextBlock(data: ContextData, timeZone = 'Asia/Krasnoyars
         .map(
           (session) =>
             `${formatDate(session.date, timeZone)} — ${session.sets
-              .map((set) => `${weight(set.weightKg)} кг × ${set.reps}`)
+              .map((set) => `${weight(set.weightKg)} кг, ${set.reps} раз`)
               .join(', ')}`,
         )
         .join('; ')

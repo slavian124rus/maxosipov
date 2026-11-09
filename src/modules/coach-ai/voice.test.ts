@@ -87,7 +87,9 @@ test('модель вернула exerciseId не из списка — заме
     ],
   })
 
-  const result = await parseVoiceLog('жим ногами на сто двадцать', SESSION, { getModel: () => model })
+  const result = await parseVoiceLog('жим ногами на сто двадцать', SESSION, {
+    getModel: () => model,
+  })
 
   expect(result.rows[0]?.exerciseId).toBeNull()
 })

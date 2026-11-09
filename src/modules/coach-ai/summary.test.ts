@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import type { LanguageModel } from 'ai'
 import { eq } from 'drizzle-orm'
@@ -33,7 +33,12 @@ beforeEach(async () => {
     .values({
       name: 'Колизей',
       address: 'Красноярск, ул. Говорова',
-      brand: { name: 'Максим Осипов', shortName: 'МаксИИм', colors: { accent: '#E5322D' }, logoUrl: null },
+      brand: {
+        name: 'Максим Осипов',
+        shortName: 'МаксИИм',
+        colors: { accent: '#E5322D' },
+        logoUrl: null,
+      },
       settings: {
         trialDays: 30,
         subscriptionPriceRub: null,
@@ -94,13 +99,13 @@ beforeEach(async () => {
 })
 
 test('buildSummaryInput содержит упражнение, вес, повторения и объём', () => {
-  const text = buildSummaryInput(
-    { startedAt: new Date(), finishedAt: new Date(), mode: 'free' },
-    [{ exerciseId, name: 'Жим ногами', sets: [{ weightKg: 120, reps: 10, feeling: 'hard' }] }],
-  )
+  const text = buildSummaryInput({ startedAt: new Date(), finishedAt: new Date(), mode: 'free' }, [
+    { exerciseId, name: 'Жим ногами', sets: [{ weightKg: 120, reps: 10, feeling: 'hard' }] },
+  ])
 
   expect(text).toContain('Жим ногами')
-  expect(text).toContain('120 кг × 10')
+  expect(text).toContain('120 кг, 10 раз')
+  expect(text).not.toContain('×')
   expect(text).toContain('Объём: 1200 кг')
 })
 
@@ -139,4 +144,18 @@ test('итог сохраняется в workout_sessions.ai_summary', async () 
 
   const [row] = await db.select().from(workoutSessions).where(eq(workoutSessions.id, sessionId))
   expect(row?.aiSummary).toBe(summary)
+})
+
+test('повторный запуск не вызывает модель: итог уже есть', async () => {
+  const generate = vi.fn(async () => ({ text: 'Первый итог.' }))
+  const deps = {
+    generate: generate as unknown as typeof import('ai').generateText,
+    getModel: () => fakeModel,
+  }
+
+  await summarizeSession(sessionId, deps)
+  const again = await summarizeSession(sessionId, deps)
+
+  expect(again).toBe('Первый итог.')
+  expect(generate).toHaveBeenCalledTimes(1)
 })
