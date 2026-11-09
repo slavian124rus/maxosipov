@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getOfflineDb } from '@/lib/offline/db'
 import { useActiveSession } from '@/lib/offline/use-active-session'
+import { useProgramVersion } from '@/lib/use-program-version'
 import { recommend, recommendationText, type ProgressionRules } from '@/modules/progression'
 import { FreeMode, type LoggedSet, type NextRecommendation, type WorkoutExercise } from './free-mode'
 import { GuidedMode } from './guided-mode'
 import { FinishSummary } from './finish-summary'
+import { ProgramUpdateBanner } from './program-update-banner'
 import type { Feeling } from './feeling-picker'
 
 type Props = {
+  programId: string
   programDayId: string | null
   dayName: string
   mode: 'free' | 'guided'
@@ -20,7 +23,7 @@ type Props = {
 }
 
 /** Оболочка тренировки: старт сессии, запись подходов, завершение. */
-export function WorkoutClient({ programDayId, dayName, mode, exercises, rules }: Props) {
+export function WorkoutClient({ programId, programDayId, dayName, mode, exercises, rules }: Props) {
   const session = useActiveSession()
   const [logged, setLogged] = useState<Record<string, LoggedSet[]>>({})
   const [finished, setFinished] = useState<{
@@ -33,6 +36,7 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises, rules }:
   const loggedRef = useRef<Record<string, LoggedSet[]>>({})
   const [storageFailed, setStorageFailed] = useState(false)
   const [nextRecommendations, setNextRecommendations] = useState<Record<string, NextRecommendation>>({})
+  const programUpdated = useProgramVersion(programId)
 
   useEffect(() => {
     if (startedRef.current) return
@@ -176,6 +180,15 @@ export function WorkoutClient({ programDayId, dayName, mode, exercises, rules }:
         <p className="rounded-card border border-warning/40 px-3 py-2 text-[13px] text-warning">
           Не удалось открыть память устройства: подходы не сохранятся без сети. Обнови страницу.
         </p>
+      ) : null}
+
+      {programUpdated ? (
+        <ProgramUpdateBanner
+          onRefresh={() => {
+            // Записанные подходы лежат в IndexedDB — перерисовка их не теряет.
+            router.refresh()
+          }}
+        />
       ) : null}
 
       {mode === 'guided' ? (

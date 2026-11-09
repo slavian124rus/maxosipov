@@ -6,6 +6,7 @@ import { ExerciseLogger } from './exercise-logger'
 import { FeelingPicker, type Feeling } from './feeling-picker'
 import { RecommendationCard } from './recommendation-card'
 import { formatScheme } from '@/shared/scheme'
+import { formatWeight } from '@/modules/progression'
 
 export type WorkoutExercise = {
   programExerciseId: string
@@ -123,7 +124,7 @@ export function FreeMode({
                         key={set.index}
                         className="rounded-full bg-surface-2 px-3 py-1 text-[13px] text-text-secondary"
                       >
-                        {set.index}: {set.weightKg} кг · {set.reps} раз
+                        {set.index}: {formatWeight(set.weightKg)} · {set.reps} раз
                       </span>
                     ))}
                   </div>

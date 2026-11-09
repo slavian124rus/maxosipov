@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { exercises } from '@/modules/catalog'
 import { assertCan, type Actor } from '@/modules/rbac'
@@ -15,8 +15,10 @@ import { programChanges, programDays, programExercises, programs } from './schem
 
 export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 
-async function publishedExerciseIds(): Promise<Set<string>> {
-  const rows = await db
+type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+async function publishedExerciseIds(executor: Executor = db): Promise<Set<string>> {
+  const rows = await executor
     .select({ id: exercises.id })
     .from(exercises)
     .where(and(eq(exercises.status, 'published'), isNull(exercises.archivedAt)))
@@ -24,10 +26,10 @@ async function publishedExerciseIds(): Promise<Set<string>> {
   return new Set(rows.map((row) => row.id))
 }
 
-async function exerciseNames(ids: string[]): Promise<(id: string) => string> {
+async function exerciseNames(ids: string[], executor: Executor = db): Promise<(id: string) => string> {
   if (ids.length === 0) return (id) => id
 
-  const rows = await db
+  const rows = await executor
     .select({ id: exercises.id, name: exercises.name })
     .from(exercises)
     .where(inArray(exercises.id, ids))
@@ -37,11 +39,11 @@ async function exerciseNames(ids: string[]): Promise<(id: string) => string> {
 }
 
 /** Собирает дерево программы из трёх таблиц. */
-export async function getProgramTree(programId: string): Promise<ProgramTree | null> {
-  const [program] = await db.select().from(programs).where(eq(programs.id, programId)).limit(1)
+export async function getProgramTree(programId: string, executor: Executor = db): Promise<ProgramTree | null> {
+  const [program] = await executor.select().from(programs).where(eq(programs.id, programId)).limit(1)
   if (!program) return null
 
-  const days = await db
+  const days = await executor
     .select()
     .from(programDays)
     .where(eq(programDays.programId, programId))
@@ -49,7 +51,7 @@ export async function getProgramTree(programId: string): Promise<ProgramTree | n
 
   const dayIds = days.map((day) => day.id)
   const items = dayIds.length
-    ? await db
+    ? await executor
         .select()
         .from(programExercises)
         .where(inArray(programExercises.dayId, dayIds))
@@ -136,14 +138,14 @@ export async function applyProgramPatchAs(
     if (!program) throw new Error('Программа не найдена')
     await assertProgramWrite(actor, program.ownerId)
 
-    const current = await getProgramTree(programId)
+    const current = await getProgramTree(programId, tx)
     if (!current) throw new Error('Программа не найдена')
 
-    const next = applyPatch(current, parsed, await publishedExerciseIds())
+    const next = applyPatch(current, parsed, await publishedExerciseIds(tx))
 
     const afterIds = next.days.flatMap((day) => day.exercises.map((item) => item.exerciseId))
     const beforeIds = current.days.flatMap((day) => day.exercises.map((item) => item.exerciseId))
-    const diff = diffPrograms(current, next, await exerciseNames([...afterIds, ...beforeIds]))
+    const diff = diffPrograms(current, next, await exerciseNames([...afterIds, ...beforeIds], tx))
 
     const existingDays = await tx
       .select({ id: programDays.id })
@@ -234,7 +236,12 @@ export async function copyTemplateToClient(
   const template = await getProgramTree(templateId)
   if (!template || template.ownerId !== null) throw new Error('Шаблон не найден')
 
-  return db.transaction(async (tx) => {
+  const runOnce = (): Promise<ProgramTree> =>
+    db.transaction(async (tx) => {
+    // Сериализуем параллельные копирования для одного клиента (F14):
+    // блокировка снимается автоматически в конце транзакции.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${clientId}))`)
+
     await tx
       .update(programs)
       .set({ status: 'archived', updatedAt: new Date() })
@@ -297,6 +304,28 @@ export async function copyTemplateToClient(
       days,
     }
   })
+
+  // Параллельный вызов мог создать активную программу между архивацией и вставкой (F14):
+  // уникальный индекс отклонит вторую — повторяем транзакцию один раз.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runOnce()
+    } catch (error) {
+      if (attempt === 0 && isUniqueViolation(error)) continue
+      throw error
+    }
+  }
+
+  throw new Error('Не удалось создать программу')
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === '23505'
+  )
 }
 
 export async function createTemplate(actor: Actor, name: string, gymId: string): Promise<string> {

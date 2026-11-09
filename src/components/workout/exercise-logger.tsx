@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { formatWeight } from '@/modules/progression'
 
 type Props = {
   setNumber: number
@@ -32,7 +33,7 @@ export function ExerciseLogger({ setNumber, stepKg, initialWeightKg, initialReps
             >
               −
             </Button>
-            <span className="font-display text-[28px] tabular-nums">{weight}</span>
+            <span className="font-display text-[28px] tabular-nums">{formatWeight(weight)}</span>
             <Button
               type="button"
               variant="ghost"

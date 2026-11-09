@@ -26,5 +26,6 @@ export async function seedDefaultRoles(): Promise<Record<string, Role>> {
 
 /** Закрывает соединение с тестовой базой (чтобы vitest не висел). */
 export async function closeDb(): Promise<void> {
-  await client.end()
+  // timeout: если остались зависшие запросы, не ждём их вечно
+  await client.end({ timeout: 5 })
 }

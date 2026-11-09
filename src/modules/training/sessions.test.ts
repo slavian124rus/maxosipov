@@ -16,6 +16,7 @@ import {
   finishSession,
   getHistoryForExercise,
   getRecommendations,
+  getWeekWorkoutDays,
   setExerciseFeeling,
   startSession,
   syncSets,
@@ -368,4 +369,63 @@ test('повторное завершение тренировки не став
   expect(queued).toEqual(['session.summary'])
   const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.clientUuid, 's-fin'))
   expect(session?.finishedAt?.toISOString()).toBe('2026-11-07T10:00:00.000Z')
+})
+
+test('вес 62,3 сохраняется и читается ровно (double precision)', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-precise',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  await syncSets(clientId, [setItem('s-precise', 1, 62.3, 10)])
+
+  const [row] = await db.select().from(setLogs).where(eq(setLogs.clientUuid, 's-precise-1'))
+  expect(row?.weightKg).toBe(62.3)
+})
+
+test('getHistoryForExercise отдаёт ровно N последних тренировок', async () => {
+  for (let index = 0; index < 5; index += 1) {
+    const uuid = `s-hist-${index}`
+    await startSession(clientId, {
+      programDayId: dayId,
+      mode: 'free',
+      clientUuid: uuid,
+      startedAt: new Date(`2026-11-0${index + 1}T09:00:00Z`),
+    })
+    await syncSets(clientId, [setItem(uuid, 1, 40 + index, 10)])
+  }
+
+  const history = await getHistoryForExercise(clientId, exerciseId, 2)
+  expect(history).toHaveLength(2)
+  expect(history[0]?.date.toISOString()).toBe(new Date('2026-11-05T09:00:00Z').toISOString())
+  expect(history[1]?.date.toISOString()).toBe(new Date('2026-11-04T09:00:00Z').toISOString())
+})
+
+test('getWeekWorkoutDays учитывает часовой пояс зала', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-week',
+    startedAt: new Date('2026-11-01T20:00:00Z'),
+  })
+  await finishSession(
+    clientId,
+    's-week',
+    { finishedAt: new Date('2026-11-01T21:00:00Z') },
+    { enqueue: async () => {} },
+  )
+
+  // 2026-11-01T21:00Z — это 2 ноября 04:00 по Красноярску (понедельник → индекс 0)
+  const krasnoyarsk = await getWeekWorkoutDays(
+    clientId,
+    new Date('2026-11-02T10:00:00Z'),
+    'Asia/Krasnoyarsk',
+  )
+  expect(krasnoyarsk[0]).toBe(true)
+
+  // В UTC тот же момент — воскресенье предыдущей недели
+  const utc = await getWeekWorkoutDays(clientId, new Date('2026-11-02T10:00:00Z'), 'UTC')
+  expect(utc[0]).toBe(false)
 })

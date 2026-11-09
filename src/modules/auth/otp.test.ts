@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { db } from '@/shared/db'
 import { otpCodes } from './schema'
@@ -30,6 +30,10 @@ function codeFromSms(text: string): string {
 
 beforeAll(async () => {
   await prepareTestDb()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 afterAll(async () => {

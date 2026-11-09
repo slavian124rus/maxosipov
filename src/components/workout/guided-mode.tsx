@@ -7,6 +7,7 @@ import { FeelingPicker, type Feeling } from './feeling-picker'
 import { RecommendationCard } from './recommendation-card'
 import { RestTimer } from './rest-timer'
 import { formatScheme } from '@/shared/scheme'
+import { formatWeight } from '@/modules/progression'
 import type { LoggedSet, NextRecommendation, WorkoutExercise } from './free-mode'
 
 type Props = {
@@ -48,7 +49,7 @@ export function GuidedMode({
 
       {exercise.videoMp4Url ? (
         <video
-          className="aspect-[9/16] w-full rounded-card bg-black object-cover"
+          className="mx-auto aspect-[4/5] max-h-[45vh] w-full rounded-card bg-black object-cover"
           src={exercise.videoMp4Url}
           poster={exercise.posterUrl ?? undefined}
           muted
@@ -76,7 +77,7 @@ export function GuidedMode({
             key={set.index}
             className="rounded-full bg-surface-2 px-3 py-1 text-[13px] text-text-secondary"
           >
-            {set.index}: {set.weightKg} кг · {set.reps} раз
+            {set.index}: {formatWeight(set.weightKg)} · {set.reps} раз
           </span>
         ))}
       </div>

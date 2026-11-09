@@ -216,6 +216,16 @@ test('copyTemplateToClient архивирует прежнюю активную 
   expect(active?.id).not.toBe(first.id)
 })
 
+test('два параллельных копирования шаблона оставляют одну активную программу', async () => {
+  await Promise.all([
+    copyTemplateToClient(client, templateId, client.id, gymId),
+    copyTemplateToClient(client, templateId, client.id, gymId),
+  ])
+
+  const rows = await db.select().from(programs).where(eq(programs.ownerId, client.id))
+  expect(rows.filter((row) => row.status === 'active')).toHaveLength(1)
+})
+
 test('два параллельных патча не теряются', async () => {
   const program = await copyTemplateToClient(client, templateId, client.id, gymId)
   const dayId = program.days[0]!.id

@@ -1,4 +1,17 @@
-import { integer, jsonb, pgTable, primaryKey, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { desc, sql } from 'drizzle-orm'
+import {
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 export type AuthorKind = 'trainer' | 'client' | 'client_ai'
 export type ProgramStatus = 'active' | 'archived'
@@ -8,19 +21,28 @@ export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'reverted'
 
 /** Программа клиента или шаблон (`owner_id = null`). */
-export const programs = pgTable('programs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  gymId: uuid('gym_id').notNull(),
-  ownerId: uuid('owner_id'),
-  authorId: uuid('author_id').notNull(),
-  authorKind: text('author_kind').$type<AuthorKind>().notNull().default('trainer'),
-  name: text('name').notNull(),
-  goal: text('goal'),
-  status: text('status').$type<ProgramStatus>().notNull().default('active'),
-  sourceTemplateId: uuid('source_template_id'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const programs = pgTable(
+  'programs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gymId: uuid('gym_id').notNull(),
+    ownerId: uuid('owner_id'),
+    authorId: uuid('author_id').notNull(),
+    authorKind: text('author_kind').$type<AuthorKind>().notNull().default('trainer'),
+    name: text('name').notNull(),
+    goal: text('goal'),
+    status: text('status').$type<ProgramStatus>().notNull().default('active'),
+    sourceTemplateId: uuid('source_template_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Одна активная программа на клиента (F14).
+    uniqueIndex('programs_one_active_per_owner')
+      .on(table.ownerId)
+      .where(sql`${table.status} = 'active' AND ${table.ownerId} IS NOT NULL`),
+  ],
+)
 
 export const programDays = pgTable('program_days', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -44,7 +66,7 @@ export const programExercises = pgTable('program_exercises', {
   repMin: integer('rep_min').notNull().default(10),
   repMax: integer('rep_max').notNull().default(12),
   restSec: integer('rest_sec').notNull().default(90),
-  targetWeightKg: real('target_weight_kg'),
+  targetWeightKg: doublePrecision('target_weight_kg'),
   note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -66,7 +88,13 @@ export const workoutSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('workout_sessions_client_uuid_unique').on(table.clientUuid)],
+  (table) => [
+    unique('workout_sessions_client_uuid_unique').on(table.clientUuid),
+    index('workout_sessions_user_started_idx').on(table.userId, desc(table.startedAt)),
+    index('workout_sessions_user_finished_idx')
+      .on(table.userId)
+      .where(sql`${table.finishedAt} IS NOT NULL`),
+  ],
 )
 
 /** Подход. `client_uuid` — ключ идемпотентности при офлайн-синхронизации. */
@@ -79,7 +107,7 @@ export const setLogs = pgTable(
       .references(() => workoutSessions.id, { onDelete: 'cascade' }),
     exerciseId: uuid('exercise_id').notNull(),
     setIndex: integer('set_index').notNull(),
-    weightKg: real('weight_kg').notNull(),
+    weightKg: doublePrecision('weight_kg').notNull(),
     reps: integer('reps').notNull(),
     feeling: text('feeling').$type<Feeling>(),
     startedAt: timestamp('started_at', { withTimezone: true }),
@@ -89,7 +117,11 @@ export const setLogs = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('set_logs_client_uuid_unique').on(table.clientUuid)],
+  (table) => [
+    unique('set_logs_client_uuid_unique').on(table.clientUuid),
+    index('set_logs_session_idx').on(table.sessionId),
+    index('set_logs_exercise_idx').on(table.exerciseId),
+  ],
 )
 
 /** «Вес на следующий раз» — то, что клиент принял после упражнения. */
@@ -98,7 +130,7 @@ export const nextWeights = pgTable(
   {
     userId: uuid('user_id').notNull(),
     exerciseId: uuid('exercise_id').notNull(),
-    weightKg: real('weight_kg').notNull(),
+    weightKg: doublePrecision('weight_kg').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireClientPage } from '@/components/app/require-client-page'
 import { getAccessForUser } from '@/modules/access'
+import { getGym } from '@/modules/gym'
 import {
   getActiveProgram,
   getLastFinishedDayId,
@@ -26,10 +27,12 @@ function initials(name: string): string {
 export default async function TodayPage() {
   const { user } = await requireClientPage('/')
 
+  const gym = await getGym()
+
   const [program, access, streak, lastDayId, templates] = await Promise.all([
     getActiveProgram(user.id),
     getAccessForUser(user.id),
-    getWeekWorkoutDays(user.id),
+    getWeekWorkoutDays(user.id, new Date(), gym.timezone),
     getLastFinishedDayId(user.id),
     listTemplates(),
   ])

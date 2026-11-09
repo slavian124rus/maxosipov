@@ -4,6 +4,7 @@ import { getGym } from '@/modules/gym'
 import { recommend, recommendationText, type Recommendation } from '@/modules/progression'
 import { ForbiddenError } from '@/modules/rbac'
 import { db } from '@/shared/db'
+import { dayKey } from '@/shared/dates'
 import { enqueueJob } from '@/shared/queue'
 import { nextWeights, setLogs, workoutSessions } from './schema'
 
@@ -238,35 +239,47 @@ export async function getHistoryForExercise(
   limit = 6,
   options: { finishedOnly?: boolean } = {},
 ): Promise<HistorySession[]> {
-  const rows = await db
-    .select({
-      sessionId: setLogs.sessionId,
-      startedAt: workoutSessions.startedAt,
-      weightKg: setLogs.weightKg,
-      reps: setLogs.reps,
-      feeling: setLogs.feeling,
-      setIndex: setLogs.setIndex,
-    })
-    .from(setLogs)
-    .innerJoin(workoutSessions, eq(setLogs.sessionId, workoutSessions.id))
-    .where(
-      and(
-        eq(workoutSessions.userId, userId),
-        eq(setLogs.exerciseId, exerciseId),
-        options.finishedOnly ? sql`${workoutSessions.finishedAt} is not null` : undefined,
-      ),
+  // Ограничение по числу тренировок делается в SQL (F15): иначе читается вся история.
+  const finishedCondition = options.finishedOnly
+    ? sql`and ws.finished_at is not null`
+    : sql``
+
+  const rows = await db.execute<{
+    session_id: string
+    started_at: Date
+    weight_kg: number
+    reps: number
+    feeling: 'easy' | 'good' | 'hard' | null
+    set_index: number
+  }>(sql`
+    with recent as (
+      select ws.id, ws.started_at
+      from workout_sessions ws
+      where ws.user_id = ${userId}
+        ${finishedCondition}
+        and exists (
+          select 1 from set_logs sl
+          where sl.session_id = ws.id and sl.exercise_id = ${exerciseId}
+        )
+      order by ws.started_at desc
+      limit ${limit}
     )
-    .orderBy(desc(workoutSessions.startedAt), asc(setLogs.setIndex))
+    select sl.session_id, r.started_at, sl.weight_kg, sl.reps, sl.feeling, sl.set_index
+    from set_logs sl
+    join recent r on r.id = sl.session_id
+    where sl.exercise_id = ${exerciseId}
+    order by r.started_at desc, sl.set_index asc
+  `)
 
   const bySession = new Map<string, HistorySession>()
 
   for (const row of rows) {
-    const entry = bySession.get(row.sessionId) ?? { date: row.startedAt, sets: [] }
-    entry.sets.push({ weightKg: row.weightKg, reps: row.reps, feeling: row.feeling })
-    bySession.set(row.sessionId, entry)
+    const entry = bySession.get(row.session_id) ?? { date: new Date(row.started_at), sets: [] }
+    entry.sets.push({ weightKg: Number(row.weight_kg), reps: row.reps, feeling: row.feeling })
+    bySession.set(row.session_id, entry)
   }
 
-  return [...bySession.values()].slice(0, limit)
+  return [...bySession.values()]
 }
 
 export type DayRecommendation = Recommendation & { text: string }
@@ -428,28 +441,27 @@ export async function getLastFinishedDayId(userId: string): Promise<string | nul
   return row?.dayId ?? null
 }
 
-const WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Krasnoyarsk',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-})
-
-function localDateKey(date: Date): string {
-  return WEEKDAY_FORMATTER.format(date)
-}
-
 /** Серия недели: 7 флагов Пн–Вс, заполненные — дни с завершённой тренировкой. */
 export async function getWeekWorkoutDays(
   userId: string,
   now: Date = new Date(),
+  timeZone = 'UTC',
 ): Promise<boolean[]> {
+  // Берём только последние две недели: серия считается в пределах текущей недели.
+  const windowStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+
   const rows = await db
     .select({ finishedAt: workoutSessions.finishedAt })
     .from(workoutSessions)
-    .where(and(eq(workoutSessions.userId, userId), sql`${workoutSessions.finishedAt} is not null`))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        sql`${workoutSessions.finishedAt} is not null`,
+        sql`${workoutSessions.finishedAt} >= ${windowStart.toISOString()}::timestamptz`,
+      ),
+    )
 
-  const todayKey = localDateKey(now)
+  const todayKey = dayKey(now, timeZone)
   const [year, month, day] = todayKey.split('-').map(Number)
   const todayUtc = Date.UTC(year!, month! - 1, day!)
   const weekday = new Date(todayUtc).getUTCDay()
@@ -460,7 +472,7 @@ export async function getWeekWorkoutDays(
   for (const row of rows) {
     if (!row.finishedAt) continue
 
-    const key = localDateKey(row.finishedAt)
+    const key = dayKey(row.finishedAt, timeZone)
     const [rowYear, rowMonth, rowDay] = key.split('-').map(Number)
     const diff = Math.round(
       (Date.UTC(rowYear!, rowMonth! - 1, rowDay!) - mondayUtc) / (24 * 60 * 60 * 1000),

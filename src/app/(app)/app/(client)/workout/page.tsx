@@ -91,6 +91,7 @@ export default async function WorkoutPage({
 
   return (
     <WorkoutClient
+      programId={program.id}
       programDayId={day.id}
       dayName={day.name}
       mode={user.workoutMode === 'guided' ? 'guided' : 'free'}
