@@ -130,6 +130,17 @@ beforeEach(async () => {
     .returning()
   programExerciseId = item!.id
 })
+test('find_exercises понимает русское название мышцы', async () => {
+  const program = await getProgramTree(programId)
+  const tools = createCoachTools({ userId: clientId, conversationId: null, program })
+
+  const result = (await run(tools.find_exercises, { muscle: 'широчайшие' })) as {
+    exercises: { id: string }[]
+  }
+
+  expect(result.exercises.map((item) => item.id)).toContain(exerciseId)
+})
+
 test('propose_program_change с упражнением не из каталога — ошибка, предложение не создано', async () => {
   const program = await getProgramTree(programId)
   const tools = createCoachTools({ userId: clientId, conversationId: null, program })

@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
-import { exercises, machines, type MuscleCode } from '@/modules/catalog'
+import { exercises, machines, MUSCLES, type MuscleCode } from '@/modules/catalog'
 import { getGym } from '@/modules/gym'
 import { recommend, type Recommendation } from '@/modules/progression'
 import {
@@ -67,6 +67,15 @@ function exerciseIdsFromPatch(patch: ProgramPatch): string[] {
 export function createCoachTools(ctx: CoachToolContext): ToolSet {
   const gymPromise = getGym()
 
+  /** Модель может назвать мышцу по-русски («широчайшие») — приводим к коду каталога. */
+  function muscleCode(value: string): string {
+    const lower = value.trim().toLowerCase()
+    const found = MUSCLES.find(
+      (muscle) => muscle.code === lower || muscle.nameRu.toLowerCase() === lower,
+    )
+    return found?.code ?? value.trim()
+  }
+
   const get_exercise_history = tool({
     description: 'История подходов упражнения у клиента (последние тренировки).',
     inputSchema: z.object({ exerciseId: z.string().uuid() }),
@@ -94,12 +103,11 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
       const text = query?.trim().toLowerCase()
 
       const found = rows.filter((row) => {
-        if (
-          muscle &&
-          !row.primary.includes(muscle as MuscleCode) &&
-          !row.secondary.includes(muscle as MuscleCode)
-        ) {
-          return false
+        if (muscle) {
+          const code = muscleCode(muscle)
+          if (!row.primary.includes(code as MuscleCode) && !row.secondary.includes(code as MuscleCode)) {
+            return false
+          }
         }
         if (machine && !(row.machine ?? '').toLowerCase().includes(machine.toLowerCase())) return false
         if (text && !row.name.toLowerCase().includes(text)) return false
