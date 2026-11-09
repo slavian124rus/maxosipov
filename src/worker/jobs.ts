@@ -1,10 +1,11 @@
 import type { PgBoss } from 'pg-boss'
-import { MEDIA_CLEANUP_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from '@/modules/media'
+import { MEDIA_CLEANUP_QUEUE, PHOTO_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from '@/modules/media'
 import { registerAuthCleanup } from './jobs/auth-cleanup'
 import { registerExpireSubscriptions } from './jobs/expire-subscriptions'
 import { cleanupAbandonedUploads, cleanupOriginals } from './jobs/media-cleanup'
 import { MUSCLE_OVERLAY_QUEUE, muscleOverlayJob, profilesForMedia } from './jobs/muscle-overlay'
 import { processMediaJob } from './jobs/process-media'
+import { processPhotoJob } from './jobs/process-photo'
 
 /** Очередь-пульс: раз в 10 минут пишет строку в лог. */
 export const HEARTBEAT_QUEUE = 'heartbeat'
@@ -74,6 +75,14 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
   await boss.createQueue(SESSION_SUMMARY_QUEUE)
   await boss.work<{ sessionId: string }>(SESSION_SUMMARY_QUEUE, async ([job]) => {
     console.log(`[worker] session.summary ${job?.data.sessionId ?? ''} — обработчик на этапе 4`)
+  })
+
+  // Фото прогресса: sharp, без ffmpeg.
+  await createTunedQueue(boss, PHOTO_QUEUE)
+  await boss.work<{ mediaId: string }>(PHOTO_QUEUE, { batchSize: 1 }, async ([job]) => {
+    if (!job) return
+    console.log(`[worker] media.photo ${job.data.mediaId}`)
+    await processPhotoJob(job.data)
   })
 }
 

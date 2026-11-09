@@ -13,9 +13,17 @@ export type { CompleteDeps, CreateUploadInput, CreatedUpload } from './upload'
 export { buildPipelineCommands, frameFilter } from './pipeline'
 export type { PipelineInput } from './pipeline'
 
+export { processPhoto } from './photo'
+
 export { findLoop, hasFfmpeg, probeVideo, processVideo, runProcess } from './runner'
 export type { LoopResult, ProbeResult } from './runner'
 
 
 
-export { MEDIA_CLEANUP_QUEUE, MUSCLE_OVERLAY_QUEUE, PROCESS_MEDIA_QUEUE, QUEUE_TUNING } from '@/shared/queues'
+export {
+  MEDIA_CLEANUP_QUEUE,
+  MUSCLE_OVERLAY_QUEUE,
+  PHOTO_QUEUE,
+  PROCESS_MEDIA_QUEUE,
+  QUEUE_TUNING,
+} from '@/shared/queues'
