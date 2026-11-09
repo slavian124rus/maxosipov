@@ -56,6 +56,12 @@ export function PhotosClient({ photos, canWrite }: { photos: PhotoView[]; canWri
     return () => clearInterval(timer)
   }, [hasProcessing, router])
 
+  useEffect(() => {
+    // После сохранения серверная функция перерисовывает страницу: без этого
+    // сетка остаётся с прежним списком до ручной перезагрузки.
+    if (state.saved) router.refresh()
+  }, [state.saved, router])
+
   async function uploadPhoto(file: File): Promise<void> {
     const id = await upload.upload(file, 'progress_photo')
     if (id) setMediaId(id)

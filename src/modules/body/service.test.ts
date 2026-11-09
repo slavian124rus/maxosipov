@@ -221,6 +221,17 @@ test('фото прогресса: своё медиа добавляется, �
   expect(Math.abs(exp - (Math.floor(Date.now() / 1000) + 600))).toBeLessThanOrEqual(5)
 })
 
+test('фото в очереди (uploaded) для клиента — «обрабатывается», без ссылок', async () => {
+  const file = await makePhoto(clientId)
+  await db.update(media).set({ status: 'uploaded', processedPaths: null }).where(eq(media.id, file.id))
+  await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
+
+  const [item] = await listProgressPhotos(client, clientId)
+  expect(item?.status).toBe('processing')
+  expect(item?.photoUrl).toBeNull()
+  expect(item?.thumbUrl).toBeNull()
+})
+
 test('фото прогресса: чужое или не то медиа → ошибка', async () => {
   const foreign = await makePhoto(otherClientId)
   await expect(

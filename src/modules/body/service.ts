@@ -178,7 +178,9 @@ export async function listProgressPhotos(
     .orderBy(desc(progressPhotos.date))
 
   return rows.map(({ photo, file }) => {
-    const status = (file?.status ?? 'processing') as ProgressPhotoView['status']
+    // `uploaded` (в очереди) и `processing` для клиента — одно и то же: «обрабатывается».
+    const status: ProgressPhotoView['status'] =
+      file?.status === 'ready' || file?.status === 'failed' ? file.status : 'processing'
     const paths = file?.processedPaths
 
     return {

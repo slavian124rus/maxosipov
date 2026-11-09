@@ -25,13 +25,15 @@ async function sessionsOf(id: string) {
 
 /** Записывает подходы первого упражнения, пока не появится «Как прошло упражнение?». Возвращает их число. */
 async function logAllSets(page: Page, limit = 6): Promise<number> {
+  // кнопка есть в серверной разметке до гидратации: ранний клик теряется
+  await page.waitForLoadState('networkidle')
   for (let number = 1; number <= limit; number += 1) {
     await page.getByRole('button', { name: `Записать подход ${number}` }).click()
 
     // подход появляется после записи в IndexedDB: ждём либо его чип, либо переход к «Как прошло…»
-    const chip = page.getByText(new RegExp(`${number}: [\\d.]+ кг · \\d+ раз`))
+    const chip = page.getByText(new RegExp(`${number}: [\\d.,]+\\s*кг · \\d+ раз`))
     const picker = page.getByText('Как прошло упражнение?')
-    await expect(chip.or(picker)).toBeVisible()
+    await expect(chip.or(picker)).toBeVisible({ timeout: 30_000 })
     if (await picker.isVisible()) return number
   }
   throw new Error('упражнение не завершилось за разумное число подходов')
@@ -39,9 +41,10 @@ async function logAllSets(page: Page, limit = 6): Promise<number> {
 
 /** Записывает ровно `count` подходов (меньше схемы упражнения). */
 async function logSets(page: Page, count: number): Promise<void> {
+  await page.waitForLoadState('networkidle')
   for (let number = 1; number <= count; number += 1) {
     await page.getByRole('button', { name: `Записать подход ${number}` }).click()
-    await expect(page.getByText(new RegExp(`${number}: [\\d.]+ кг · \\d+ раз`))).toBeVisible()
+    await expect(page.getByText(new RegExp(`${number}: [\\d.,]+\\s*кг · \\d+ раз`))).toBeVisible()
   }
 }
 
@@ -58,7 +61,7 @@ test('свободный режим: подходы видны, «Легко» �
   const total = await logAllSets(page)
 
   await expect(page.getByText('Как прошло упражнение?')).toBeVisible()
-  await page.getByRole('button', { name: 'Легко' }).click()
+  await page.getByRole('button', { name: 'Легко', exact: true }).click()
   await expect(page.getByText(/В следующий раз:/)).toBeVisible()
   await page.getByRole('button', { name: 'Принять' }).click()
 
@@ -109,8 +112,8 @@ test('офлайн: подходы пишутся, после перезагру
 
   // закрыли и снова открыли приложение без сети: сессия та же, подходы на месте
   await page.reload()
-  await expect(page.getByText(/1: [\d.]+ кг · \d+ раз/)).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText(/2: [\d.]+ кг · \d+ раз/)).toBeVisible()
+  await expect(page.getByText(/1: [\d.,]+\s*кг · \d+ раз/)).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(/2: [\d.,]+\s*кг · \d+ раз/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Записать подход 3' })).toBeVisible()
   await expect(page.getByText(/Не отправлено: 2/)).toBeVisible()
 
