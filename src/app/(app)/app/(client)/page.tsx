@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PushOptIn } from '@/components/app/push-opt-in'
 import { requireClientPage } from '@/components/app/require-client-page'
 import { getAccessForUser } from '@/modules/access'
 import { getGym } from '@/modules/gym'
@@ -6,8 +7,10 @@ import {
   getActiveProgram,
   getLastFinishedDayId,
   getWeekWorkoutDays,
+  listSessions,
   listTemplates,
 } from '@/modules/training'
+import { env } from '@/shared/env'
 import { copyTemplateAction } from './actions'
 
 // Экран зависит от сессии, программы и подписки.
@@ -29,12 +32,13 @@ export default async function TodayPage() {
 
   const gym = await getGym()
 
-  const [program, access, streak, lastDayId, templates] = await Promise.all([
+  const [program, access, streak, lastDayId, templates, sessions] = await Promise.all([
     getActiveProgram(user.id),
     getAccessForUser(user.id),
     getWeekWorkoutDays(user.id, new Date(), gym.timezone),
     getLastFinishedDayId(user.id),
     listTemplates(),
+    listSessions(user.id, 1),
   ])
 
   const days = program?.days ?? []
@@ -111,6 +115,10 @@ export default async function TodayPage() {
         <p className="text-[15px] text-warning">
           {access.status === 'trial' ? 'Пробный период' : 'Подписка'}: осталось {access.daysLeft} дн.
         </p>
+      ) : null}
+
+      {sessions.some((session) => session.finishedAt) ? (
+        <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
       ) : null}
     </main>
   )

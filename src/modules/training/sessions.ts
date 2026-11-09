@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { exercises } from '@/modules/catalog'
 import { getGym } from '@/modules/gym'
 import { recommend, recommendationText, type Recommendation } from '@/modules/progression'
@@ -538,6 +538,71 @@ export async function getExerciseProgress(
     date: new Date(row.started_at),
     workingWeightKg: Number(row.weight_kg),
   }))
+}
+
+/** Сколько завершённых тренировок было у клиентов с момента `since`. */
+export async function countFinishedSessionsSince(
+  userIds: string[],
+  since: Date,
+): Promise<number> {
+  if (userIds.length === 0) return 0
+
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(workoutSessions)
+    .where(
+      and(
+        inArray(workoutSessions.userId, userIds),
+        sql`${workoutSessions.finishedAt} is not null`,
+        gte(workoutSessions.startedAt, since),
+      ),
+    )
+
+  return row?.count ?? 0
+}
+
+/** Последняя тренировка каждого клиента — строка списка «Клиенты». */
+export async function getLastWorkoutDates(userIds: string[]): Promise<Map<string, Date>> {
+  if (userIds.length === 0) return new Map()
+
+  const rows = await db
+    .select({ userId: workoutSessions.userId, startedAt: workoutSessions.startedAt })
+    .from(workoutSessions)
+    .where(inArray(workoutSessions.userId, userIds))
+    .orderBy(desc(workoutSessions.startedAt))
+
+  const result = new Map<string, Date>()
+  for (const row of rows) {
+    if (!result.has(row.userId)) result.set(row.userId, row.startedAt)
+  }
+
+  return result
+}
+
+/** Незавершённые тренировки клиентов, начатые не раньше `since` — лента «Тренируются сейчас». */
+export async function listOngoingSessions(
+  userIds: string[],
+  since: Date,
+): Promise<{ userId: string; sessionId: string; startedAt: Date }[]> {
+  if (userIds.length === 0) return []
+
+  const rows = await db
+    .select({
+      userId: workoutSessions.userId,
+      sessionId: workoutSessions.id,
+      startedAt: workoutSessions.startedAt,
+    })
+    .from(workoutSessions)
+    .where(
+      and(
+        inArray(workoutSessions.userId, userIds),
+        isNull(workoutSessions.finishedAt),
+        gte(workoutSessions.startedAt, since),
+      ),
+    )
+    .orderBy(desc(workoutSessions.startedAt))
+
+  return rows
 }
 
 /** Упражнения, по которым есть хотя бы одна завершённая тренировка. */

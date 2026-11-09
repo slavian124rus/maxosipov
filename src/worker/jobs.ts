@@ -6,6 +6,7 @@ import { cleanupAbandonedUploads, cleanupOriginals } from './jobs/media-cleanup'
 import { MUSCLE_OVERLAY_QUEUE, muscleOverlayJob, profilesForMedia } from './jobs/muscle-overlay'
 import { processMediaJob } from './jobs/process-media'
 import { processPhotoJob } from './jobs/process-photo'
+import { registerReminders } from './jobs/reminders'
 import { sessionSummaryJob } from './jobs/session-summary'
 
 /** Очередь-пульс: раз в 10 минут пишет строку в лог. */
@@ -40,6 +41,7 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
 
   await registerExpireSubscriptions(boss)
   await registerAuthCleanup(boss)
+  await registerReminders(boss)
 
   await createTunedQueue(boss, PROCESS_MEDIA_QUEUE)
   await boss.work<{ mediaId: string }>(PROCESS_MEDIA_QUEUE, { batchSize: 1 }, async ([job]) => {

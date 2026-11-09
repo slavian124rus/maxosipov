@@ -104,9 +104,9 @@ export async function POST(request: Request) {
       const trainerId = current.user.trainerId ?? (await getHeadTrainerId())
       if (trainerId) {
         await notify(trainerId, 'client_pain', {
-          clientId: current.user.id,
-          flag: parsed.flag,
+          name: current.user.name,
           text,
+          clientId: current.user.id,
         })
       }
     }

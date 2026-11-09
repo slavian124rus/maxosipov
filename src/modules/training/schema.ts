@@ -149,6 +149,9 @@ export const programChanges = pgTable('program_changes', {
   actorId: uuid('actor_id'),
   actorKind: text('actor_kind').$type<ChangeActorKind>().notNull(),
   diff: jsonb('diff').$type<unknown>().notNull(),
+  /** Полные снимки дерева до и после — по ним работает откат изменения МаксИИма. */
+  before: jsonb('before').$type<unknown>(),
+  after: jsonb('after').$type<unknown>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
-import { startTrialIfEligible } from '@/modules/access'
+import { startTrialIfEligible, subscriptions } from '@/modules/access'
 import { getGym, getHeadTrainerId } from '@/modules/gym'
+import { notify } from '@/modules/notifications'
 import { roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { authAccounts, users, type AuthProvider } from './schema'
@@ -133,8 +134,34 @@ export async function signInWithVerifiedPhone(
   if (link) await attachAccount(userId, link.provider, link.providerUserId)
 
   if (isNew) {
-    await startTrialIfEligible(userId, phone)
+    const started = await startTrialIfEligible(userId, phone)
+    if (started) await notifyNewClient(userId)
   }
 
   return { userId, isNew }
+}
+
+/** «Новый клиент» тренеру: имя и дата конца пробного периода. */
+async function notifyNewClient(userId: string): Promise<void> {
+  try {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    if (!user) return
+
+    const trainerId = user.trainerId ?? (await getHeadTrainerId())
+    if (!trainerId) return
+
+    const [subscription] = await db
+      .select({ endsAt: subscriptions.endsAt })
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .limit(1)
+
+    await notify(trainerId, 'new_client', {
+      name: user.name || 'Клиент',
+      clientId: userId,
+      trialUntil: subscription?.endsAt.toISOString(),
+    })
+  } catch (error) {
+    console.error('[auth] не удалось уведомить о новом клиенте', error)
+  }
 }

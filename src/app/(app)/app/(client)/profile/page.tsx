@@ -1,9 +1,12 @@
+import { PushOptIn } from '@/components/app/push-opt-in'
 import { requireClientPage } from '@/components/app/require-client-page'
 
 // Экран зависит от сессии и подписки.
 export const instant = false
 import { getAccessForUser } from '@/modules/access'
 import { formatPhone } from '@/modules/auth'
+import { listVisibleNotes } from '@/modules/trainer'
+import { env } from '@/shared/env'
 import { setWorkoutModeAction } from '../actions'
 
 /** Дата в формате «7 декабря» по Красноярску. */
@@ -25,6 +28,7 @@ function accessLabel(status: string, endsAt: Date | null, hasAccess: boolean): s
 export default async function ProfilePage() {
   const { user } = await requireClientPage('/profile')
   const access = await getAccessForUser(user.id)
+  const notes = await listVisibleNotes(user.id)
 
   return (
     <main className="flex flex-col gap-6 px-4 py-6">
@@ -37,6 +41,22 @@ export default async function ProfilePage() {
           {accessLabel(access.status, access.endsAt, access.hasAccess)}
         </p>
       </div>
+
+      {notes.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <p className="text-[13px] text-text-muted">Заметки Максима</p>
+          {notes.map((note) => (
+            <p
+              key={note.id}
+              className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text"
+            >
+              {note.text}
+            </p>
+          ))}
+        </section>
+      ) : null}
+
+      <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
 
       <div className="flex flex-col gap-2">
         <p className="text-[13px] text-text-muted">Режим тренировки</p>

@@ -11,6 +11,19 @@ import {
 export { gyms }
 export type { Gym, NewGym, GymBrand, GymSettings, ProgressionRules }
 
+export {
+  aiSettingsSchema,
+  brandSchema,
+  contactsSchema,
+  getAiSpend,
+  progressionRulesSchema,
+  updateAiSettings,
+  updateBrand,
+  updateContacts,
+  updateProgressionRules,
+} from './settings'
+export type { AiSettingsInput, AiSpend, BrandInput, ContactsInput } from './settings'
+
 /** Первый (пока единственный) зал. Если сид не выполнен — падаем с понятным сообщением. */
 export async function getGym(): Promise<Gym> {
   const [gym] = await db.select().from(gyms).limit(1)

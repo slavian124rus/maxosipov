@@ -67,6 +67,11 @@ const opSchema = z.discriminatedUnion('op', [
     programExerciseId: id,
     weightKg: z.number().min(0).max(1000).nullable(),
   }),
+  z.object({
+    op: z.literal('set_note'),
+    programExerciseId: id,
+    note: z.string().trim().max(200).nullable(),
+  }),
   z.object({ op: z.literal('reorder'), dayId: id, orderedIds: z.array(id).min(1) }),
   z.object({
     op: z.literal('add_day'),
@@ -194,6 +199,11 @@ export function applyPatch(
     if (op.op === 'set_target_weight') {
       const { item } = findExercise(next, op.programExerciseId)
       item.targetWeightKg = op.weightKg
+    }
+
+    if (op.op === 'set_note') {
+      const { item } = findExercise(next, op.programExerciseId)
+      item.note = op.note
     }
 
     if (op.op === 'reorder') {

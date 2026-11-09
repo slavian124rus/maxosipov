@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { exercises } from '@/modules/catalog'
+import { notify } from '@/modules/notifications'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
@@ -8,10 +9,17 @@ import {
   applyPatch,
   diffPrograms,
   programPatchSchema,
+  type ProgramDiffLine,
   type ProgramPatch,
   type ProgramTree,
 } from './patch'
-import { programChanges, programDays, programExercises, programs } from './schema'
+import {
+  programChanges,
+  programDays,
+  programExercises,
+  programs,
+  type AuthorKind,
+} from './schema'
 
 export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 
@@ -97,8 +105,8 @@ export async function getActiveProgram(userId: string): Promise<ProgramTree | nu
   return program ? getProgramTree(program.id) : null
 }
 
-/** Владелец программы или тренер с правом `clients.edit_programs` на этого клиента. */
-async function assertProgramWrite(actor: Actor, ownerId: string | null): Promise<void> {
+/** Право писать в программу: владелец программы или тренер с `clients.edit_programs`. */
+export async function assertProgramWrite(actor: Actor, ownerId: string | null): Promise<void> {
   if (ownerId === null) {
     assertCan(actor, 'clients.edit_programs')
     return
@@ -127,7 +135,7 @@ export async function applyProgramPatchAs(
 ): Promise<ProgramTree> {
   const parsed = programPatchSchema.parse(patch)
 
-  return db.transaction(async (tx) => {
+  const next = await db.transaction(async (tx) => {
     const [program] = await tx
       .select()
       .from(programs)
@@ -211,10 +219,28 @@ export async function applyProgramPatchAs(
 
     await tx.update(programs).set({ updatedAt: new Date() }).where(eq(programs.id, programId))
 
-    await tx.insert(programChanges).values({ programId, actorId: actor.id, actorKind, diff })
+    await tx.insert(programChanges).values({
+      programId,
+      actorId: actor.id,
+      actorKind,
+      diff,
+      before: current,
+      after: next,
+    })
 
     return next
   })
+
+  // Клиенту — «Максим обновил программу» (push). Ошибка уведомления не отменяет патч.
+  if (actorKind === 'trainer' && next.ownerId && next.ownerId !== actor.id) {
+    try {
+      await notify(next.ownerId, 'program_updated')
+    } catch (error) {
+      console.error('[training] не удалось уведомить об обновлении программы', error)
+    }
+  }
+
+  return next
 }
 
 /** Копирует шаблон клиенту: прежняя активная программа уходит в архив. */
@@ -326,6 +352,46 @@ function isUniqueViolation(error: unknown): boolean {
     'code' in error &&
     (error as { code?: string }).code === '23505'
   )
+}
+
+/** История изменений программы: кто, когда и что поменял (новые сверху). */
+export type ProgramChangeView = {
+  id: string
+  actorId: string | null
+  actorKind: ChangeActorKind
+  diff: ProgramDiffLine[]
+  createdAt: Date
+}
+
+export async function listProgramChanges(programId: string, limit = 30): Promise<ProgramChangeView[]> {
+  const rows = await db
+    .select()
+    .from(programChanges)
+    .where(eq(programChanges.programId, programId))
+    .orderBy(desc(programChanges.createdAt))
+    .limit(limit)
+
+  return rows.map((row) => ({
+    id: row.id,
+    actorId: row.actorId,
+    actorKind: row.actorKind,
+    diff: (row.diff as ProgramDiffLine[] | null) ?? [],
+    createdAt: row.createdAt,
+  }))
+}
+
+/** Авторство программ по id — тренеру нужно знать, чью программу менял МаксИИм. */
+export async function getProgramAuthorKinds(
+  programIds: string[],
+): Promise<Map<string, AuthorKind>> {
+  if (programIds.length === 0) return new Map()
+
+  const rows = await db
+    .select({ id: programs.id, authorKind: programs.authorKind })
+    .from(programs)
+    .where(inArray(programs.id, programIds))
+
+  return new Map(rows.map((row) => [row.id, row.authorKind]))
 }
 
 export async function createTemplate(actor: Actor, name: string, gymId: string): Promise<string> {

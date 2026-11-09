@@ -30,6 +30,8 @@ export type GymSettings = {
   contacts?: {
     phone: string | null
     photoUrl: string | null
+    /** Фото для экрана «нет доступа» из медиатеки. */
+    photoMediaId?: string | null
   }
 }
 

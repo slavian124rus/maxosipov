@@ -78,6 +78,16 @@ export async function recordUsage(
     })
 }
 
+/** Сумма стоимости ИИ за месяц `YYYY-MM` (по записям `ai_usage_daily`). */
+export async function getUsageTotalForMonth(month: string): Promise<number> {
+  const [row] = await db
+    .select({ sum: sql<number>`coalesce(sum(${aiUsageDaily.costRub}), 0)` })
+    .from(aiUsageDaily)
+    .where(sql`${aiUsageDaily.date} like ${`${month}%`}`)
+
+  return Math.round(Number(row?.sum ?? 0) * 100) / 100
+}
+
 /** Сколько сообщений клиент отправил за календарные сутки по Красноярску. */
 export async function getTodayUsage(
   userId: string,

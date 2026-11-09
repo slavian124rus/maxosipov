@@ -56,6 +56,10 @@ const envSchema = z.object({
   // Push
   VAPID_PUBLIC_KEY: optionalString,
   VAPID_PRIVATE_KEY: optionalString,
+  VAPID_SUBJECT: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default('mailto:hello@maxosipov.ru'),
+  ),
 
   // Медиа
   MEDIA_ROOT: z.preprocess(emptyToUndefined, z.string().min(1).default('/data/media')),

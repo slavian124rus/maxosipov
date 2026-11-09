@@ -134,6 +134,20 @@
       "when": 1794206793015,
       "tag": "0018_tricky_eternity",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794226836964,
+      "tag": "0019_stage5",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794227022500,
+      "tag": "0020_groovy_newton_destine",
+      "breakpoints": true
     }
   ]
 }

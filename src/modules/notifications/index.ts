@@ -1,17 +1,16 @@
-import { db } from '@/shared/db'
-import { notifications, type NotificationKind } from './schema'
+export { notifications, pushSubscriptions } from './schema'
+export type {
+  Notification,
+  NotificationData,
+  NotificationKind,
+  PushSubscriptionRow,
+} from './schema'
 
-export { notifications } from './schema'
-export type { Notification, NotificationKind } from './schema'
+export { notify, subscribePush, unsubscribePush } from './notify'
+export type { PushSubscriptionJSON } from './notify'
 
-/**
- * Пишет событие в таблицу уведомлений. На этом этапе push не отправляется:
- * его добавит кабинет тренера (этап 5).
- */
-export async function notify(
-  userId: string,
-  kind: NotificationKind,
-  payload: Record<string, unknown> = {},
-): Promise<void> {
-  await db.insert(notifications).values({ userId, kind, payload })
-}
+export { isPushConfigured, PUSH_ICON, sendPush } from './push'
+export type { PushMessage, PushResult, PushTarget } from './push'
+
+export { renderNotification } from './templates'
+export type { RenderedNotification } from './templates'

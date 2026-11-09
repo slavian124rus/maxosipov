@@ -20,16 +20,20 @@ export {
   copyTemplateToClient,
   createTemplate,
   getActiveProgram,
+  getProgramAuthorKinds,
   getProgramTree,
+  listProgramChanges,
   listTemplates,
 } from './programs'
-export type { ChangeActorKind } from './programs'
+export type { ChangeActorKind, ProgramChangeView } from './programs'
 
 export {
   finishSession,
+  countFinishedSessionsSince,
   getExerciseProgress,
   getHistoryForExercise,
   getLastFinishedDayId,
+  getLastWorkoutDates,
   getNextWeight,
   getRecommendations,
   getSessionDetail,
@@ -37,6 +41,7 @@ export {
   getTrainedExercises,
   getWeekWorkoutDays,
   getWeeklyVolume,
+  listOngoingSessions,
   listSessions,
   setExerciseFeeling,
   setNextWeight,
@@ -51,6 +56,13 @@ export type {
   SessionSummary,
   SyncSetItem,
 } from './sessions'
+
+export {
+  assignTemplate,
+  revertChange,
+  REVERT_CONFLICT,
+  saveAsTemplate,
+} from './revert'
 
 export {
   aiProposals,

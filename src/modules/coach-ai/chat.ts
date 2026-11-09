@@ -155,7 +155,11 @@ export async function handleChatMessage(
 
     const trainerId = user.user.trainerId ?? (await getHeadTrainerId())
     if (trainerId) {
-      await notify(trainerId, 'client_pain', { clientId: user.user.id, flag, text })
+      await notify(trainerId, 'client_pain', {
+        name: user.user.name,
+        text,
+        clientId: user.user.id,
+      })
     }
 
     await saveMessage({

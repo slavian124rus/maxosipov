@@ -91,3 +91,53 @@ for (const entry of defaultCache) {
 }
 
 serwist.addEventListeners()
+
+// ── Web Push (этап 5): уведомления и переход по клику ─────────────────────────
+
+type PushPayload = { title?: string; body?: string; url?: string; icon?: string; badge?: string }
+
+function readPayload(event: PushEvent): PushPayload {
+  try {
+    return event.data ? (JSON.parse(event.data.text()) as PushPayload) : {}
+  } catch {
+    return {}
+  }
+}
+
+self.addEventListener('push', (event: PushEvent) => {
+  const payload = readPayload(event)
+  const icon = payload.icon ?? '/icons/icon-192.png'
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title ?? 'МаксИИм', {
+      body: payload.body ?? '',
+      icon,
+      badge: payload.badge ?? icon,
+      data: { url: payload.url ?? '/' },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close()
+
+  const url = (event.notification.data as { url?: string } | undefined)?.url ?? '/'
+  const target = new URL(url, self.location.origin).toString()
+
+  event.waitUntil(
+    (async () => {
+      // Если приложение уже открыто — фокусируем окно и ведём на нужный экран.
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+
+      for (const client of windows) {
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          await client.focus()
+          if ('navigate' in client) await client.navigate(target)
+          return
+        }
+      }
+
+      await self.clients.openWindow(target)
+    })(),
+  )
+})

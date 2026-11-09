@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { assertClientAccess } from '@/modules/access'
+import { users } from '@/modules/auth'
 import { exercises } from '@/modules/catalog'
+import { notify } from '@/modules/notifications'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import {
@@ -14,6 +16,7 @@ import {
   programDays,
   programExercises,
   programs,
+  type ProgramDiffLine,
   type ProgramPatch,
   type ProposalKind,
   type ProposalStatus,
@@ -68,6 +71,36 @@ async function markDecided(
   if (updated.length === 0) throw new Error(ALREADY_DECIDED)
 }
 
+/** Тренеру — «{имя} принял изменение МаксИИма» с первой строкой диффа. */
+async function notifyTrainerAboutChange(clientId: string, programId: string): Promise<void> {
+  try {
+    const [client] = await db
+      .select({ name: users.name, trainerId: users.trainerId })
+      .from(users)
+      .where(eq(users.id, clientId))
+      .limit(1)
+
+    if (!client?.trainerId) return
+
+    const [change] = await db
+      .select({ diff: programChanges.diff })
+      .from(programChanges)
+      .where(eq(programChanges.programId, programId))
+      .orderBy(desc(programChanges.createdAt))
+      .limit(1)
+
+    const line = (change?.diff as ProgramDiffLine[] | null)?.[0]?.text ?? ''
+
+    await notify(client.trainerId, 'ai_change_accepted', {
+      name: client.name,
+      line,
+      clientId,
+    })
+  } catch (error) {
+    console.error('[coach-ai] не удалось уведомить тренера о принятом изменении', error)
+  }
+}
+
 /** Принятие предложения: патч применяется к программе, новая программа становится активной. */
 export async function acceptProposal(actor: Actor, proposalId: string): Promise<void> {
   const proposal = await loadProposal(actor, proposalId)
@@ -82,12 +115,21 @@ export async function acceptProposal(actor: Actor, proposalId: string): Promise<
   try {
     if (proposal.kind === 'patch') {
       if (!proposal.programId) throw new Error('Программа не найдена')
+
+      const before = await getProgramTree(proposal.programId)
+
       await applyProgramPatchAs(
         actor,
         proposal.programId,
         (proposal.payload ?? proposal.diff) as ProgramPatch,
         'ai_proposal_accepted',
       )
+
+      // Программа тренера: Максим видит принятое изменение в ленте (без push).
+      if (before?.authorKind === 'trainer' && before.ownerId && before.ownerId !== actor.id) {
+        await notifyTrainerAboutChange(before.ownerId, proposal.programId)
+      }
+
       return
     }
 

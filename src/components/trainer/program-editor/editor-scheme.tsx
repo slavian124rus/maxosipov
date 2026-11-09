@@ -1,0 +1,226 @@
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import type { CatalogItem } from './program-editor'
+
+type Scheme = { sets: number; repMin: number; repMax: number; restSec: number }
+
+function Stepper({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (value: number) => void
+}) {
+  const clamp = (next: number): number => Math.min(max, Math.max(min, next))
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[15px] text-text-secondary">{label}</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label={`${label} меньше`}
+          onClick={() => onChange(clamp(value - step))}
+          className="h-11 w-11 rounded-control bg-surface-2 text-[20px] text-text"
+        >
+          −
+        </button>
+        <span className="w-12 text-center font-display text-[20px] text-text">{value}</span>
+        <button
+          type="button"
+          aria-label={`${label} больше`}
+          onClick={() => onChange(clamp(value + step))}
+          className="h-11 w-11 rounded-control bg-surface-2 text-[20px] text-text"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Три степпера и «Отдых» — тап по схеме открывает лист (DESIGN.md §8.9). */
+export function SchemeSteppers({
+  sets,
+  repMin,
+  repMax,
+  restSec,
+  onChange,
+}: Scheme & { onChange: (values: Scheme) => void }) {
+  const [draft, setDraft] = useState<Scheme>({ sets, repMin, repMax, restSec })
+  const update = (patch: Partial<Scheme>): void => setDraft((current) => ({ ...current, ...patch }))
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Stepper label="Подходы" value={draft.sets} min={1} max={10} step={1} onChange={(value) => update({ sets: value })} />
+      <Stepper label="Повторения от" value={draft.repMin} min={1} max={50} step={1} onChange={(value) => update({ repMin: value, repMax: Math.max(value, draft.repMax) })} />
+      <Stepper label="Повторения до" value={draft.repMax} min={1} max={50} step={1} onChange={(value) => update({ repMax: value, repMin: Math.min(value, draft.repMin) })} />
+      <Stepper label="Отдых, с" value={draft.restSec} min={30} max={300} step={15} onChange={(value) => update({ restSec: value })} />
+
+      <Button type="button" onClick={() => onChange(draft)}>
+        Готово
+      </Button>
+    </div>
+  )
+}
+
+/** Добавление упражнения из каталога зала. */
+export function AddExercise({
+  catalog,
+  onAdd,
+}: {
+  catalog: CatalogItem[]
+  onAdd: (exerciseId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const found = catalog.filter((item) => item.name.toLowerCase().includes(query.trim().toLowerCase()))
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Button type="button" variant="secondary" onClick={() => setOpen((value) => !value)}>
+        {open ? 'Скрыть каталог' : 'Добавить упражнение'}
+      </Button>
+
+      {open ? (
+        <div className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Поиск упражнения"
+            aria-label="Поиск упражнения в каталоге"
+            className="h-11 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+          />
+          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+            {found.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onAdd(item.id)
+                }}
+                className="min-h-11 rounded-control px-2 text-left text-[15px] text-text hover:bg-surface-2"
+              >
+                {item.name}
+                <span className="block text-[13px] text-text-muted">
+                  {item.machineName ?? 'Свободные веса'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** Список каталога для замены: сверху — та же мышца и тот же тренажёр. */
+export function ReplaceList({
+  catalog,
+  currentExerciseId,
+  onPick,
+}: {
+  catalog: CatalogItem[]
+  currentExerciseId: string
+  onPick: (exerciseId: string) => void
+}) {
+  const currentItem = catalog.find((item) => item.id === currentExerciseId)
+  const muscles = currentItem?.primary ?? []
+
+  const sorted = [...catalog].sort((a, b) => {
+    const score = (item: CatalogItem): number => {
+      const sameMuscle = item.primary.some((code) => muscles.includes(code)) ? 2 : 0
+      const sameMachine = item.machineName && item.machineName === currentItem?.machineName ? 1 : 0
+      return sameMuscle + sameMachine
+    }
+    return score(b) - score(a)
+  })
+
+  return (
+    <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+      {sorted.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          disabled={item.id === currentExerciseId}
+          onClick={() => onPick(item.id)}
+          className="min-h-11 rounded-control px-2 text-left text-[15px] text-text hover:bg-surface-2 disabled:opacity-40"
+        >
+          {item.name}
+          <span className="block text-[13px] text-text-muted">{item.machineName ?? 'Свободные веса'}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function WeightInput({
+  value,
+  onSave,
+}: {
+  value: number | null
+  onSave: (weightKg: number | null) => void
+}) {
+  const [draft, setDraft] = useState(value === null ? '' : String(value))
+
+  return (
+    <div className="flex flex-col gap-3">
+      <input
+        inputMode="decimal"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        placeholder="Например, 32,5"
+        aria-label="Целевой вес"
+        className="h-12 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+      />
+      <Button
+        type="button"
+        onClick={() => {
+          const parsed = Number(draft.replace(',', '.'))
+          onSave(draft.trim() === '' || !Number.isFinite(parsed) ? null : parsed)
+        }}
+      >
+        Сохранить
+      </Button>
+    </div>
+  )
+}
+
+export function NoteInput({
+  value,
+  onSave,
+}: {
+  value: string | null
+  onSave: (note: string | null) => void
+}) {
+  const [draft, setDraft] = useState(value ?? '')
+
+  return (
+    <div className="flex flex-col gap-3">
+      <textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        rows={3}
+        maxLength={200}
+        placeholder="Например: следи за спиной"
+        aria-label="Заметка к упражнению"
+        className="rounded-control border border-border bg-bg px-3 py-2 text-[15px] text-text"
+      />
+      <Button type="button" onClick={() => onSave(draft.trim() === '' ? null : draft.trim())}>
+        Сохранить
+      </Button>
+    </div>
+  )
+}

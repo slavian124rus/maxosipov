@@ -38,6 +38,9 @@ export const aiMessages = pgTable(
     content: text('content').notNull(),
     toolCalls: jsonb('tool_calls').$type<unknown>(),
     flagged: text('flagged').$type<AiFlag>(),
+    /** Тренер разобрал жалобу: из ленты «Сегодня» она исчезает. */
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by'),
     tokensIn: integer('tokens_in').notNull().default(0),
     tokensOut: integer('tokens_out').notNull().default(0),
     model: text('model'),

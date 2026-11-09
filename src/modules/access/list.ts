@@ -86,7 +86,40 @@ export async function listSubscriptionsForActor(
   }))
 }
 
-/** История подписки одного клиента — с проверкой права на этого клиента. */
+/** Конверсия пробного периода: у скольких из закончившихся за период проб был `granted`. */
+export async function getTrialConversion(
+  now: Date,
+  trialDays: number,
+  days = 90,
+): Promise<{ paid: number; total: number }> {
+  const windowStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+  const trialMs = trialDays * 24 * 60 * 60 * 1000
+
+  const events = await db
+    .select({ userId: subscriptionEvents.userId, type: subscriptionEvents.type, createdAt: subscriptionEvents.createdAt })
+    .from(subscriptionEvents)
+
+  const starts = events.filter(
+    (event) =>
+      event.type === 'trial_started' &&
+      event.createdAt.getTime() + trialMs <= now.getTime() &&
+      event.createdAt.getTime() >= windowStart.getTime() - trialMs,
+  )
+
+  let paid = 0
+
+  for (const start of starts) {
+    const granted = events.some(
+      (event) =>
+        event.type === 'granted' &&
+        event.userId === start.userId &&
+        event.createdAt.getTime() >= start.createdAt.getTime(),
+    )
+    if (granted) paid += 1
+  }
+
+  return { paid, total: starts.length }
+}
 export async function listSubscriptionEvents(
   actor: Actor,
   userId: string,

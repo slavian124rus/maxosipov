@@ -30,6 +30,7 @@ export type { ModelKind } from './provider'
 export {
   costRubFor,
   getTodayUsage,
+  getUsageTotalForMonth,
   isOverLimit,
   recordUsage,
   releaseMessage,
@@ -48,6 +49,21 @@ export type { SummaryExercise, SummarySession } from './summary'
 
 export { parseVoiceLog } from './voice'
 export type { VoiceDeps, VoiceParseResult, VoiceRow } from './voice'
+
+export {
+  countUserMessagesSince,
+  listAcceptedProposals,
+  listFlaggedMessages,
+  listTrainerFlags,
+  markProposalSeen,
+  resolveFlag,
+} from './review'
+export type {
+  AiFlagView,
+  FlagContextLine,
+  TrainerFlagItem,
+  TrainerProposalItem,
+} from './review'
 
 export { getSpeechToText } from './stt'
 export type { AudioFile, SpeechToText } from './stt'

@@ -1,7 +1,18 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/shared/db'
-import { clientProfiles, users } from './schema'
+import { clientProfiles, users, type ClientProfile } from './schema'
 import { clientProfileSchema, type ClientProfileInput } from './profile-schema'
+
+/** Анкета клиента (или `null`, если онбординг не пройден). */
+export async function getClientProfile(userId: string): Promise<ClientProfile | null> {
+  const [row] = await db
+    .select()
+    .from(clientProfiles)
+    .where(eq(clientProfiles.userId, userId))
+    .limit(1)
+
+  return row ?? null
+}
 
 /**
  * Сохраняет анкету: профиль, согласия и отметку о завершении онбординга.
