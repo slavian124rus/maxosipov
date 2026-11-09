@@ -6,6 +6,7 @@ import { cleanupAbandonedUploads, cleanupOriginals } from './jobs/media-cleanup'
 import { MUSCLE_OVERLAY_QUEUE, muscleOverlayJob, profilesForMedia } from './jobs/muscle-overlay'
 import { processMediaJob } from './jobs/process-media'
 import { processPhotoJob } from './jobs/process-photo'
+import { sessionSummaryJob } from './jobs/session-summary'
 
 /** Очередь-пульс: раз в 10 минут пишет строку в лог. */
 export const HEARTBEAT_QUEUE = 'heartbeat'
@@ -71,10 +72,11 @@ export async function registerJobs(boss: PgBoss): Promise<void> {
     console.log(`[worker] media.cleanup: исходников — ${originals}, брошенных загрузок — ${abandoned}`)
   })
 
-  // Обработчик итога появится на этапе 4; сейчас задача только принимается.
+  // Итог МаксИИма после завершения тренировки (этап 4).
   await boss.createQueue(SESSION_SUMMARY_QUEUE)
   await boss.work<{ sessionId: string }>(SESSION_SUMMARY_QUEUE, async ([job]) => {
-    console.log(`[worker] session.summary ${job?.data.sessionId ?? ''} — обработчик на этапе 4`)
+    if (!job) return
+    await sessionSummaryJob(job.data)
   })
 
   // Фото прогресса: sharp, без ffmpeg.

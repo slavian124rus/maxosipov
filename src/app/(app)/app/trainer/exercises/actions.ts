@@ -11,6 +11,7 @@ import {
   type ExerciseInput,
 } from '@/modules/catalog'
 import { requireUser } from '@/modules/auth'
+import { draftExerciseText, type ExerciseDraft } from '@/modules/coach-ai'
 import { setProcessingOptions } from '@/modules/media'
 import { assertCan } from '@/modules/rbac'
 import type { MuscleCode } from '@/shared/muscles'
@@ -98,6 +99,39 @@ export async function saveExerciseAction(
     }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Не удалось сохранить', id: null }
+  }
+}
+
+export type DraftExerciseState = { draft: ExerciseDraft | null; error: string | null }
+
+/** Черновик описания от МаксИИма: заполняет поля, Максим правит (этап 4). */
+export async function draftExerciseAction(input: {
+  name: string
+  machine: string | null
+  primary: string[]
+  secondary: string[]
+}): Promise<DraftExerciseState> {
+  const { actor } = await requireUser()
+
+  try {
+    assertCan(actor, 'catalog.edit')
+  } catch {
+    return { draft: null, error: 'Недостаточно прав' }
+  }
+
+  try {
+    const draft = await draftExerciseText({
+      name: input.name.trim(),
+      machine: input.machine,
+      primary: input.primary,
+      secondary: input.secondary,
+    })
+    return { draft, error: null }
+  } catch (error) {
+    return {
+      draft: null,
+      error: error instanceof Error ? error.message : 'Не удалось получить черновик',
+    }
   }
 }
 

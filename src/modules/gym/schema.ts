@@ -22,6 +22,8 @@ export type GymSettings = {
   aiDailyLimit: number
   progressionRules: ProgressionRules
   aiMemo: string
+  /** Цены ИИ за 1k токенов по модели; пусто — стоимость не считается (нули). */
+  aiPrices?: Record<string, { inPer1k: number; outPer1k: number }>
   /** Главный тренер: его получают новые клиенты (а не «первый с ролью по названию» — ревью F6). */
   headTrainerId?: string | null
   /** Контакты Максима для экрана «нет доступа». */

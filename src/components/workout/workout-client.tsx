@@ -7,10 +7,12 @@ import { getOfflineDb } from '@/lib/offline/db'
 import { useActiveSession } from '@/lib/offline/use-active-session'
 import { useProgramVersion } from '@/lib/use-program-version'
 import { recommend, recommendationText, type ProgressionRules } from '@/modules/progression'
+import type { VoiceRow } from '@/modules/coach-ai'
 import { FreeMode, type LoggedSet, type NextRecommendation, type WorkoutExercise } from './free-mode'
 import { GuidedMode } from './guided-mode'
 import { FinishSummary } from './finish-summary'
 import { ProgramUpdateBanner } from './program-update-banner'
+import { VoiceLog } from './voice-log'
 import type { Feeling } from './feeling-picker'
 
 type Props = {
@@ -30,6 +32,7 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
     durationMin: number
     volumeKg: number
     count: number
+    sessionClientUuid: string | null
   } | null>(null)
   const router = useRouter()
   const startedRef = useRef(false)
@@ -142,6 +145,7 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
 
   async function finish(): Promise<void> {
     const startedAt = session.session?.startedAt ?? new Date().toISOString()
+    const sessionClientUuid = session.session?.clientUuid ?? null
     const durationMin = Math.max(
       1,
       Math.round((Date.now() - new Date(startedAt).getTime()) / 60000),
@@ -151,7 +155,47 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
       .reduce((sum, set) => sum + set.weightKg * set.reps, 0)
 
     await session.finish()
-    setFinished({ durationMin, volumeKg: Math.round(volumeKg), count: Object.values(logged).filter((sets) => sets.length > 0).length })
+    setFinished({
+      durationMin,
+      volumeKg: Math.round(volumeKg),
+      count: Object.values(logged).filter((sets) => sets.length > 0).length,
+      sessionClientUuid,
+    })
+  }
+
+  async function saveVoiceRows(rows: VoiceRow[]): Promise<void> {
+    const counts = new Map<string, number>()
+
+    for (const item of exercises) {
+      counts.set(item.exerciseId, loggedRef.current[item.programExerciseId]?.length ?? 0)
+    }
+
+    for (const row of rows) {
+      if (!row.exerciseId) continue
+
+      let index = counts.get(row.exerciseId) ?? 0
+      const card = exercises.find((item) => item.exerciseId === row.exerciseId)
+      const list = card ? [...(loggedRef.current[card.programExerciseId] ?? [])] : []
+
+      for (const set of row.sets) {
+        index += 1
+        await session.logSet({
+          exerciseId: row.exerciseId,
+          setIndex: index,
+          weightKg: set.weightKg,
+          reps: set.reps,
+        })
+        list.push({ index, weightKg: set.weightKg, reps: set.reps })
+      }
+
+      counts.set(row.exerciseId, index)
+      if (row.feeling) await session.setFeeling(row.exerciseId, row.feeling)
+
+      if (card) {
+        loggedRef.current = { ...loggedRef.current, [card.programExerciseId]: list }
+        setLogged(loggedRef.current)
+      }
+    }
   }
 
   if (finished) {
@@ -161,6 +205,8 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
           durationMin={finished.durationMin}
           exerciseCount={finished.count}
           volumeKg={finished.volumeKg}
+          sessionClientUuid={finished.sessionClientUuid}
+          exercises={exercises.map((item) => ({ id: item.exerciseId, name: item.name }))}
           onClose={() => router.push('/')}
         />
       </div>
@@ -169,11 +215,21 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
 
   return (
     <div className="flex flex-col gap-4 px-4 py-6">
-      <header className="flex items-baseline justify-between">
+      <header className="flex items-center justify-between gap-2">
         <h1 className="text-[22px] font-semibold">Тренировка · {dayName}</h1>
-        {session.pending > 0 ? (
-          <span className="text-[13px] text-warning">Не отправлено: {session.pending}</span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {session.pending > 0 ? (
+            <span className="text-[13px] text-warning">Не отправлено: {session.pending}</span>
+          ) : null}
+          {session.session ? (
+            <VoiceLog
+              compact
+              sessionClientUuid={session.session.clientUuid}
+              exercises={exercises.map((item) => ({ id: item.exerciseId, name: item.name }))}
+              onSave={saveVoiceRows}
+            />
+          ) : null}
+        </div>
       </header>
 
       {storageFailed ? (

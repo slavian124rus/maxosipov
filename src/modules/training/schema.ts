@@ -19,6 +19,7 @@ export type WorkoutMode = 'free' | 'guided'
 export type Feeling = 'easy' | 'good' | 'hard'
 export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'reverted'
+export type ProposalKind = 'patch' | 'new_program'
 
 /** Программа клиента или шаблон (`owner_id = null`). */
 export const programs = pgTable(
@@ -157,7 +158,11 @@ export const aiProposals = pgTable('ai_proposals', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
   programId: uuid('program_id'),
+  kind: text('kind').$type<ProposalKind>().notNull().default('patch'),
   diff: jsonb('diff').$type<unknown>().notNull(),
+  /** Для `patch` — `ProgramPatch`; для `new_program` — черновик программы. */
+  payload: jsonb('payload').$type<unknown>(),
+  conversationId: uuid('conversation_id'),
   rationale: text('rationale'),
   status: text('status').$type<ProposalStatus>().notNull().default('pending'),
   decidedBy: uuid('decided_by'),

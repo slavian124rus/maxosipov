@@ -9,6 +9,12 @@ import { RestTimer } from './rest-timer'
 import { formatScheme } from '@/shared/scheme'
 import { formatWeight } from '@/modules/progression'
 import type { LoggedSet, NextRecommendation, WorkoutExercise } from './free-mode'
+/** Ссылка «Почему?»: вопрос в чат МаксИИма (этап 4). */
+function whyHref(exercise: WorkoutExercise, weightKg: number | null): string | undefined {
+  if (weightKg === null) return undefined
+  const question = `Почему мне рекомендуют ${formatWeight(weightKg)} на „${exercise.name}“?`
+  return `/coach?question=${encodeURIComponent(question)}`
+}
 
 type Props = {
   exercises: WorkoutExercise[]
@@ -117,6 +123,7 @@ export function GuidedMode({
               text={nextRecommendations[exercise.programExerciseId]!.text}
               weightKg={nextRecommendations[exercise.programExerciseId]!.weightKg}
               action={nextRecommendations[exercise.programExerciseId]!.action}
+              whyHref={whyHref(exercise, nextRecommendations[exercise.programExerciseId]!.weightKg)}
               onAccept={() =>
                 onNextWeight(
                   exercise,

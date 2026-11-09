@@ -36,6 +36,7 @@ const SETTINGS: GymSettings = {
     dropPercent: 10,
   },
   aiMemo: '',
+  aiPrices: {},
   contacts: { phone: null, photoUrl: null },
 }
 

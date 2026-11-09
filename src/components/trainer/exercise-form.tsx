@@ -10,7 +10,7 @@ import { VideoCrop } from '@/components/trainer/video-crop'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
 import { muscleName, type MuscleCode } from '@/shared/muscles'
 import type { ExerciseDetail, Machine } from '@/modules/catalog'
-import { saveExerciseAction, type SaveExerciseState } from '@/app/(app)/app/trainer/exercises/actions'
+import { saveExerciseAction, draftExerciseAction, type SaveExerciseState } from '@/app/(app)/app/trainer/exercises/actions'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 const TOTAL_STEPS = 5
@@ -42,11 +42,41 @@ export function ExerciseForm({ machines, initial }: Props) {
   const [mistakes, setMistakes] = useState<string[]>(initial?.mistakes ?? [''])
   const [tips, setTips] = useState(initial?.tips ?? '')
   const [overlayProfile, setOverlayProfile] = useState(initial?.overlayProfile ?? 'none')
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   async function uploadVideo(file: File): Promise<void> {
     setVideoFile(file)
     const id = await upload.upload(file, 'exercise_video')
     if (id) setVideoMediaId(id)
+  }
+
+  /** «Черновик от МаксИИма»: заполняет шаги, ошибки и совет, Максим правит. */
+  async function createDraft(): Promise<void> {
+    setDrafting(true)
+    setDraftError(null)
+
+    try {
+      const result = await draftExerciseAction({
+        name,
+        machine: machines.find((machine) => machine.id === machineId)?.name ?? null,
+        primary: muscles.primary,
+        secondary: muscles.secondary,
+      })
+
+      if (result.error) {
+        setDraftError(result.error)
+        return
+      }
+
+      if (result.draft) {
+        setSteps(result.draft.steps.length > 0 ? result.draft.steps : [''])
+        setMistakes(result.draft.mistakes.length > 0 ? result.draft.mistakes : [''])
+        setTips(result.draft.tip)
+      }
+    } finally {
+      setDrafting(false)
+    }
   }
 
   const canNext = ((): boolean => {
@@ -170,6 +200,18 @@ export function ExerciseForm({ machines, initial }: Props) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Название</Label>
               <Input id="name" value={name} onChange={(event) => setName(event.target.value)} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={drafting || name.trim().length < 2}
+                onClick={() => void createDraft()}
+              >
+                {drafting ? 'МаксИИм пишет…' : 'Черновик от МаксИИма'}
+              </Button>
+              {draftError ? <p className="text-[13px] text-danger">{draftError}</p> : null}
             </div>
             <div className="flex gap-3">
               <div className="flex flex-1 flex-col gap-2">

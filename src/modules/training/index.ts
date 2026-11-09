@@ -69,6 +69,8 @@ export type {
   ProgramChange,
   ProgramExerciseRow,
   ProgramStatus,
+  ProposalKind,
+  ProposalStatus,
   SetLog,
   WorkoutMode,
   WorkoutSession,

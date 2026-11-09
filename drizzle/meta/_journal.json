@@ -127,6 +127,13 @@
       "when": 1794195580115,
       "tag": "0017_nosy_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794206793015,
+      "tag": "0018_tricky_eternity",
+      "breakpoints": true
     }
   ]
 }
