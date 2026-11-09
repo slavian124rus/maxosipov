@@ -39,6 +39,7 @@
 - На экране завершения подходы из голоса пишутся через `enqueueSet` + `flushAll`: серверный `setExerciseFeeling` из браузера недоступен, ощущение уходит вместе с подходами.
 - В `gym.settings` добавлено необязательное `aiPrices` (цена за 1k токенов по модели); без него стоимость = 0.
 - e2e использует фейковый OpenAI-совместимый сервер (`e2e/fake-ai-server.ts`, порт 4010) через `webServer` в `playwright.config.ts`; настоящий провайдер в e2e не вызывается.
+- Коммиты по задачам объединены в один `feat(ai): …` (`02a7f90`): задачи 1–5 связаны общими типами и схемой, промежуточные коммиты не собирались бы. Отчёт — отдельный `docs(reports)`.
 
 ## Результаты проверок
 
@@ -47,7 +48,7 @@ pnpm lint     → eslint + tsc --noEmit без ошибок
 pnpm test     → 54 файла, 405 тестов — все зелёные
 pnpm build    → успешно (production, Turbopack)
 pnpm test:e2e → 18 passed, 1 skipped (офлайн/Service Worker проверяется только в prod-режиме)
-pnpm test:ai  → не запускался: в .env нет AI_API_KEY, AI_MODEL_MAIN, AI_MODEL_FALLBACK
+pnpm test:ai  → не запускался: в .env нет AI_API_KEY, AI_MODEL_MAIN, AI_MODEL_FALLBACK (скрипт завершается с кодом 2 и понятным сообщением)
 ```
 
 e2e на свежей базе (схема public и drizzle пересозданы, `pnpm db:seed`): вход по коду, чат с
