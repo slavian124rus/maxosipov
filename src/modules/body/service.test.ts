@@ -1,18 +1,28 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
+import { existsSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { addDays, subscriptions } from '@/modules/access'
 import { gyms } from '@/modules/gym'
+import { media, mediaDir, mediaRoot, safeJoin } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
 import { closeDb, prepareTestDb, resetDb, seedDefaultRoles } from '../../../tests/db'
 import { bodyMeasurements } from './schema'
-import { addMeasurement, deleteMeasurement, listMeasurements } from './service'
+import {
+  addMeasurement,
+  addProgressPhoto,
+  deleteMeasurement,
+  deleteProgressPhoto,
+  listMeasurements,
+  listProgressPhotos,
+} from './service'
 import { dayKey } from '@/shared/dates'
 
 let gymId: string
 let client: Actor
-let otherClient: Actor
 let trainer: Actor
 let trainerNoRights: Actor
 let clientId: string
@@ -83,13 +93,6 @@ beforeEach(async () => {
   otherClientId = otherRow!.id
 
   client = { id: clientId, roleId: roles['Клиент']!.id, gymId, isOwner: false, permissions: [] }
-  otherClient = {
-    id: otherClientId,
-    roleId: roles['Клиент']!.id,
-    gymId,
-    isOwner: false,
-    permissions: [],
-  }
   trainer = {
     id: trainerRow!.id,
     roleId: roles['Главный тренер']!.id,
@@ -182,4 +185,99 @@ test('удаление замера убирает запись', async () => {
   await deleteMeasurement(client, clientId, row.id)
 
   expect(await listMeasurements(client, clientId)).toHaveLength(0)
+})
+
+async function makePhoto(ownerId: string, kind: 'progress_photo' | 'exercise_video' = 'progress_photo') {
+  const [row] = await db
+    .insert(media)
+    .values({
+      kind,
+      ownerId,
+      status: 'ready',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+      processedPaths: { photo: '2026/11/photo/photo.webp', thumb: '2026/11/photo/thumb.webp' },
+    })
+    .returning()
+  return row!
+}
+
+test('фото прогресса: своё медиа добавляется, ссылки подписаны на 10 минут', async () => {
+  const file = await makePhoto(clientId)
+  const photo = await addProgressPhoto(client, clientId, {
+    date: today,
+    pose: 'front',
+    mediaId: file.id,
+  })
+
+  const list = await listProgressPhotos(client, clientId)
+  expect(list).toHaveLength(1)
+  expect(list[0]?.id).toBe(photo.id)
+  expect(list[0]?.status).toBe('ready')
+
+  const url = list[0]?.photoUrl ?? ''
+  const exp = Number(new URL(url, 'https://app.maxosipov.ru').searchParams.get('exp'))
+  expect(Math.abs(exp - (Math.floor(Date.now() / 1000) + 600))).toBeLessThanOrEqual(5)
+})
+
+test('фото прогресса: чужое или не то медиа → ошибка', async () => {
+  const foreign = await makePhoto(otherClientId)
+  await expect(
+    addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: foreign.id }),
+  ).rejects.toThrow('Файл загружен другим пользователем')
+
+  const video = await makePhoto(clientId, 'exercise_video')
+  await expect(
+    addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: video.id }),
+  ).rejects.toThrow('Это не фото прогресса')
+})
+
+test('фото прогресса: клиент видит только свои, чужой clientId → ForbiddenError', async () => {
+  const file = await makePhoto(clientId)
+  await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
+
+  expect(await listProgressPhotos(client, clientId)).toHaveLength(1)
+  await expect(listProgressPhotos(client, otherClientId)).rejects.toBeInstanceOf(ForbiddenError)
+})
+
+test('фото прогресса: тренер без clients.view_photos не получает ссылок', async () => {
+  const file = await makePhoto(clientId)
+  await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
+
+  await expect(listProgressPhotos(trainerNoRights, clientId)).rejects.toBeInstanceOf(ForbiddenError)
+})
+
+test('фото прогресса: тренер с правом (own) видит фото своего клиента', async () => {
+  const file = await makePhoto(clientId)
+  await addProgressPhoto(client, clientId, { date: today, pose: 'front', mediaId: file.id })
+
+  const viewer: Actor = {
+    ...trainer,
+    permissions: [{ code: 'clients.view_photos', scope: 'own' }],
+  }
+
+  const list = await listProgressPhotos(viewer, clientId)
+  expect(list).toHaveLength(1)
+  expect(list[0]?.thumbUrl).toContain('thumb.webp')
+})
+
+test('удаление фото убирает запись, медиа и файлы', async () => {
+  const file = await makePhoto(clientId)
+  const photo = await addProgressPhoto(client, clientId, {
+    date: today,
+    pose: 'front',
+    mediaId: file.id,
+  })
+
+  const dir = safeJoin(mediaRoot(), mediaDir(file))
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, 'photo.webp'), 'x')
+
+  await deleteProgressPhoto(client, clientId, photo.id)
+
+  expect(await listProgressPhotos(client, clientId)).toHaveLength(0)
+  const [mediaRow] = await db.select().from(media).where(eq(media.id, file.id))
+  expect(mediaRow).toBeUndefined()
+  expect(existsSync(dir)).toBe(false)
 })

@@ -1,11 +1,13 @@
+import { rm } from 'node:fs/promises'
 import { and, desc, eq } from 'drizzle-orm'
 import { assertClientAccess } from '@/modules/access'
 import { getGym } from '@/modules/gym'
+import { mediaDir, mediaRoot, PHOTO_URL_TTL_SEC, safeJoin, signMediaPath } from '@/modules/media'
 import { assertCan, ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { dayKey } from '@/shared/dates'
-import { users } from '@/shared/db/schema'
-import { bodyMeasurements, type BodyMeasurement } from './schema'
+import { media as mediaTable, users } from '@/shared/db/schema'
+import { bodyMeasurements, progressPhotos, type BodyMeasurement, type ProgressPhoto } from './schema'
 import { measurementInputSchema, type MeasurementInput } from './validation'
 
 /** Клиент пишет только при доступе; тренер — с правом `clients.measurements` на этого клиента. */
@@ -112,7 +114,115 @@ export async function listMeasurements(
     .limit(options.limit ?? 200)
 }
 
-/** Удаление замера — те же права, что у добавления. */
+/** Добавляет фото прогресса: только сам клиент с доступом. */
+export async function addProgressPhoto(
+  actor: Actor,
+  clientId: string,
+  input: { date: string; pose: 'front' | 'side' | 'back'; mediaId: string },
+): Promise<ProgressPhoto> {
+  if (actor.id !== clientId) throw new ForbiddenError('Фото прогресса добавляет сам клиент')
+  await assertClientAccess(clientId)
+
+  const [file] = await db.select().from(mediaTable).where(eq(mediaTable.id, input.mediaId)).limit(1)
+
+  if (!file) throw new Error('Файл не найден')
+  if (file.kind !== 'progress_photo') throw new Error('Это не фото прогресса')
+  if (file.ownerId !== clientId) throw new Error('Файл загружен другим пользователем')
+
+  const [attached] = await db
+    .select({ id: progressPhotos.id })
+    .from(progressPhotos)
+    .where(eq(progressPhotos.mediaId, input.mediaId))
+    .limit(1)
+
+  if (attached) throw new Error('Это фото уже добавлено')
+
+  const [row] = await db
+    .insert(progressPhotos)
+    .values({ userId: clientId, date: input.date, pose: input.pose, mediaId: input.mediaId })
+    .returning()
+
+  if (!row) throw new Error('Фото не добавлено')
+  return row
+}
+
+export type ProgressPhotoView = {
+  id: string
+  date: string
+  pose: 'front' | 'side' | 'back'
+  status: 'processing' | 'ready' | 'failed'
+  photoUrl: string | null
+  thumbUrl: string | null
+}
+
+/** Фото клиента со ссылками на 10 минут: сам клиент или право `clients.view_photos`. */
+export async function listProgressPhotos(
+  actor: Actor,
+  clientId: string,
+): Promise<ProgressPhotoView[]> {
+  if (actor.id !== clientId) {
+    const [client] = await db.select().from(users).where(eq(users.id, clientId)).limit(1)
+    if (!client) throw new Error('Клиент не найден')
+
+    assertCan(actor, 'clients.view_photos', {
+      clientId,
+      clientTrainerId: client.trainerId,
+    })
+  }
+
+  const rows = await db
+    .select({ photo: progressPhotos, file: mediaTable })
+    .from(progressPhotos)
+    .leftJoin(mediaTable, eq(mediaTable.id, progressPhotos.mediaId))
+    .where(eq(progressPhotos.userId, clientId))
+    .orderBy(desc(progressPhotos.date))
+
+  return rows.map(({ photo, file }) => {
+    const status = (file?.status ?? 'processing') as ProgressPhotoView['status']
+    const paths = file?.processedPaths
+
+    return {
+      id: photo.id,
+      date: photo.date,
+      pose: photo.pose,
+      status,
+      photoUrl: status === 'ready' && paths?.photo ? signMediaPath(paths.photo, PHOTO_URL_TTL_SEC) : null,
+      thumbUrl: status === 'ready' && paths?.thumb ? signMediaPath(paths.thumb, PHOTO_URL_TTL_SEC) : null,
+    }
+  })
+}
+
+/** Удаляет фото, запись медиа и каталог файлов. */
+export async function deleteProgressPhoto(
+  actor: Actor,
+  clientId: string,
+  id: string,
+): Promise<void> {
+  if (actor.id !== clientId) throw new ForbiddenError('Фото прогресса удаляет сам клиент')
+  await assertClientAccess(clientId)
+
+  const [photo] = await db
+    .select()
+    .from(progressPhotos)
+    .where(and(eq(progressPhotos.id, id), eq(progressPhotos.userId, clientId)))
+    .limit(1)
+
+  if (!photo) throw new Error('Фото не найдено')
+
+  const [file] = await db.select().from(mediaTable).where(eq(mediaTable.id, photo.mediaId)).limit(1)
+
+  await db.delete(progressPhotos).where(eq(progressPhotos.id, id))
+
+  if (file) {
+    await db.delete(mediaTable).where(eq(mediaTable.id, file.id))
+
+    try {
+      await rm(safeJoin(mediaRoot(), mediaDir(file)), { recursive: true, force: true })
+    } catch (error) {
+      console.error('[body] не удалось удалить файлы фото', error)
+    }
+  }
+}
 export async function deleteMeasurement(actor: Actor, clientId: string, id: string): Promise<void> {
   await assertCanWrite(actor, clientId)
 

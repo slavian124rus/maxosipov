@@ -1,9 +1,11 @@
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
+import { assertClientAccess } from '@/modules/access'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
+import { PHOTO_QUEUE, PROCESS_MEDIA_QUEUE } from '@/shared/queues'
 import { mediaDir, mediaRoot, safeJoin } from './paths'
 import { media, type MediaKind, type ProcessingOptions } from './schema'
 
@@ -22,8 +24,11 @@ const PHOTO_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
-  'image/heic': 'heic',
 }
+
+/** Квоты фото прогресса: не больше 30 за сутки и 300 всего на пользователя. */
+export const PHOTO_DAILY_LIMIT = 30
+export const PHOTO_TOTAL_LIMIT = 300
 
 export type CreateUploadInput = {
   kind: MediaKind
@@ -41,7 +46,7 @@ function extensionFor(kind: MediaKind, mime: string): string {
     throw new Error(
       kind === 'exercise_video'
         ? 'Формат видео не поддерживается: нужен mp4, mov, m4v или webm'
-        : 'Формат фото не поддерживается: нужен jpg, png, webp или heic',
+        : 'Формат фото не поддерживается: нужен jpg, png или webp',
     )
   }
   return extension
@@ -54,11 +59,15 @@ export async function createUpload(
 ): Promise<CreatedUpload> {
   const isVideo = input.kind === 'exercise_video'
 
-  // Фото (прогресс, аватар) появятся на этапе 3 вместе с квотой на клиента: пока любой
-  // зарегистрированный пользователь мог бы забить диск, поэтому принимаем только видео упражнений.
-  if (!isVideo) throw new Error('Загрузка фото пока недоступна')
-
-  assertCan(actor, 'catalog.edit')
+  if (isVideo) {
+    assertCan(actor, 'catalog.edit')
+  } else if (input.kind === 'progress_photo') {
+    // Своё фото прогресса загружает только клиент с доступом (ARCHITECTURE §8.4).
+    await assertClientAccess(actor.id)
+    await assertPhotoQuota(actor.id)
+  } else {
+    throw new Error('Загрузка фото пока недоступна')
+  }
 
   const max = isVideo ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES
   if (input.sizeBytes > max) {
@@ -86,6 +95,26 @@ export async function createUpload(
   if (!row) throw new Error('Не удалось создать загрузку')
 
   return { id: row.id, chunkSize: CHUNK_SIZE, totalChunks }
+}
+
+/** Квоты: 30 фото прогресса в сутки и 300 всего. */
+async function assertPhotoQuota(userId: string): Promise<void> {
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+  const [totals] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      recent: sql<number>`count(*) filter (where ${media.createdAt} >= ${dayAgo.toISOString()}::timestamptz)::int`,
+    })
+    .from(media)
+    .where(and(eq(media.kind, 'progress_photo'), eq(media.ownerId, userId)))
+
+  if ((totals?.recent ?? 0) >= PHOTO_DAILY_LIMIT) {
+    throw new Error('Слишком много фото за сутки. Попробуй завтра')
+  }
+  if ((totals?.total ?? 0) >= PHOTO_TOTAL_LIMIT) {
+    throw new Error('Достигнут лимит фото. Удали старые')
+  }
 }
 
 async function findMedia(id: string) {
@@ -137,7 +166,9 @@ export type CompleteDeps = {
  */
 export async function completeUpload(id: string, deps: CompleteDeps = {}): Promise<void> {
   const row = await findMedia(id)
-  const enqueue = deps.enqueue ?? ((mediaId: string) => enqueueJob('media.process', { mediaId }))
+  // Фото прогресса идут в свою очередь (sharp), видео упражнений — в ffmpeg-пайплайн.
+  const queueName = row.kind === 'progress_photo' ? PHOTO_QUEUE : PROCESS_MEDIA_QUEUE
+  const enqueue = deps.enqueue ?? ((mediaId: string) => enqueueJob(queueName, { mediaId }))
 
   if (row.originalPath) return
 

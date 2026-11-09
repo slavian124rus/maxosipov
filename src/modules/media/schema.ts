@@ -10,6 +10,10 @@ export type ProcessedPaths = {
   musclesMp4?: string
   /** Профиль, по которому сделан `musclesMp4`; при смене профиля подсветку пересчитываем. */
   musclesProfile?: string
+  /** Фото прогресса: полноразмерный webp (≤ 1600 по длинной стороне). */
+  photo?: string
+  /** Миниатюра для сетки (≤ 400). */
+  thumb?: string
 }
 
 export type ProcessingOptions = {

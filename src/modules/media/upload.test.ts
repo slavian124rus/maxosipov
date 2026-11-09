@@ -26,6 +26,33 @@ const actor: Actor = {
 
 const client: Actor = { ...actor, permissions: [] }
 
+/** Клиент с активной подпиской — для загрузки фото прогресса. */
+async function makeClientWithAccess(): Promise<Actor> {
+  const { seedDefaultRoles } = await import('../../../tests/db')
+  const { subscriptions, addDays } = await import('@/modules/access')
+  const { users } = await import('@/shared/db/schema')
+
+  const roles = await seedDefaultRoles()
+  const [row] = await db
+    .insert(users)
+    .values({
+      phone: '+79990000077',
+      name: 'Фото-клиент',
+      gymId: actor.gymId,
+      roleId: roles['Клиент']!.id,
+    })
+    .returning()
+
+  await db.insert(subscriptions).values({
+    userId: row!.id,
+    status: 'active',
+    startsAt: addDays(new Date(), -1),
+    endsAt: addDays(new Date(), 29),
+  })
+
+  return { ...client, id: row!.id, roleId: roles['Клиент']!.id }
+}
+
 let root: string
 
 beforeAll(async () => {
@@ -221,12 +248,10 @@ test('после complete куски не принимаются, а повто�
   await expect(putChunk(id, 0, Buffer.alloc(CHUNK_SIZE))).rejects.toThrow('Загрузка уже завершена')
 })
 
-test('фото пока не загружаются, даже владельцем файла', async () => {
-  for (const kind of ['photo', 'progress_photo'] as const) {
-    await expect(
-      createUpload(actor, { kind, fileName: 'p.jpg', sizeBytes: 1000, mime: 'image/jpeg' }),
-    ).rejects.toThrow('Загрузка фото пока недоступна')
-  }
+test('вид photo (не прогресс) по-прежнему недоступен', async () => {
+  await expect(
+    createUpload(actor, { kind: 'photo', fileName: 'p.jpg', sizeBytes: 1000, mime: 'image/jpeg' }),
+  ).rejects.toThrow('Загрузка фото пока недоступна')
 })
 
 test('несовпадение размера сбрасывает загрузку, можно залить заново', async () => {
@@ -246,4 +271,95 @@ test('несовпадение размера сбрасывает загруз�
   const status = await getMediaStatus(id)
   expect(status.receivedChunks).toEqual([])
   expect(status.status).toBe('uploaded')
+})
+
+test('клиент с подпиской создаёт загрузку progress_photo', async () => {
+  const photoClient = await makeClientWithAccess()
+
+  const created = await createUpload(photoClient, {
+    kind: 'progress_photo',
+    fileName: 'photo.jpg',
+    sizeBytes: 1000,
+    mime: 'image/jpeg',
+  })
+
+  expect(created.totalChunks).toBe(1)
+})
+
+test('клиент без подписки не может загрузить фото прогресса', async () => {
+  const { seedDefaultRoles } = await import('../../../tests/db')
+  const { users } = await import('@/shared/db/schema')
+  const roles = await seedDefaultRoles()
+
+  const [row] = await db
+    .insert(users)
+    .values({
+      phone: '+79990000078',
+      name: 'Без подписки',
+      gymId: actor.gymId,
+      roleId: roles['Клиент']!.id,
+    })
+    .returning()
+
+  await expect(
+    createUpload({ ...client, id: row!.id }, {
+      kind: 'progress_photo',
+      fileName: 'photo.jpg',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+    }),
+  ).rejects.toThrow()
+})
+
+test('HEIC не принимается для фото прогресса', async () => {
+  const photoClient = await makeClientWithAccess()
+
+  await expect(
+    createUpload(photoClient, {
+      kind: 'progress_photo',
+      fileName: 'photo.heic',
+      sizeBytes: 1000,
+      mime: 'image/heic',
+    }),
+  ).rejects.toThrow('Формат фото не поддерживается: нужен jpg, png или webp')
+})
+
+test('31-я загрузка фото за сутки → отказ по квоте', async () => {
+  const photoClient = await makeClientWithAccess()
+
+  for (let index = 0; index < 30; index += 1) {
+    await db.insert(media).values({
+      kind: 'progress_photo',
+      ownerId: photoClient.id,
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+    })
+  }
+
+  await expect(
+    createUpload(photoClient, {
+      kind: 'progress_photo',
+      fileName: 'photo.jpg',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+    }),
+  ).rejects.toThrow('Слишком много фото за сутки. Попробуй завтра')
+})
+
+test('completeUpload для progress_photo ставит задачу media.photo', async () => {
+  const photoClient = await makeClientWithAccess()
+
+  const { id } = await createUpload(photoClient, {
+    kind: 'progress_photo',
+    fileName: 'photo.jpg',
+    sizeBytes: 10,
+    mime: 'image/jpeg',
+  })
+  await putChunk(id, 0, Buffer.alloc(10, 1))
+
+  const queues: string[] = []
+  await completeUpload(id, { enqueue: async () => void queues.push('called') })
+
+  expect(queues).toHaveLength(1)
 })

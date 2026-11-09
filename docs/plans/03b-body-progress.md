@@ -81,8 +81,8 @@
 - В `completeUpload`: для `progress_photo` ставить в очередь `media.photo` (а не `media.process`).
 - `assertCanAccessMedia` (`access.ts`): владелец или `catalog.edit` — как сейчас; для `progress_photo` дополнительно **не** открывать тренеру без `clients.view_photos` (проверка прав на просмотр делается в `listProgressPhotos`, там и выдаются ссылки).
 
-- [ ] **Шаг 1.** Тесты (`service.test.ts`, `upload.test.ts`): клиент создаёт загрузку `progress_photo` → ок; без подписки → отказ; HEIC → «Формат фото не поддерживается: нужен jpg, png или webp»; 31-я загрузка за сутки → отказ с текстом квоты; чужое/не `progress_photo` медиа в `addProgressPhoto` → ошибка; `listProgressPhotos`: клиент видит только свои (чужой `clientId` → `ForbiddenError`), тренер без `clients.view_photos` → `ForbiddenError`, с правом (область own, свой клиент) → ок, чужой клиент → `ForbiddenError`; ссылки имеют `exp` ≈ now+600 с; `deleteProgressPhoto` удаляет и файлы.
-- [ ] **Шаг 2.** Реализация → зелёные → коммит `feat(body): progress photos storage and access`.
+- [x] **Шаг 1.** Тесты (`service.test.ts`, `upload.test.ts`): клиент создаёт загрузку `progress_photo` → ок; без подписки → отказ; HEIC → «Формат фото не поддерживается: нужен jpg, png или webp»; 31-я загрузка за сутки → отказ с текстом квоты; чужое/не `progress_photo` медиа в `addProgressPhoto` → ошибка; `listProgressPhotos`: клиент видит только свои (чужой `clientId` → `ForbiddenError`), тренер без `clients.view_photos` → `ForbiddenError`, с правом (область own, свой клиент) → ок, чужой клиент → `ForbiddenError`; ссылки имеют `exp` ≈ now+600 с; `deleteProgressPhoto` удаляет и файлы.
+- [x] **Шаг 2.** Реализация → зелёные → коммит `feat(body): progress photos storage and access`.
 
 ### Задача 3. Обработка фото (`media.photo`)
 
