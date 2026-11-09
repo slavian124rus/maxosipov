@@ -13,6 +13,15 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async headers() {
+    return [
+      {
+        // Фото прогресса — персональные данные: не кэшируем нигде.
+        source: '/progress/photos',
+        headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+      },
+    ]
+  },
 }
 
 export default withSerwist(nextConfig)
