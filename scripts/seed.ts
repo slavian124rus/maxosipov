@@ -15,6 +15,7 @@ import { copyTemplateToClient, programDays, programExercises, programs } from '@
 import { client, db } from '@/shared/db'
 import { media } from '@/shared/db/schema'
 import { SEED_EXERCISES, SEED_MACHINES } from './seed-catalog'
+import { GYM_MACHINES } from './seed-gym-machines'
 
 const GYM_NAME = 'Колизей'
 
@@ -64,6 +65,8 @@ export type SeedOptions = {
   ownerPhone?: string | undefined
   trainerPhone?: string | undefined
   ownerEmail?: string | undefined
+  /** Добавить базовые тренажёры зала и упражнения-черновики без видео. */
+  gymMachines?: boolean | undefined
   trainerEmail?: string | undefined
 }
 
@@ -272,6 +275,47 @@ async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
   }
 }
 
+/** Базовые тренажёры зала и упражнения-черновики без видео (идемпотентно, по названию и slug). */
+async function ensureGymMachines(gymId: string): Promise<void> {
+  for (const item of GYM_MACHINES) {
+    let [machine] = await db
+      .select({ id: machines.id })
+      .from(machines)
+      .where(and(eq(machines.gymId, gymId), eq(machines.name, item.machine)))
+      .limit(1)
+
+    if (!machine) {
+      ;[machine] = await db
+        .insert(machines)
+        .values({ gymId, name: item.machine, zone: item.zone, weightStepKg: item.weightStepKg })
+        .returning({ id: machines.id })
+    }
+
+    const [existing] = await db
+      .select({ id: exercises.id })
+      .from(exercises)
+      .where(and(eq(exercises.gymId, gymId), eq(exercises.slug, item.slug)))
+      .limit(1)
+
+    // Существующие упражнения (в том числе уже отредактированные Максимом) не перезаписываем.
+    if (existing) continue
+
+    await db.insert(exercises).values({
+      gymId,
+      machineId: machine?.id ?? null,
+      name: item.name,
+      slug: item.slug,
+      primaryMuscles: item.primary,
+      secondaryMuscles: item.secondary,
+      steps: item.steps,
+      mistakes: item.mistakes,
+      defaultRepMin: item.repMin ?? 8,
+      defaultRepMax: item.repMax ?? 12,
+      status: 'draft',
+    })
+  }
+}
+
 /** Шаблон «Старт: 3 дня» и выдача его клиентам 1–4. */
 const TEMPLATE_NAME = 'Старт: 3 дня'
 
@@ -399,6 +443,7 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   let createdUsers = 0
 
   if (options.production) {
+    if (options.gymMachines) await ensureGymMachines(gymId)
     if (options.ownerPhone || options.ownerEmail) {
       await ensureUser({
         ...(options.ownerEmail ? { email: options.ownerEmail.trim().toLowerCase() } : {}),
@@ -479,6 +524,7 @@ async function main(): Promise<void> {
     trainerPhone: process.env.SEED_TRAINER_PHONE,
     ownerEmail: process.env.SEED_OWNER_EMAIL,
     trainerEmail: process.env.SEED_TRAINER_EMAIL,
+    gymMachines: process.env.SEED_GYM_MACHINES === '1',
   })
 
   const [userCount] = await client<{ count: string }[]>`select count(*) from users`
