@@ -6,12 +6,6 @@ import { roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { authAccounts, users, type AuthProvider } from './schema'
 
-/** Как называем провайдера в текстах для человека. */
-const PROVIDER_TITLES: Record<Exclude<AuthProvider, 'phone'>, string> = {
-  vk: 'VK ID',
-  yandex: 'Яндекса',
-}
-
 export type SignInLink = {
   provider: Exclude<AuthProvider, 'phone'>
   providerUserId: string
@@ -99,23 +93,18 @@ async function createClient(
 /**
  * Вход с подтверждённым телефоном: находит или создаёт пользователя,
  * привязывает способы входа и (для нового) включает пробный период.
+ * Если аккаунт провайдера уже привязан — входит в привязанного пользователя (номер не сверяется).
  */
 export async function signInWithVerifiedPhone(
   phone: string,
   link?: SignInLink,
 ): Promise<SignInResult> {
   if (link) {
+    // Аккаунт провайдера уже привязан к пользователю — входим в него, каким бы номер ни пришёл
+    // сейчас. Привязка не переносится и номер не меняется: так чужой номер в профиле провайдера
+    // не открывает чужой аккаунт, а владелец не упирается в ошибку.
     const boundUserId = await findUserIdByLink(link)
-
-    if (boundUserId) {
-      const [boundUser] = await db.select().from(users).where(eq(users.id, boundUserId)).limit(1)
-
-      if (boundUser && boundUser.phone !== phone) {
-        throw new Error(
-          `Этот аккаунт ${PROVIDER_TITLES[link.provider]} уже привязан к другому номеру`,
-        )
-      }
-    }
+    if (boundUserId) return { userId: boundUserId, isNew: false }
   }
 
   let userId: string

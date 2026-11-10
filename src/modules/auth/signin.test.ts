@@ -96,24 +96,39 @@ test('вход через Яндекс с существующим номеро�
   ])
 })
 
-test('один аккаунт Яндекса нельзя привязать к двум номерам', async () => {
-  await signInWithVerifiedPhone('+79990000099', { provider: 'yandex', providerUserId: 'y1' })
+test('аккаунт Яндекса уже привязан к другому номеру — входим в привязанный аккаунт, без ошибки', async () => {
+  const first = await signInWithVerifiedPhone('+79990000099', { provider: 'yandex', providerUserId: 'y1' })
+  const usersBefore = (await db.select().from(users)).length
 
-  await expect(
-    signInWithVerifiedPhone('+79990000098', { provider: 'yandex', providerUserId: 'y1' }),
-  ).rejects.toThrow('Этот аккаунт Яндекса уже привязан к другому номеру')
+  const again = await signInWithVerifiedPhone('+79990000098', { provider: 'yandex', providerUserId: 'y1' })
 
-  expect(await db.select().from(users)).toHaveLength(2)
+  expect(again.userId).toBe(first.userId)
+  expect(again.isNew).toBe(false)
+  // Второй номер не создаёт нового пользователя и не меняет номер привязанного.
+  expect(await db.select().from(users)).toHaveLength(usersBefore)
+  const [bound] = await db.select().from(users).where(eq(users.id, first.userId))
+  expect(bound?.phone).toBe('+79990000099')
 })
 
-test.each([
-  ['vk', 'VK ID'],
-] as const)('текст ошибки для провайдера %s', async (provider, title) => {
-  await signInWithVerifiedPhone('+79990000099', { provider, providerUserId: 'p1' })
+test('то же для VK ID: привязанный аккаунт открывается при любом подтверждённом номере', async () => {
+  const first = await signInWithVerifiedPhone('+79990000099', { provider: 'vk', providerUserId: 'p1' })
+  const usersBefore = (await db.select().from(users)).length
 
-  await expect(
-    signInWithVerifiedPhone('+79990000098', { provider, providerUserId: 'p1' }),
-  ).rejects.toThrow(`Этот аккаунт ${title} уже привязан к другому номеру`)
+  const again = await signInWithVerifiedPhone('+79990000098', { provider: 'vk', providerUserId: 'p1' })
+
+  expect(again.userId).toBe(first.userId)
+  expect(await db.select().from(users)).toHaveLength(usersBefore)
+})
+
+test('вход по VK, затем по Яндексу с другим номером — ошибки нет, Яндекс привязан к своему аккаунту', async () => {
+  const viaVk = await signInWithVerifiedPhone('+79990000011', { provider: 'vk', providerUserId: 'v1' })
+  const viaYandexFirst = await signInWithVerifiedPhone('+79990000022', { provider: 'yandex', providerUserId: 'y1' })
+
+  // Яндекс уже привязан к номеру …022; теперь приходит номер …011 (как у VK) — раньше это была ошибка.
+  const viaYandexAgain = await signInWithVerifiedPhone('+79990000011', { provider: 'yandex', providerUserId: 'y1' })
+
+  expect(viaYandexAgain.userId).toBe(viaYandexFirst.userId)
+  expect(viaYandexAgain.userId).not.toBe(viaVk.userId)
 })
 
 test('Яндекс, затем VK с тем же номером — один аккаунт с двумя способами входа', async () => {

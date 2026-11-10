@@ -7,8 +7,6 @@ export const instant = false
 
 const LOGIN_ERRORS: Record<string, string> = {
   oauth: 'Не получилось войти. Попробуй ещё раз или войди по номеру',
-  vk_linked: 'Этот аккаунт VK ID уже привязан к другому номеру. Войди по номеру телефона',
-  yandex_linked: 'Этот аккаунт Яндекса уже привязан к другому номеру. Войди по номеру телефона',
 }
 
 export default async function LoginPage({

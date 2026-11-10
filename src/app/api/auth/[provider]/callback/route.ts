@@ -71,9 +71,8 @@ export async function GET(
       ...(profile.name ? { name: profile.name } : {}),
     })
   } catch (error) {
-    // Аккаунт провайдера уже привязан к другому номеру — понятный экран, а не 500.
     console.error('[oauth] вход не выполнен', error)
-    return NextResponse.redirect(appUrl(`/login?error=${provider}_linked`))
+    return fail
   }
   const { userId, isNew } = signedIn
 
