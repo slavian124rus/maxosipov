@@ -39,7 +39,8 @@ export type ClientFilter = 'all' | 'trial' | 'expiring' | 'expired' | 'active'
 export type ClientListItem = {
   id: string
   name: string
-  phone: string
+  /** Телефон или, если его нет, почта. */
+  contact: string
   access: AccessState
   lastWorkoutAt: Date | null
 }
@@ -54,7 +55,8 @@ export type ClientSessionItem = {
 export type ClientCard = {
   id: string
   name: string
-  phone: string
+  /** Телефон или, если его нет, почта. */
+  contact: string
   createdAt: Date
   access: AccessState
   profile: ClientProfile | null
@@ -87,12 +89,14 @@ function matchesFilter(access: AccessState, filter: ClientFilter): boolean {
   return true
 }
 
-function matchesQuery(user: { name: string; phone: string }, query: string): boolean {
+function matchesQuery(user: { name: string; phone: string | null; email: string | null }, query: string): boolean {
   const text = query.trim().toLowerCase()
   if (!text) return true
   const digits = query.replace(/\D/g, '')
 
-  return user.name.toLowerCase().includes(text) || (digits.length > 0 && user.phone.includes(digits))
+  return user.name.toLowerCase().includes(text) ||
+    (digits.length > 0 && (user.phone ?? '').includes(digits)) ||
+    (user.email ?? '').includes(text)
 }
 
 /** Клиенты, которых актор вправе видеть: область `own` — только свои, `all` — все в зале. */
@@ -132,7 +136,7 @@ export async function listClients(
   return visible.map(({ user, access }) => ({
     id: user.id,
     name: user.name || 'Без имени',
-    phone: user.phone,
+    contact: user.phone ?? user.email ?? '',
     access,
     lastWorkoutAt: lastWorkouts.get(user.id) ?? null,
   }))
@@ -181,7 +185,7 @@ export async function getClientCard(actor: Actor, clientId: string): Promise<Cli
   return {
     id: client.id,
     name: client.name || 'Без имени',
-    phone: client.phone,
+    contact: client.phone ?? client.email ?? '',
     createdAt: client.createdAt,
     access,
     profile,

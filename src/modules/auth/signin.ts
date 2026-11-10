@@ -4,10 +4,11 @@ import { getGym, getHeadTrainerId } from '@/modules/gym'
 import { notify } from '@/modules/notifications'
 import { roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
+import { canonicalEmail, normalizeEmail } from './email'
 import { authAccounts, users, type AuthProvider } from './schema'
 
 export type SignInLink = {
-  provider: Exclude<AuthProvider, 'phone'>
+  provider: Exclude<AuthProvider, 'phone' | 'email'>
   providerUserId: string
   name?: string
 }
@@ -42,8 +43,10 @@ async function attachAccount(
     })
 }
 
-async function findUserIdByPhone(phone: string): Promise<string | null> {
-  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1)
+type Identity = { field: 'phone' | 'email'; value: string }
+
+async function findUserIdByIdentity({ field, value }: Identity): Promise<string | null> {
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users[field], value)).limit(1)
   return row?.id ?? null
 }
 
@@ -56,11 +59,11 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * Создаёт клиента. Двойной тап «Войти» даёт две параллельные вставки одного номера —
- * вторая упирается в уникальность телефона, тогда просто читаем созданного (ревью F7).
+ * Создаёт клиента. Двойной тап «Войти» даёт две параллельные вставки одного контакта —
+ * вторая упирается в уникальность, тогда просто читаем созданного (ревью F7).
  */
 async function createClient(
-  phone: string,
+  identity: Identity,
   name: string,
 ): Promise<{ userId: string; isNew: boolean }> {
   const gym = await getGym()
@@ -73,7 +76,7 @@ async function createClient(
     const [created] = await db
       .insert(users)
       .values({
-        phone,
+        [identity.field]: identity.value,
         name,
         gymId: gym.id,
         roleId: clientRole.id,
@@ -84,25 +87,25 @@ async function createClient(
     return { userId: created.id, isNew: true }
   } catch (error) {
     if (!isUniqueViolation(error)) throw error
-    const existing = await findUserIdByPhone(phone)
+    const existing = await findUserIdByIdentity(identity)
     if (!existing) throw error
     return { userId: existing, isNew: false }
   }
 }
 
 /**
- * Вход с подтверждённым телефоном: находит или создаёт пользователя,
+ * Общий вход с подтверждённым контактом (телефон или почта): находит или создаёт пользователя,
  * привязывает способы входа и (для нового) включает пробный период.
- * Если аккаунт провайдера уже привязан — входит в привязанного пользователя (номер не сверяется).
+ * Если аккаунт провайдера уже привязан — входит в привязанного пользователя (контакт не сверяется).
  */
-export async function signInWithVerifiedPhone(
-  phone: string,
+async function signInWithIdentity(
+  identity: Identity,
+  trialKey: string,
   link?: SignInLink,
 ): Promise<SignInResult> {
   if (link) {
-    // Аккаунт провайдера уже привязан к пользователю — входим в него, каким бы номер ни пришёл
-    // сейчас. Привязка не переносится и номер не меняется: так чужой номер в профиле провайдера
-    // не открывает чужой аккаунт, а владелец не упирается в ошибку.
+    // Аккаунт провайдера уже привязан к пользователю — входим в него, какой бы контакт пришёл
+    // сейчас. Привязка не переносится: чужой контакт в профиле провайдера не открывает чужой аккаунт.
     const boundUserId = await findUserIdByLink(link)
     if (boundUserId) return { userId: boundUserId, isNew: false }
   }
@@ -110,24 +113,40 @@ export async function signInWithVerifiedPhone(
   let userId: string
   let isNew = false
 
-  const existing = await findUserIdByPhone(phone)
+  const existing = await findUserIdByIdentity(identity)
   if (existing) {
     userId = existing
   } else {
-    const created = await createClient(phone, link?.name ?? '')
+    const created = await createClient(identity, link?.name ?? '')
     userId = created.userId
     isNew = created.isNew
   }
 
-  await attachAccount(userId, 'phone', phone)
+  await attachAccount(userId, identity.field, identity.value)
   if (link) await attachAccount(userId, link.provider, link.providerUserId)
 
   if (isNew) {
-    const started = await startTrialIfEligible(userId, phone)
+    const started = await startTrialIfEligible(userId, trialKey)
     if (started) await notifyNewClient(userId)
   }
 
   return { userId, isNew }
+}
+
+/** Вход с подтверждённым телефоном. */
+export function signInWithVerifiedPhone(phone: string, link?: SignInLink): Promise<SignInResult> {
+  return signInWithIdentity({ field: 'phone', value: phone }, phone, link)
+}
+
+/** Вход с подтверждённой почтой. Пробный период — один на канонический адрес. */
+export function signInWithVerifiedEmail(email: string, link?: SignInLink): Promise<SignInResult> {
+  const normalized = normalizeEmail(email)
+  if (!normalized) throw new Error('Некорректная почта')
+  return signInWithIdentity(
+    { field: 'email', value: normalized },
+    `email:${canonicalEmail(normalized)}`,
+    link,
+  )
 }
 
 /** «Новый клиент» тренеру: имя и дата конца пробного периода. */

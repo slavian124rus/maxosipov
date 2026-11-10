@@ -30,7 +30,7 @@ import {
 export type SubscriptionRowView = {
   id: string
   name: string
-  phone: string
+  contact: string
   statusLabel: string
   endsAtLabel: string | null
   tone: 'normal' | 'warning' | 'danger'
@@ -73,7 +73,7 @@ export function SubscriptionsList({
                   {row.endsAtLabel ? ` · до ${row.endsAtLabel}` : ''}
                 </span>
               </span>
-              <span className="text-[13px] text-text-muted">{row.phone}</span>
+              <span className="text-[13px] text-text-muted">{row.contact}</span>
             </button>
           </li>
         ))}
@@ -88,7 +88,7 @@ export function SubscriptionsList({
           <SheetHeader>
             <SheetTitle>{selected?.name || 'Без имени'}</SheetTitle>
             <SheetDescription>
-              {selected?.phone} · {selected?.statusLabel}
+              {selected?.contact} · {selected?.statusLabel}
               {selected?.endsAtLabel ? ` до ${selected.endsAtLabel}` : ''}
             </SheetDescription>
           </SheetHeader>

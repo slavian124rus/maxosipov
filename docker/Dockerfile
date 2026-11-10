@@ -27,6 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     MEDIA_URL_SIGNING_SECRET=build-time-placeholder-signing-secret
 RUN pnpm build \
  && pnpm exec esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --outfile=dist/migrate.js \
+ && pnpm exec esbuild scripts/seed.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/seed.js \
  && pnpm exec esbuild src/worker/index.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/worker.js
 
 FROM node:22-bookworm-slim AS runner

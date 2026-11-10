@@ -4,7 +4,15 @@ import { useActionState, useEffect, useRef, useState, useTransition } from 'reac
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { requestCodeAction, resendCodeAction, verifyCodeAction, type FormState } from './actions'
+import {
+  requestCodeAction,
+  requestEmailCodeAction,
+  resendCodeAction,
+  resendEmailCodeAction,
+  verifyCodeAction,
+  verifyEmailCodeAction,
+  type FormState,
+} from './actions'
 
 const INITIAL: FormState = { error: null }
 
@@ -56,9 +64,48 @@ export function PhoneForm({ linkId }: { linkId?: string }) {
   )
 }
 
-export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) {
-  const [state, formAction, pending] = useActionState(verifyCodeAction, INITIAL)
-  const [digits, setDigits] = useState(['', '', '', ''])
+export function EmailForm({ linkId }: { linkId?: string }) {
+  const [state, formAction, pending] = useActionState(requestEmailCodeAction, INITIAL)
+
+  return (
+    <form action={formAction} className="flex flex-col gap-4">
+      {linkId ? <input type="hidden" name="link" value={linkId} /> : null}
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="email">Электронная почта</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          placeholder="name@example.com"
+          required
+          autoFocus
+        />
+      </div>
+
+      {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
+
+      <Button type="submit" disabled={pending}>
+        {pending ? 'Отправляем…' : 'Получить код'}
+      </Button>
+    </form>
+  )
+}
+
+type CodeTarget = { kind: 'phone'; phone: string } | { kind: 'email'; email: string }
+
+/** Ввод кода из СМС (4 цифры) или из письма (6 цифр). */
+export function CodeForm(props: { target: CodeTarget; linkId?: string }) {
+  const { target, linkId } = props
+  const length = target.kind === 'email' ? 6 : 4
+  const [state, formAction, pending] = useActionState(
+    target.kind === 'email' ? verifyEmailCodeAction : verifyCodeAction,
+    INITIAL,
+  )
+  const [digits, setDigits] = useState<string[]>(() => Array.from({ length }, () => ''))
   const [secondsLeft, setSecondsLeft] = useState(60)
   const [resendError, setResendError] = useState<string | null>(null)
   const [resendPending, startResend] = useTransition()
@@ -75,8 +122,8 @@ export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) 
   }, [secondsLeft])
 
   useEffect(() => {
-    if (code.length === 4 && !pending) formRef.current?.requestSubmit()
-  }, [code, pending])
+    if (code.length === length && !pending) formRef.current?.requestSubmit()
+  }, [code, pending, length])
 
   function setDigit(index: number, value: string): void {
     const digit = value.replace(/\D/g, '').slice(-1)
@@ -85,21 +132,24 @@ export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) 
       next[index] = digit
       return next
     })
-    if (digit && index < 3) inputs.current[index + 1]?.focus()
+    if (digit && index < length - 1) inputs.current[index + 1]?.focus()
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLInputElement>): void {
-    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, length)
     if (!pasted) return
     event.preventDefault()
     const next = pasted.split('')
-    setDigits([next[0] ?? '', next[1] ?? '', next[2] ?? '', next[3] ?? ''])
-    inputs.current[Math.min(next.length, 4) - 1]?.focus()
+    setDigits(Array.from({ length }, (_, i) => next[i] ?? ''))
+    inputs.current[Math.min(next.length, length) - 1]?.focus()
   }
 
   function resend(): void {
     startResend(async () => {
-      const result = await resendCodeAction(phone)
+      const result =
+        target.kind === 'email'
+          ? await resendEmailCodeAction(target.email)
+          : await resendCodeAction(target.phone)
       setResendError(result.error)
       if (!result.error) setSecondsLeft(60)
     })
@@ -107,12 +157,16 @@ export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) 
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-5">
-      <input type="hidden" name="phone" value={phone} />
+      <input
+        type="hidden"
+        name={target.kind}
+        value={target.kind === 'email' ? target.email : target.phone}
+      />
       <input type="hidden" name="code" value={code} />
       {linkId ? <input type="hidden" name="link" value={linkId} /> : null}
 
       <div className="flex justify-between gap-3">
-        {[0, 1, 2, 3].map((index) => (
+        {Array.from({ length }, (_, index) => index).map((index) => (
           <input
             key={index}
             ref={(element) => {
@@ -129,8 +183,8 @@ export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) 
             inputMode="numeric"
             autoComplete={index === 0 ? 'one-time-code' : 'off'}
             maxLength={1}
-            aria-label={`Цифра ${index + 1} из 4`}
-            className="h-16 w-full rounded-control border border-border bg-surface-1 text-center font-display text-[28px] text-text outline-none focus-visible:border-accent"
+            aria-label={`Цифра ${index + 1} из ${length}`}
+            className={`${length > 4 ? 'h-14' : 'h-16'} min-w-0 w-full rounded-control border border-border bg-surface-1 text-center font-display text-[28px] text-text outline-none focus-visible:border-accent`}
           />
         ))}
       </div>
@@ -138,7 +192,7 @@ export function CodeForm({ phone, linkId }: { phone: string; linkId?: string }) 
       {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
       {resendError ? <p className="text-[15px] text-danger">{resendError}</p> : null}
 
-      <Button type="submit" disabled={pending || code.length !== 4}>
+      <Button type="submit" disabled={pending || code.length !== length}>
         {pending ? 'Проверяем…' : 'Подтвердить'}
       </Button>
 

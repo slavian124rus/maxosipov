@@ -14,6 +14,6 @@ export default async function OnboardingPage() {
   const userAgent = headerStore.get('user-agent') ?? ''
   const isIos = /iPhone|iPad|iPod/.test(userAgent)
 
-  return <OnboardingSteps isIos={isIos} />
+  return <OnboardingSteps isIos={isIos} askPhone={!user.phone} />
 }
 

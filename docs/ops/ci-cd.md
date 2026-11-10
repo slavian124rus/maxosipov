@@ -54,3 +54,13 @@ docker compose --env-file .env --env-file .deploy.env -f docker/compose.prod.yml
 
 `pnpm test:e2e` (Playwright), `pnpm test:media` (ffmpeg/opencv) и `pnpm test:ai` — тяжёлые, запускаются вручную
 перед релизом, как описано в `docs/ops/development.md`.
+
+## Почта (вход по коду)
+
+Код входа уходит письмом через SMTP.bz (HTTP API). На сервере в `.env`: `EMAIL_PROVIDER=smtpbz`,
+`SMTPBZ_API_KEY`, `EMAIL_FROM=noreply@maxosipov.ru`, `EMAIL_FROM_NAME=МаксИИм`. Письма не уходят,
+пока домен не активен в кабинете SMTP.bz (SPF/DKIM/CNAME + модерация); проверка:
+`GET https://api.smtp.bz/v1/user/domain` с заголовком `Authorization: <ключ>` (`isActive`).
+
+Первичный сид владельца и тренера по почте (один раз, идемпотентно):
+`docker compose exec -e NODE_ENV=production -e SEED_OWNER_EMAIL=... -e SEED_TRAINER_EMAIL=... web node dist/seed.js`.

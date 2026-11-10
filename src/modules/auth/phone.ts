@@ -28,6 +28,11 @@ export function normalizePhone(input: string): string | null {
   return `+${RUSSIAN_COUNTRY_CODE}${national}`
 }
 
+/** Телефон или почта для списков: почта показывается как есть. */
+export function formatContact(contact: string): string {
+  return contact.includes('@') ? contact : formatPhone(contact)
+}
+
 /** Показывает номер в формате `+7 (999) 123-45-67`; невалидный возвращает как есть. */
 export function formatPhone(phone: string): string {
   const normalized = normalizePhone(phone)

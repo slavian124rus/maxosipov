@@ -41,7 +41,7 @@
 | D13 | Максим видит предложения/изменения и только отмеченные (боль/травма) сообщения МаксИИму | Баланс контроля и приватности |
 | D14 | Бренд — личный (Максим), стилистика зала; бренд — настройки | Позже «KOLIZEY TEAM × Максим» без переделок |
 | D15 | «Мышцы на видео»: поза и силуэт находит MediaPipe Pose Landmarker на нашем сервере, мышцы рисует наш код по профилю движения; генеративные видео-модели не используются | Настоящее видео, предсказуемый результат, бесплатно; проверено пробой 2026-11-07 (`prototypes/muscle-overlay/`) |
-| D16 | Авторизация — своя (сессии, OTP, OAuth на `fetch`), без библиотек авторизации | Модель «телефон — главный ключ» без email; меньше «магии» для ИИ-исполнителя; всё покрыто тестами |
+| D16 | Авторизация — своя (сессии, OTP, OAuth на `fetch`), без библиотек авторизации | Ключ аккаунта — почта (код на почту, SMTP.bz), телефон — необязательный контакт; вход по телефону/СМС остаётся запасным; меньше «магии» для ИИ-исполнителя; всё покрыто тестами |
 
 ## 3. Стек
 
@@ -53,7 +53,7 @@
 | Формы и валидация | react-hook-form + Zod (одни Zod-схемы на клиенте и сервере) |
 | БД | PostgreSQL (актуальная стабильная) |
 | ORM / миграции | Drizzle ORM + drizzle-kit |
-| Аутентификация | Собственная: сессии в БД (cookie `sid`, в БД — sha256 токена), OTP «телефон + код», OAuth 2.0 + PKCE для VK ID и Яндекс ID на `fetch` (D16) |
+| Аутентификация | Собственная: сессии в БД (cookie `sid`, в БД — sha256 токена), OTP «почта + код из 6 цифр, 10 мин» (основной) и «телефон + код» (запасной), OAuth 2.0 + PKCE для VK ID и Яндекс ID на `fetch` (D16) |
 | Данные на клиенте | TanStack Query; офлайн-хранилище и очередь — IndexedDB через Dexie |
 | PWA | Serwist (service worker, precache, runtime cache видео) |
 | Push | Web Push (VAPID), библиотека `web-push` |
@@ -462,6 +462,8 @@ AUTH_SECRET
 VK_CLIENT_ID  VK_CLIENT_SECRET
 YANDEX_CLIENT_ID  YANDEX_CLIENT_SECRET
 TELEGRAM_BOT_TOKEN  TELEGRAM_LEADS_CHAT_ID
+EMAIL_PROVIDER=console|smtpbz  SMTPBZ_API_KEY  EMAIL_FROM  EMAIL_FROM_NAME
+SEED_OWNER_EMAIL  SEED_TRAINER_EMAIL (первичный сид: `node dist/seed.js`)
 SMS_PROVIDER=smsru|smsaero|console  SMS_API_KEY  SMS_AERO_LOGIN  SMS_AERO_SIGN (последние два — только для smsaero)
 AI_BASE_URL=https://plusvibeapi.ru/v1  AI_API_KEY  AI_MODEL_MAIN  AI_MODEL_FAST  AI_MODEL_FALLBACK
 STT_PROVIDER=plusvibe|yandex  STT_MODEL  YANDEX_SPEECHKIT_KEY

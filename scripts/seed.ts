@@ -63,6 +63,8 @@ export type SeedOptions = {
   production: boolean
   ownerPhone?: string | undefined
   trainerPhone?: string | undefined
+  ownerEmail?: string | undefined
+  trainerEmail?: string | undefined
 }
 
 export type SeedResult = {
@@ -127,16 +129,21 @@ async function ensureHeadTrainer(gymId: string, trainerId: string): Promise<void
 }
 
 async function ensureUser(input: NewUser): Promise<string> {
+  const key = input.email ? ({ column: users.email, value: input.email } as const) : null
+  const phoneKey = input.phone ? ({ column: users.phone, value: input.phone } as const) : null
+  const found = key ?? phoneKey
+  if (!found) throw new Error('У пользователя сида нет ни почты, ни телефона')
+
   const [inserted] = await db
     .insert(users)
     .values(input)
-    .onConflictDoNothing({ target: users.phone })
+    .onConflictDoNothing({ target: found.column })
     .returning()
 
   if (inserted) return inserted.id
 
-  const [existing] = await db.select().from(users).where(eq(users.phone, input.phone)).limit(1)
-  if (!existing) throw new Error(`Не удалось создать пользователя ${input.phone}`)
+  const [existing] = await db.select().from(users).where(eq(found.column, found.value)).limit(1)
+  if (!existing) throw new Error(`Не удалось создать пользователя ${found.value}`)
   return existing.id
 }
 
@@ -392,9 +399,10 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   let createdUsers = 0
 
   if (options.production) {
-    if (options.ownerPhone) {
+    if (options.ownerPhone || options.ownerEmail) {
       await ensureUser({
-        phone: options.ownerPhone,
+        ...(options.ownerEmail ? { email: options.ownerEmail.trim().toLowerCase() } : {}),
+        ...(options.ownerPhone ? { phone: options.ownerPhone } : {}),
         name: 'Владелец',
         gymId,
         roleId: roleId(roleIds, 'Владелец'),
@@ -402,9 +410,10 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       createdUsers += 1
     }
 
-    if (options.trainerPhone) {
+    if (options.trainerPhone || options.trainerEmail) {
       const headTrainerId = await ensureUser({
-        phone: options.trainerPhone,
+        ...(options.trainerEmail ? { email: options.trainerEmail.trim().toLowerCase() } : {}),
+        ...(options.trainerPhone ? { phone: options.trainerPhone } : {}),
         name: 'Максим Осипов',
         gymId,
         roleId: roleId(roleIds, 'Главный тренер'),
@@ -468,6 +477,8 @@ async function main(): Promise<void> {
     production: process.env.NODE_ENV === 'production',
     ownerPhone: process.env.SEED_OWNER_PHONE,
     trainerPhone: process.env.SEED_TRAINER_PHONE,
+    ownerEmail: process.env.SEED_OWNER_EMAIL,
+    trainerEmail: process.env.SEED_TRAINER_EMAIL,
   })
 
   const [userCount] = await client<{ count: string }[]>`select count(*) from users`

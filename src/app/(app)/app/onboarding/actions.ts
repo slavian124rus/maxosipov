@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { getAccessForUser } from '@/modules/access'
-import { clientProfileSchema, getCurrentUser, saveOnboarding } from '@/modules/auth'
+import { clientProfileSchema, getCurrentUser, normalizePhone, saveOnboarding } from '@/modules/auth'
 
 export type OnboardingState = {
   error: string | null
@@ -46,7 +46,11 @@ export async function saveOnboardingAction(
     return { error: 'Проверь ответы — что-то заполнено неверно', done: false, trialUntil: null }
   }
 
-  await saveOnboarding(current.user.id, parsed.data)
+  // Телефон — необязательный контакт (не подтверждается). Занятый или неверный номер не блокирует анкету.
+  const rawPhone = String(formData.get('phone') ?? '').trim()
+  const phone = !current.user.phone && rawPhone ? normalizePhone(rawPhone) : null
+
+  await saveOnboarding(current.user.id, parsed.data, phone ? { phone } : undefined)
 
   const access = await getAccessForUser(current.user.id)
   const trialUntil = access.endsAt ? formatDateRu(access.endsAt) : null
