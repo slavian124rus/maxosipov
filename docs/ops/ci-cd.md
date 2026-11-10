@@ -64,3 +64,18 @@ docker compose --env-file .env --env-file .deploy.env -f docker/compose.prod.yml
 
 Первичный сид владельца и тренера по почте (один раз, идемпотентно):
 `docker compose exec -e NODE_ENV=production -e SEED_OWNER_EMAIL=... -e SEED_TRAINER_EMAIL=... web node dist/seed.js`.
+
+## Каталог упражнений по фото зала
+
+Тренажёры и упражнения (с фото вместо видео) лежат в `content/catalog/kolizey.ts`, подготовленные фото — в
+`content/catalog/photos/` (попадают в образ). Пуш кода каталог **не наполняет** — импорт запускается вручную,
+идемпотентно, ничего не удаляет и не трогает упражнения с видео:
+
+```bash
+cd /opt/maxosipov
+docker compose --env-file .env --env-file .deploy.env -f docker/compose.prod.yml exec web node dist/import-catalog.js            # всё в черновики
+docker compose --env-file .env --env-file .deploy.env -f docker/compose.prod.yml exec web node dist/import-catalog.js --publish  # + опубликовать записи без needsReview
+```
+
+Сначала без `--publish`, посмотреть черновики в кабинете тренера, потом с `--publish`. Записи с `needsReview` публикует
+вручную человек, который посмотрел фото (Максим).

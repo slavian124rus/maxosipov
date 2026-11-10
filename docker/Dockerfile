@@ -28,6 +28,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 RUN pnpm build \
  && pnpm exec esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --outfile=dist/migrate.js \
  && pnpm exec esbuild scripts/seed.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/seed.js \
+ && pnpm exec esbuild scripts/import-catalog.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/import-catalog.js \
  && pnpm exec esbuild src/worker/index.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/worker.js
 
 FROM node:22-bookworm-slim AS runner
@@ -65,6 +66,8 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/dist ./dist
+# Подготовленные фото тренажёров для `node dist/import-catalog.js` (docs/ops/ci-cd.md).
+COPY --from=build /app/content/catalog/photos ./content/catalog/photos
 
 EXPOSE 3000
 CMD ["node", "server.js"]

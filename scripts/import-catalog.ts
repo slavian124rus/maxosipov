@@ -13,11 +13,11 @@
  * если она уже готова (чтобы обновить фото, обнули `machines.photo_media_id`).
  *
  * Запуск: `pnpm catalog:import` · `pnpm catalog:import --publish`
+ * На сервере: `docker compose exec web node dist/import-catalog.js [--publish]` (docs/ops/ci-cd.md).
  */
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import {
   KOLIZEY_EXERCISES,
@@ -31,8 +31,11 @@ import { media, mediaDir, mediaRoot, safeJoin } from '@/modules/media'
 import { client, db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DEFAULT_PHOTOS_DIR = path.join(ROOT, 'content', 'catalog', 'photos')
+// Корень проекта — рабочий каталог процесса: репозиторий в dev (`pnpm catalog:import`), `/app` в контейнере.
+// `import.meta.url` не годится: скрипт собирается esbuild в CJS-бандл `dist/import-catalog.js`.
+const ROOT = process.cwd()
+const DEFAULT_PHOTOS_DIR =
+  process.env.CATALOG_PHOTOS_DIR ?? path.join(ROOT, 'content', 'catalog', 'photos')
 
 export type ImportOptions = {
   /** Публиковать записи без `needsReview`. По умолчанию всё остаётся в черновиках. */
