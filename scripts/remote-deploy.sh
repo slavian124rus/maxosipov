@@ -29,13 +29,21 @@ echo "→ ждём /api/health до 120 с"
 for _ in $(seq 1 60); do
   if curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok":true'; then
     echo "✓ приложение поднялось"
-    docker image prune -f >/dev/null
-    exit 0
+    # worker не имеет health-эндпоинта: даём ему 20 с и проверяем, что он не уходит в рестарты
+    sleep 20
+    if $COMPOSE ps --status running --services | grep -qx worker; then
+      echo "✓ worker работает"
+      docker image prune -f >/dev/null
+      exit 0
+    fi
+    echo "✗ worker не запустился" >&2
+    $COMPOSE logs --tail=50 worker >&2 || true
+    break
   fi
   sleep 2
 done
 
-echo "✗ приложение не ответило за 120 с" >&2
+echo "✗ деплой не прошёл проверки" >&2
 $COMPOSE logs --tail=100 web >&2 || true
 
 if [ -n "$PREV_IMAGE" ] && [ "$PREV_IMAGE" != "$IMAGE" ]; then

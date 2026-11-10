@@ -155,11 +155,16 @@ jobs:
 
       - name: Проверить сайт снаружи
         run: |
-          for url in https://maxosipov.ru https://app.maxosipov.ru/api/health; do
+          # дымовой тест: лендинг, health и маршрут входа (ловит ошибки загрузки нативных модулей вроде sharp)
+          for url in https://maxosipov.ru https://app.maxosipov.ru/api/health https://app.maxosipov.ru/api/auth/vk/start; do
             for i in $(seq 1 15); do
               code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
-              [ "$code" = "200" ] && { echo "✓ $url → 200"; continue 2; }
+              case "$url" in
+                */api/auth/*) ok=$([ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 500 ] && echo y) ;;
+                *) ok=$([ "$code" = "200" ] && echo y) ;;
+              esac
+              [ "$ok" = "y" ] && { echo "✓ $url → $code"; continue 2; }
               sleep 4
             done
-            echo "::error::$url не отвечает 200 (последний код: $code)"; exit 1
+            echo "::error::$url не прошёл проверку (последний код: $code)"; exit 1
           done

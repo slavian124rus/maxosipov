@@ -9,7 +9,7 @@ Workflow: `.github/workflows/ci-cd.yml`.
 
 Deploy по SSH (пользователь `deploy`) копирует `docker/compose.prod.yml` и `Caddyfile` в `/opt/maxosipov/docker/`,
 затем запускает `scripts/remote-deploy.sh`: `docker login ghcr.io` (временный токен), `compose pull`, `compose up -d`,
-ожидание `/api/health` до 120 с. Если приложение не поднялось — автоматический откат на прошлый образ.
+ожидание `/api/health` до 120 с и проверка, что `worker` работает. Если что-то не поднялось — автоматический откат на прошлый образ.
 Миграции БД применяет контейнер `web` при старте (`node dist/migrate.js`).
 
 Образ собирается в CI, а не на сервере: сборка (ffmpeg, mediapipe, Next.js) тяжёлая для VPS с 2 vCPU / 4 ГБ.

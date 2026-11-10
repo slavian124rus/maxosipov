@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS base
+# Сборка на том же дистрибутиве (Debian/glibc), что и runner: иначе в образ попадает
+# нативный sharp для alpine/musl и падает при запуске ("Could not load the sharp module").
+FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -25,7 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     MEDIA_URL_SIGNING_SECRET=build-time-placeholder-signing-secret
 RUN pnpm build \
  && pnpm exec esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --outfile=dist/migrate.js \
- && pnpm exec esbuild src/worker/index.ts --bundle --platform=node --format=cjs --outfile=dist/worker.js
+ && pnpm exec esbuild src/worker/index.ts --bundle --platform=node --format=cjs --external:sharp --outfile=dist/worker.js
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
