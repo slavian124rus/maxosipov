@@ -42,7 +42,7 @@ export default async function PeoplePage({
           <div key={person.id} className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3">
             <div className="flex flex-col">
               <span className="text-[15px] text-text">{person.name || 'Без имени'}</span>
-              <span className="text-[13px] text-text-muted">{person.phone}</span>
+              <span className="text-[13px] text-text-muted">{person.contact}</span>
             </div>
 
             <RoleForm
@@ -64,7 +64,7 @@ export default async function PeoplePage({
                   <option value="">Без тренера</option>
                   {trainers.map((trainer) => (
                     <option key={trainer.id} value={trainer.id}>
-                      {trainer.name || trainer.phone}
+                      {trainer.name || trainer.contact}
                     </option>
                   ))}
                 </select>

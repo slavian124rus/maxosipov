@@ -41,7 +41,7 @@
 | D13 | Максим видит предложения/изменения и только отмеченные (боль/травма) сообщения МаксИИму | Баланс контроля и приватности |
 | D14 | Бренд — личный (Максим), стилистика зала; бренд — настройки | Позже «KOLIZEY TEAM × Максим» без переделок |
 | D15 | «Мышцы на видео»: поза и силуэт находит MediaPipe Pose Landmarker на нашем сервере, мышцы рисует наш код по профилю движения; генеративные видео-модели не используются | Настоящее видео, предсказуемый результат, бесплатно; проверено пробой 2026-11-07 (`prototypes/muscle-overlay/`) |
-| D16 | Авторизация — своя (сессии, OTP, OAuth на `fetch`), без библиотек авторизации | Модель «телефон — главный ключ» без email; меньше «магии» для ИИ-исполнителя; всё покрыто тестами |
+| D16 | Авторизация — своя (сессии, OTP, OAuth на `fetch`), без библиотек авторизации | Ключ аккаунта — почта (код на почту, SMTP.bz), телефон — необязательный контакт; вход по телефону/СМС остаётся запасным; меньше «магии» для ИИ-исполнителя; всё покрыто тестами |
 | D17 | Упражнение без видео публикуется по фото тренажёра (подпись «Видео скоро») | Каталог наполняется сразу по фото зала, ролики доснимаются позже: карточка не пустая, а МаксИИм уже может предлагать упражнение |
 
 ## 3. Стек
@@ -54,7 +54,7 @@
 | Формы и валидация | react-hook-form + Zod (одни Zod-схемы на клиенте и сервере) |
 | БД | PostgreSQL (актуальная стабильная) |
 | ORM / миграции | Drizzle ORM + drizzle-kit |
-| Аутентификация | Собственная: сессии в БД (cookie `sid`, в БД — sha256 токена), OTP «телефон + код», OAuth 2.0 + PKCE для VK ID и Яндекс ID на `fetch` (D16) |
+| Аутентификация | Собственная: сессии в БД (cookie `sid`, в БД — sha256 токена), OTP «почта + код из 6 цифр, 10 мин» (основной) и «телефон + код» (запасной), OAuth 2.0 + PKCE для VK ID и Яндекс ID на `fetch` (D16) |
 | Данные на клиенте | TanStack Query; офлайн-хранилище и очередь — IndexedDB через Dexie |
 | PWA | Serwist (service worker, precache, runtime cache видео) |
 | Push | Web Push (VAPID), библиотека `web-push` |
@@ -76,7 +76,8 @@
               ┌────┴────┐
               │  caddy  │  HTTPS (Let's Encrypt), сжатие, кэш, отдача /media
               └────┬────┘
-   maxosipov.ru ───┤─── app.maxosipov.ru
+   maxosipov.ru ───┼─── app.maxosipov.ru
+                   └─── admin.maxosipov.ru
                    │
               ┌────┴────┐         ┌──────────┐
               │   web   │◄───────►│    db    │ PostgreSQL (+ очередь pg-boss)
@@ -91,7 +92,10 @@
 
 - `web` и `worker` собираются из одного Docker-образа, разные команды запуска.
 - **Маршрутизация по домену:** `proxy.ts` (конвенция Next 16, бывший `middleware.ts`) по заголовку `Host` направляет `maxosipov.ru` в группу
-  маршрутов `(site)`, `app.maxosipov.ru` — в `(app)`. Локально: `localhost:3000` → сайт, `app.localhost:3000` → приложение.
+  маршрутов `(site)`, `app.maxosipov.ru` — в `(app)` (клиентская часть), `admin.maxosipov.ru` — в `(app)/app/trainer` (кабинет тренера и админка владельца;
+  пути на этом домене сохраняют префикс `/trainer`, корень `/` открывает кабинет). На `app.*` пути `/trainer*` redirect 308 на `admin.*`.
+  Сессия общая: кука `sid` ставится на `.maxosipov.ru` (домен берётся из `APP_URL`), вход — один экран на оба домена.
+  Локально: `localhost:3000` → сайт, `app.localhost:3000` → приложение, `admin.localhost:3000` → кабинет.
 - **Медиа** лежат на томе `/data/media`, отдаются Caddy напрямую с долгим кэшем; доступ к роликам
   проверяется подписанными ссылками с коротким сроком жизни (выдаёт `web`).
 - **Бэкапы:** каждую ночь `pg_dump` + `/data/media` через restic во внешнее S3-совместимое хранилище в РФ;
@@ -473,6 +477,8 @@ AUTH_SECRET
 VK_CLIENT_ID  VK_CLIENT_SECRET
 YANDEX_CLIENT_ID  YANDEX_CLIENT_SECRET
 TELEGRAM_BOT_TOKEN  TELEGRAM_LEADS_CHAT_ID
+EMAIL_PROVIDER=console|smtpbz  SMTPBZ_API_KEY  EMAIL_FROM  EMAIL_FROM_NAME
+SEED_OWNER_EMAIL  SEED_TRAINER_EMAIL (первичный сид: `node dist/seed.js`)
 SMS_PROVIDER=smsru|smsaero|console  SMS_API_KEY  SMS_AERO_LOGIN  SMS_AERO_SIGN (последние два — только для smsaero)
 AI_BASE_URL=https://plusvibeapi.ru/v1  AI_API_KEY  AI_MODEL_MAIN  AI_MODEL_FAST  AI_MODEL_FALLBACK
 STT_PROVIDER=plusvibe|yandex  STT_MODEL  YANDEX_SPEECHKIT_KEY

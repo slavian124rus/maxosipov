@@ -6,7 +6,7 @@ import { env } from '@/shared/env'
 export const instant = false
 
 const LOGIN_ERRORS: Record<string, string> = {
-  oauth: 'Не получилось войти. Попробуй ещё раз или войди по номеру',
+  oauth: 'Не получилось войти. Попробуй ещё раз или войди по почте',
 }
 
 export default async function LoginPage({
@@ -45,6 +45,10 @@ export default async function LoginPage({
             <a href="/api/auth/yandex/start">Войти через Яндекс ID</a>
           </Button>
         ) : null}
+
+        <Button asChild variant="secondary">
+          <Link href="/login/email">Войти по почте</Link>
+        </Button>
 
         <Link
           href="/login/phone"

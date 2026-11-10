@@ -1,26 +1,45 @@
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import { index, integer, pgTable, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 /**
- * Пользователи. Телефон — главный ключ (E.164, подтверждён).
- * Вход, сессии и привязка способов входа — в этом же модуле.
+ * Пользователи. Главный ключ входа — почта (нижний регистр, подтверждена кодом из письма).
+ * Телефон (E.164) — контакт для тренера; у старых аккаунтов он подтверждён СМС, у новых — нет.
+ * Хотя бы одно из двух полей заполнено. Вход, сессии и привязка способов входа — в этом же модуле.
  */
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  phone: text('phone').notNull().unique(),
-  name: text('name').notNull(),
-  avatar: text('avatar'),
-  gymId: uuid('gym_id').notNull(),
-  roleId: uuid('role_id').notNull(),
-  trainerId: uuid('trainer_id').references((): AnyPgColumn => users.id),
-  onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
-  /** Согласие на обработку персональных данных (152-ФЗ). */
-  pdConsentAt: timestamp('pd_consent_at', { withTimezone: true }),
-  workoutMode: text('workout_mode').$type<'free' | 'guided'>().notNull().default('free'),
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').unique(),
+    phone: text('phone').unique(),
+    name: text('name').notNull(),
+    avatar: text('avatar'),
+    gymId: uuid('gym_id').notNull(),
+    roleId: uuid('role_id').notNull(),
+    trainerId: uuid('trainer_id').references((): AnyPgColumn => users.id),
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+    /** Согласие на обработку персональных данных (152-ФЗ). */
+    pdConsentAt: timestamp('pd_consent_at', { withTimezone: true }),
+    workoutMode: text('workout_mode').$type<'free' | 'guided'>().notNull().default('free'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('users_contact_check', sql`${table.email} is not null or ${table.phone} is not null`),
+  ],
+)
 
 /** Сессии: в базе только `sha256` токена, сам токен живёт в cookie `sid`. */
 export const sessions = pgTable(
@@ -39,7 +58,7 @@ export const sessions = pgTable(
   (table) => [index('sessions_user_id_idx').on(table.userId)],
 )
 
-export type AuthProvider = 'vk' | 'yandex' | 'phone'
+export type AuthProvider = 'vk' | 'yandex' | 'phone' | 'email'
 
 /** Способы входа, привязанные к пользователю. Один провайдерный аккаунт — один пользователь. */
 export const authAccounts = pgTable(
@@ -54,7 +73,9 @@ export const authAccounts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('auth_accounts_provider_account_unique').on(table.provider, table.providerUserId)],
+  (table) => [
+    unique('auth_accounts_provider_account_unique').on(table.provider, table.providerUserId),
+  ],
 )
 
 export type User = typeof users.$inferSelect
@@ -62,12 +83,13 @@ export type NewUser = typeof users.$inferInsert
 export type Session = typeof sessions.$inferSelect
 export type AuthAccount = typeof authAccounts.$inferSelect
 
-/** Одноразовые коды входа: в базе только `sha256`, сам код уходит в СМС. */
+/** Одноразовые коды входа: в базе только `sha256`, сам код уходит в СМС или письмом. Заполнено ровно одно из `phone` / `email`. */
 export const otpCodes = pgTable(
   'otp_codes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    phone: text('phone').notNull(),
+    phone: text('phone'),
+    email: text('email'),
     codeHash: text('code_hash').notNull(),
     ip: text('ip').notNull(),
     attempts: integer('attempts').notNull().default(0),
@@ -78,6 +100,7 @@ export const otpCodes = pgTable(
   },
   (table) => [
     index('otp_codes_phone_created_idx').on(table.phone, table.createdAt),
+    index('otp_codes_email_created_idx').on(table.email, table.createdAt),
     index('otp_codes_ip_created_idx').on(table.ip, table.createdAt),
   ],
 )
@@ -90,7 +113,7 @@ export type OtpCode = typeof otpCodes.$inferSelect
  */
 export const pendingLinks = pgTable('pending_links', {
   id: uuid('id').primaryKey().defaultRandom(),
-  provider: text('provider').$type<Exclude<AuthProvider, 'phone'>>().notNull(),
+  provider: text('provider').$type<Exclude<AuthProvider, 'phone' | 'email'>>().notNull(),
   providerUserId: text('provider_user_id').notNull(),
   name: text('name'),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -101,7 +124,7 @@ export const pendingLinks = pgTable('pending_links', {
 export type PendingLink = typeof pendingLinks.$inferSelect
 
 export type PendingLinkData = {
-  provider: Exclude<AuthProvider, 'phone'>
+  provider: Exclude<AuthProvider, 'phone' | 'email'>
   providerUserId: string
   name: string | null
 }
@@ -132,6 +155,3 @@ export const clientProfiles = pgTable('client_profiles', {
 })
 
 export type ClientProfile = typeof clientProfiles.$inferSelect
-
-
-

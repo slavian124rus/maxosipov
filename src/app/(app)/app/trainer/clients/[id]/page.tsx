@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { listExercises } from '@/modules/catalog'
-import { formatPhone } from '@/modules/auth'
+import { formatContact } from '@/modules/auth'
 import { getClientCard } from '@/modules/trainer'
 import { isNotFoundError } from '@/shared/errors'
 import { dayKey } from '@/shared/dates'
@@ -62,7 +62,7 @@ export default async function ClientCardPage({
     <main className="flex flex-col gap-4 px-4 py-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-[22px] font-semibold">{card.name}</h1>
-        <p className="text-[15px] text-text-secondary">{formatPhone(card.phone)}</p>
+        <p className="text-[15px] text-text-secondary">{formatContact(card.contact)}</p>
       </header>
 
       <nav className="flex gap-2 overflow-x-auto pb-1">

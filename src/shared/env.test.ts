@@ -63,3 +63,16 @@ test('missingAiEnv: перечисляет незаполненные перем
     }),
   ).toEqual(['YANDEX_SPEECHKIT_KEY'])
 })
+
+test('EMAIL_PROVIDER по умолчанию console', () => {
+  expect(parseEnv(base).EMAIL_PROVIDER).toBe('console')
+})
+
+test('EMAIL_PROVIDER=smtpbz требует ключ и адрес отправителя', () => {
+  expect(() => parseEnv({ ...base, EMAIL_PROVIDER: 'smtpbz' })).toThrow(/SMTPBZ_API_KEY/)
+  expect(() => parseEnv({ ...base, EMAIL_PROVIDER: 'smtpbz', SMTPBZ_API_KEY: 'k' })).toThrow(/EMAIL_FROM/)
+  expect(
+    parseEnv({ ...base, EMAIL_PROVIDER: 'smtpbz', SMTPBZ_API_KEY: 'k', EMAIL_FROM: 'noreply@maxosipov.ru' })
+      .EMAIL_PROVIDER,
+  ).toBe('smtpbz')
+})

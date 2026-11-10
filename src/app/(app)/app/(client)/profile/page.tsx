@@ -36,7 +36,7 @@ export default async function ProfilePage() {
 
       <div className="flex flex-col gap-1">
         <p className="text-[17px]">{user.name || 'Без имени'}</p>
-        <p className="text-[15px] text-text-secondary">{formatPhone(user.phone)}</p>
+        <p className="text-[15px] text-text-secondary">{user.phone ? formatPhone(user.phone) : user.email}</p>
         <p className="text-[15px] text-text-secondary">
           {accessLabel(access.status, access.endsAt, access.hasAccess)}
         </p>

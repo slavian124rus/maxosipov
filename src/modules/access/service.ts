@@ -18,8 +18,8 @@ export type GrantInput = {
   note?: string
 }
 
-function phoneHash(phone: string): string {
-  return createHash('sha256').update(`${phone}${env.AUTH_SECRET}`).digest('hex')
+function phoneHash(key: string): string {
+  return createHash('sha256').update(`${key}${env.AUTH_SECRET}`).digest('hex')
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -58,11 +58,11 @@ async function writeEvent(
 }
 
 /**
- * Пробный период: один раз на номер телефона. `true`, если выдан сейчас.
+ * Пробный период: один раз на ключ (номер телефона или `email:<канонический адрес>`). `true`, если выдан сейчас.
  * Номер «занимается» вставкой в `trial_registry` с `ON CONFLICT DO NOTHING` —
  * два параллельных входа не получат два пробных периода (ревью F5).
  */
-export async function startTrialIfEligible(userId: string, phone: string): Promise<boolean> {
+export async function startTrialIfEligible(userId: string, trialKey: string): Promise<boolean> {
   const gym = await getGym()
 
   return db.transaction(async (tx) => {
@@ -71,7 +71,7 @@ export async function startTrialIfEligible(userId: string, phone: string): Promi
     const now = new Date()
     const [claimed] = await tx
       .insert(trialRegistry)
-      .values({ phoneHash: phoneHash(phone), usedAt: now })
+      .values({ phoneHash: phoneHash(trialKey), usedAt: now })
       .onConflictDoNothing({ target: trialRegistry.phoneHash })
       .returning({ phoneHash: trialRegistry.phoneHash })
 

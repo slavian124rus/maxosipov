@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { maskPhone } from '../../login/forms'
 import { saveOnboardingAction, type OnboardingState } from '../actions'
 
 const INITIAL_ONBOARDING_STATE: OnboardingState = { error: null, done: false, trialUntil: null }
@@ -19,6 +20,7 @@ type Draft = {
   limitations: string
   healthConsent: boolean
   pdConsent: boolean
+  phone: string
 }
 
 const INITIAL_DRAFT: Draft = {
@@ -32,6 +34,7 @@ const INITIAL_DRAFT: Draft = {
   limitations: '',
   healthConsent: false,
   pdConsent: false,
+  phone: '',
 }
 
 const GOALS = [
@@ -106,7 +109,7 @@ function InstallHint({
   )
 }
 
-export function OnboardingSteps({ isIos }: { isIos: boolean }) {
+export function OnboardingSteps({ isIos, askPhone }: { isIos: boolean; askPhone: boolean }) {
   const [state, formAction, pending] = useActionState(
     saveOnboardingAction,
     INITIAL_ONBOARDING_STATE,
@@ -189,6 +192,7 @@ export function OnboardingSteps({ isIos }: { isIos: boolean }) {
       <input type="hidden" name="limitations" value={draft.limitations} />
       <input type="hidden" name="healthConsent" value={draft.healthConsent ? 'on' : ''} />
       <input type="hidden" name="pdConsent" value={draft.pdConsent ? 'on' : ''} />
+      {askPhone ? <input type="hidden" name="phone" value={draft.phone} /> : null}
 
       <div className="flex flex-1 flex-col gap-4">
         {step === 0 ? (
@@ -333,6 +337,19 @@ export function OnboardingSteps({ isIos }: { isIos: boolean }) {
         {step === 6 ? (
           <>
             <h1 className="text-[22px] font-semibold">Последний шаг</h1>
+            {askPhone ? (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="phone">Телефон для связи с тренером (необязательно)</Label>
+                <Input
+                  id="phone"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+7 (___) ___-__-__"
+                  value={draft.phone}
+                  onChange={(event) => setDraft({ ...draft, phone: maskPhone(event.target.value) })}
+                />
+              </div>
+            ) : null}
             <label className="flex items-start gap-3 text-[15px] text-text-secondary">
               <input
                 type="checkbox"

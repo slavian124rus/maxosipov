@@ -13,7 +13,8 @@ export async function listRoles(): Promise<Role[]> {
 export type PersonItem = {
   id: string
   name: string
-  phone: string
+  /** Телефон или, если его нет, почта. */
+  contact: string
   roleId: string
   roleName: string
   trainerId: string | null
@@ -28,6 +29,7 @@ export async function listPeople(actor: Actor, query = ''): Promise<PersonItem[]
       id: users.id,
       name: users.name,
       phone: users.phone,
+      email: users.email,
       roleId: users.roleId,
       roleName: roles.name,
       trainerId: users.trainerId,
@@ -40,12 +42,15 @@ export async function listPeople(actor: Actor, query = ''): Promise<PersonItem[]
   const text = query.trim().toLowerCase()
   const digits = query.replace(/\D/g, '')
 
-  return rows.filter(
-    (row) =>
-      !text ||
-      row.name.toLowerCase().includes(text) ||
-      (digits.length > 0 && row.phone.includes(digits)),
-  )
+  return rows
+    .filter(
+      (row) =>
+        !text ||
+        row.name.toLowerCase().includes(text) ||
+        (digits.length > 0 && (row.phone ?? '').includes(digits)) ||
+        (row.email ?? '').includes(text),
+    )
+    .map(({ phone, email, ...rest }) => ({ ...rest, contact: phone ?? email ?? '' }))
 }
 
 /** Привязывает клиента к тренеру (`users.trainer_id`). */

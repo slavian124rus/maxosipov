@@ -22,6 +22,7 @@ const validInput = {
 }
 
 let userId: string
+let clientRoleId: string
 
 beforeAll(async () => {
   await prepareTestDb()
@@ -34,6 +35,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetDb()
   const roles = await seedDefaultRoles()
+  clientRoleId = roles['Клиент']!.id
   const [row] = await db
     .insert(users)
     .values({
@@ -87,4 +89,29 @@ test('повторное сохранение обновляет профиль,
   const rows = await db.select().from(clientProfiles).where(eq(clientProfiles.userId, userId))
   expect(rows).toHaveLength(1)
   expect(rows[0]?.goal).toBe('fat_loss')
+})
+
+test('анкета клиента с почтой: свободный телефон сохраняется как контакт', async () => {
+  const [emailUser] = await db
+    .insert(users)
+    .values({ email: 'a@example.com', name: 'А', gymId: GYM_ID, roleId: clientRoleId })
+    .returning()
+
+  await saveOnboarding(emailUser!.id, validInput, { phone: '+79990000055' })
+
+  const [row] = await db.select().from(users).where(eq(users.id, emailUser!.id))
+  expect(row?.phone).toBe('+79990000055')
+})
+
+test('занятый телефон не блокирует анкету и не перезаписывается', async () => {
+  const [emailUser] = await db
+    .insert(users)
+    .values({ email: 'b@example.com', name: 'Б', gymId: GYM_ID, roleId: clientRoleId })
+    .returning()
+
+  await saveOnboarding(emailUser!.id, validInput, { phone: '+79990000011' })
+
+  const [row] = await db.select().from(users).where(eq(users.id, emailUser!.id))
+  expect(row?.phone).toBeNull()
+  expect(row?.onboardingCompletedAt).not.toBeNull()
 })

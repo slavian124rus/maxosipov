@@ -22,7 +22,7 @@ export default async function LoginCodePage({
         <p className="text-[15px] text-text-secondary">Отправили на {formatPhone(normalized)}</p>
       </div>
 
-      <CodeForm phone={normalized} linkId={link} />
+      <CodeForm target={{ kind: 'phone', phone: normalized }} linkId={link} />
     </main>
   )
 }

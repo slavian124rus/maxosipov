@@ -15,6 +15,7 @@ import { copyTemplateToClient, programDays, programExercises, programs } from '@
 import { client, db } from '@/shared/db'
 import { media } from '@/shared/db/schema'
 import { SEED_EXERCISES, SEED_MACHINES } from './seed-catalog'
+import { GYM_MACHINES } from './seed-gym-machines'
 
 const GYM_NAME = 'Колизей'
 
@@ -63,6 +64,10 @@ export type SeedOptions = {
   production: boolean
   ownerPhone?: string | undefined
   trainerPhone?: string | undefined
+  ownerEmail?: string | undefined
+  /** Добавить базовые тренажёры зала и упражнения-черновики без видео. */
+  gymMachines?: boolean | undefined
+  trainerEmail?: string | undefined
 }
 
 export type SeedResult = {
@@ -127,16 +132,21 @@ async function ensureHeadTrainer(gymId: string, trainerId: string): Promise<void
 }
 
 async function ensureUser(input: NewUser): Promise<string> {
+  const key = input.email ? ({ column: users.email, value: input.email } as const) : null
+  const phoneKey = input.phone ? ({ column: users.phone, value: input.phone } as const) : null
+  const found = key ?? phoneKey
+  if (!found) throw new Error('У пользователя сида нет ни почты, ни телефона')
+
   const [inserted] = await db
     .insert(users)
     .values(input)
-    .onConflictDoNothing({ target: users.phone })
+    .onConflictDoNothing({ target: found.column })
     .returning()
 
   if (inserted) return inserted.id
 
-  const [existing] = await db.select().from(users).where(eq(users.phone, input.phone)).limit(1)
-  if (!existing) throw new Error(`Не удалось создать пользователя ${input.phone}`)
+  const [existing] = await db.select().from(users).where(eq(found.column, found.value)).limit(1)
+  if (!existing) throw new Error(`Не удалось создать пользователя ${found.value}`)
   return existing.id
 }
 
@@ -262,6 +272,47 @@ async function ensureCatalog(gymId: string, ownerId: string): Promise<void> {
     } else {
       await db.insert(exercises).values(values)
     }
+  }
+}
+
+/** Базовые тренажёры зала и упражнения-черновики без видео (идемпотентно, по названию и slug). */
+async function ensureGymMachines(gymId: string): Promise<void> {
+  for (const item of GYM_MACHINES) {
+    let [machine] = await db
+      .select({ id: machines.id })
+      .from(machines)
+      .where(and(eq(machines.gymId, gymId), eq(machines.name, item.machine)))
+      .limit(1)
+
+    if (!machine) {
+      ;[machine] = await db
+        .insert(machines)
+        .values({ gymId, name: item.machine, zone: item.zone, weightStepKg: item.weightStepKg })
+        .returning({ id: machines.id })
+    }
+
+    const [existing] = await db
+      .select({ id: exercises.id })
+      .from(exercises)
+      .where(and(eq(exercises.gymId, gymId), eq(exercises.slug, item.slug)))
+      .limit(1)
+
+    // Существующие упражнения (в том числе уже отредактированные Максимом) не перезаписываем.
+    if (existing) continue
+
+    await db.insert(exercises).values({
+      gymId,
+      machineId: machine?.id ?? null,
+      name: item.name,
+      slug: item.slug,
+      primaryMuscles: item.primary,
+      secondaryMuscles: item.secondary,
+      steps: item.steps,
+      mistakes: item.mistakes,
+      defaultRepMin: item.repMin ?? 8,
+      defaultRepMax: item.repMax ?? 12,
+      status: 'draft',
+    })
   }
 }
 
@@ -392,9 +443,11 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
   let createdUsers = 0
 
   if (options.production) {
-    if (options.ownerPhone) {
+    if (options.gymMachines) await ensureGymMachines(gymId)
+    if (options.ownerPhone || options.ownerEmail) {
       await ensureUser({
-        phone: options.ownerPhone,
+        ...(options.ownerEmail ? { email: options.ownerEmail.trim().toLowerCase() } : {}),
+        ...(options.ownerPhone ? { phone: options.ownerPhone } : {}),
         name: 'Владелец',
         gymId,
         roleId: roleId(roleIds, 'Владелец'),
@@ -402,9 +455,10 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
       createdUsers += 1
     }
 
-    if (options.trainerPhone) {
+    if (options.trainerPhone || options.trainerEmail) {
       const headTrainerId = await ensureUser({
-        phone: options.trainerPhone,
+        ...(options.trainerEmail ? { email: options.trainerEmail.trim().toLowerCase() } : {}),
+        ...(options.trainerPhone ? { phone: options.trainerPhone } : {}),
         name: 'Максим Осипов',
         gymId,
         roleId: roleId(roleIds, 'Главный тренер'),
@@ -468,6 +522,9 @@ async function main(): Promise<void> {
     production: process.env.NODE_ENV === 'production',
     ownerPhone: process.env.SEED_OWNER_PHONE,
     trainerPhone: process.env.SEED_TRAINER_PHONE,
+    ownerEmail: process.env.SEED_OWNER_EMAIL,
+    trainerEmail: process.env.SEED_TRAINER_EMAIL,
+    gymMachines: process.env.SEED_GYM_MACHINES === '1',
   })
 
   const [userCount] = await client<{ count: string }[]>`select count(*) from users`

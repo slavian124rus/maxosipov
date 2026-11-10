@@ -10,6 +10,7 @@ import {
   listSessions,
   listTemplates,
 } from '@/modules/training'
+import { adminUrl } from '@/shared/app-url'
 import { env } from '@/shared/env'
 import { copyTemplateAction } from './actions'
 
@@ -29,6 +30,7 @@ function initials(name: string): string {
 
 export default async function TodayPage() {
   const { user } = await requireClientPage('/')
+  const isStaff = (await getAccessForUser(user.id)).bypass
 
   const gym = await getGym()
 
@@ -60,6 +62,15 @@ export default async function TodayPage() {
           {initials(user.name)}
         </Link>
       </header>
+
+      {isStaff ? (
+        <a
+          href={adminUrl('/').toString()}
+          className="flex h-12 items-center justify-center rounded-control border border-border bg-surface-1 text-[15px]"
+        >
+          Открыть кабинет
+        </a>
+      ) : null}
 
       {nextDay ? (
         <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">

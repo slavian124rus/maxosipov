@@ -44,6 +44,13 @@ const envSchema = z.object({
   SMS_AERO_LOGIN: optionalString,
   SMS_AERO_SIGN: optionalString,
 
+  // Почта: коды входа. console — печатает письмо в лог (dev), smtpbz — реальная отправка (SMTP.bz, HTTP API)
+  EMAIL_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['console', 'smtpbz']).default('console')),
+  SMTPBZ_API_KEY: optionalString,
+  /** Адрес отправителя, например noreply@maxosipov.ru; домен подтверждается в кабинете SMTP.bz. */
+  EMAIL_FROM: optionalString,
+  EMAIL_FROM_NAME: optionalString,
+
   // Telegram: заявки с лендинга дублируются в группу тренера (бот @maxosipov_leads_bot)
   TELEGRAM_BOT_TOKEN: optionalString,
   TELEGRAM_LEADS_CHAT_ID: optionalString,
@@ -85,6 +92,8 @@ const envSchema = z.object({
   // Сид
   SEED_OWNER_PHONE: optionalString,
   SEED_TRAINER_PHONE: optionalString,
+  SEED_OWNER_EMAIL: optionalString,
+  SEED_TRAINER_EMAIL: optionalString,
 })
 
 /**
@@ -95,6 +104,13 @@ function refineEnv(data: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void 
     for (const key of ['SMS_API_KEY', 'SMS_AERO_LOGIN'] as const) {
       if (!data[key]) {
         ctx.addIssue({ code: 'custom', path: [key], message: `${key} обязателен при SMS_PROVIDER=smsaero` })
+      }
+    }
+  }
+  if (data.EMAIL_PROVIDER === 'smtpbz') {
+    for (const key of ['SMTPBZ_API_KEY', 'EMAIL_FROM'] as const) {
+      if (!data[key]) {
+        ctx.addIssue({ code: 'custom', path: [key], message: `${key} обязателен при EMAIL_PROVIDER=smtpbz` })
       }
     }
   }

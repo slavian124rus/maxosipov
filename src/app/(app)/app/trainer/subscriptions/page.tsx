@@ -1,5 +1,5 @@
 import { listSubscriptionsForActor, type SubscriptionFilter } from '@/modules/access'
-import { formatPhone, requireUser } from '@/modules/auth'
+import { formatContact, requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
 import { notFound } from 'next/navigation'
@@ -58,10 +58,10 @@ export default async function TrainerSubscriptionsPage({
   // Только клиенты, которых актор вправе видеть (ревью F3).
   const items = await listSubscriptionsForActor(actor, { query: q, filter: activeFilter })
 
-  const view: SubscriptionRowView[] = items.map(({ userId, name, phone, access, events }) => ({
+  const view: SubscriptionRowView[] = items.map(({ userId, name, contact, access, events }) => ({
     id: userId,
     name,
-    phone: formatPhone(phone),
+    contact: formatContact(contact),
     statusLabel: statusLabel(access.status, access.hasAccess),
     endsAtLabel: access.endsAt ? formatDateRu(access.endsAt) : null,
     tone: !access.hasAccess ? 'danger' : (access.daysLeft ?? 99) <= 7 ? 'warning' : 'normal',

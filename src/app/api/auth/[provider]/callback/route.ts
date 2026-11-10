@@ -60,7 +60,7 @@ export async function GET(
       providerUserId: profile.providerUserId,
       name: profile.name,
     })
-    return NextResponse.redirect(appUrl(`/login/phone?link=${linkId}`))
+    return NextResponse.redirect(appUrl(`/login/email?link=${linkId}`))
   }
 
   let signedIn: { userId: string; isNew: boolean }

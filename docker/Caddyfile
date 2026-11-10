@@ -1,4 +1,4 @@
-maxosipov.ru, app.maxosipov.ru {
+maxosipov.ru, app.maxosipov.ru, admin.maxosipov.ru {
 	encode zstd gzip
 
 	# Медиа: Caddy сам отдаёт файлы, но только по подписанной ссылке.

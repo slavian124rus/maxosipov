@@ -7,3 +7,10 @@ import { env } from './env'
 export function appUrl(path: string, base: string = env.APP_URL): URL {
   return new URL(path, base.endsWith('/') ? base : `${base}/`)
 }
+
+/** Адрес кабинета: `app.maxosipov.ru` → `admin.maxosipov.ru` (ARCHITECTURE.md §4). */
+export function adminUrl(path: string = '/', base: string = env.APP_URL): URL {
+  const url = appUrl(path, base)
+  url.hostname = url.hostname.replace(/^app\./i, 'admin.')
+  return url
+}

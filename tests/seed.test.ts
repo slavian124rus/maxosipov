@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
 import { users } from '@/modules/auth'
 import { gyms } from '@/modules/gym'
+import { exercises, machines } from '@/modules/catalog'
 import { roles } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { runSeed } from '../scripts/seed'
@@ -46,4 +47,23 @@ test('dev-сид создаёт 7 пользователей и идемпоте
   expect(await db.select().from(users)).toHaveLength(7)
   expect(await db.select().from(roles)).toHaveLength(5)
   expect(await db.select().from(gyms)).toHaveLength(1)
+})
+
+test('production с gymMachines добавляет тренажёры и упражнения-черновики без видео, повтор не дублирует', async () => {
+  await runSeed({ production: true, gymMachines: true })
+  await runSeed({ production: true, gymMachines: true })
+
+  const machineRows = await db.select().from(machines)
+  const exerciseRows = await db.select().from(exercises)
+
+  expect(machineRows.length).toBeGreaterThanOrEqual(10)
+  expect(machineRows.length).toBeLessThanOrEqual(15)
+  expect(exerciseRows).toHaveLength(machineRows.length)
+  expect(exerciseRows.every((row) => row.status === 'draft' && row.videoMediaId === null)).toBe(true)
+  expect(exerciseRows.every((row) => row.primaryMuscles.length > 0 && row.machineId !== null)).toBe(true)
+})
+
+test('production без gymMachines каталог не трогает', async () => {
+  await runSeed({ production: true })
+  expect(await db.select().from(machines)).toHaveLength(0)
 })

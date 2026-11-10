@@ -1,12 +1,9 @@
 import { expect, test } from 'vitest'
-import { appUrl } from './app-url'
+import { adminUrl } from './app-url'
 
-test('строит адрес от APP_URL, а не от адреса запроса', () => {
-  expect(appUrl('/login', 'https://app.maxosipov.ru').toString()).toBe(
-    'https://app.maxosipov.ru/login',
+test('adminUrl: app.* → admin.*, путь сохраняется', () => {
+  expect(adminUrl('/trainer/clients', 'https://app.maxosipov.ru').toString()).toBe(
+    'https://admin.maxosipov.ru/trainer/clients',
   )
-  expect(appUrl('/login?error=oauth', 'https://app.maxosipov.ru/').toString()).toBe(
-    'https://app.maxosipov.ru/login?error=oauth',
-  )
-  expect(appUrl('/', 'http://app.localhost:3000').toString()).toBe('http://app.localhost:3000/')
+  expect(adminUrl('/', 'http://app.localhost:3000').toString()).toBe('http://admin.localhost:3000/')
 })

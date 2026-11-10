@@ -10,7 +10,8 @@ export type SubscriptionFilter = 'all' | 'trial' | 'ending' | 'expired'
 export type SubscriptionListItem = {
   userId: string
   name: string
-  phone: string
+  /** Телефон или, если его нет, почта. */
+  contact: string
   access: AccessState
   /** Последние события подписки (новые первыми), не больше 10. */
   events: SubscriptionEvent[]
@@ -26,12 +27,13 @@ function matchesFilter(access: AccessState, filter: SubscriptionFilter): boolean
   return true
 }
 
-function matchesQuery(user: { name: string; phone: string }, query: string): boolean {
+function matchesQuery(user: { name: string; phone: string | null; email: string | null }, query: string): boolean {
   const text = query.trim().toLowerCase()
   if (!text) return true
   const digits = query.replace(/\D/g, '')
   return (
-    user.name.toLowerCase().includes(text) || (digits.length > 0 && user.phone.includes(digits))
+    user.name.toLowerCase().includes(text) || (digits.length > 0 && (user.phone ?? '').includes(digits)) ||
+    (user.email ?? '').includes(text)
   )
 }
 
@@ -80,7 +82,7 @@ export async function listSubscriptionsForActor(
   return visible.map(({ user, access }) => ({
     userId: user.id,
     name: user.name,
-    phone: user.phone,
+    contact: user.phone ?? user.email ?? '',
     access,
     events: events.filter((event) => event.userId === user.id).slice(0, EVENTS_PER_CLIENT),
   }))
