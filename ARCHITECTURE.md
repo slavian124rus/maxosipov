@@ -42,6 +42,7 @@
 | D14 | Бренд — личный (Максим), стилистика зала; бренд — настройки | Позже «KOLIZEY TEAM × Максим» без переделок |
 | D15 | «Мышцы на видео»: поза и силуэт находит MediaPipe Pose Landmarker на нашем сервере, мышцы рисует наш код по профилю движения; генеративные видео-модели не используются | Настоящее видео, предсказуемый результат, бесплатно; проверено пробой 2026-11-07 (`prototypes/muscle-overlay/`) |
 | D16 | Авторизация — своя (сессии, OTP, OAuth на `fetch`), без библиотек авторизации | Модель «телефон — главный ключ» без email; меньше «магии» для ИИ-исполнителя; всё покрыто тестами |
+| D17 | Упражнение без видео публикуется по фото тренажёра (подпись «Видео скоро») | Каталог наполняется сразу по фото зала, ролики доснимаются позже: карточка не пустая, а МаксИИм уже может предлагать упражнение |
 
 ## 3. Стек
 
@@ -167,8 +168,8 @@
 **Каталог**
 - `muscles`: code (например `chest`, `lats`), name_ru, view (`front` | `back`), svg_layer_id. Фиксированный справочник (DESIGN.md §6.3), заполняется сидом.
 - `machines`: gym_id, name, photo_media_id, zone, weight_step_kg (например 5 или 2.5), weight_unit_note.
-- `exercises`: gym_id, machine_id (nullable — свободные веса), name, slug, primary_muscles[], secondary_muscles[], video_media_id, overlay_profile (`none` | `pull_vertical` | `pull_horizontal`), steps[] (как делать), mistakes[], tips, default_rep_min, default_rep_max, status (`draft` | `published`).
-- `media`: kind (`exercise_video` | `photo` | `progress_photo`), original_path, processed_paths (json: mp4, webm, poster, muscles_mp4?), status (`uploaded` | `processing` | `ready` | `failed`), error, owner_id.
+- `exercises`: gym_id, machine_id (nullable — свободные веса), name, slug, primary_muscles[], secondary_muscles[], video_media_id, overlay_profile (`none` | `pull_vertical` | `pull_horizontal`), steps[] (как делать), mistakes[], tips, default_rep_min, default_rep_max, status (`draft` | `published`). Условие публикации: ≥ 1 основная мышца + ≥ 1 шаг + (**готовое видео ИЛИ фото тренажёра**).
+- `media`: kind (`exercise_video` | `photo` | `progress_photo` | `machine_photo`), original_path, processed_paths (json: mp4, webm, poster, muscles_mp4?, photo, thumb), status (`uploaded` | `processing` | `ready` | `failed`), error, owner_id. `machine_photo` — фото тренажёра из `machines.photo_media_id`: оно заменяет видео в карточке упражнения, пока ролик не снят. `kind` — обычный `text` без CHECK-ограничения, поэтому новый вид файла миграции не требует.
 
 **Тренировки**
 - `programs`: gym_id, owner_id (null = шаблон), author_id, author_kind (`trainer` | `client` | `client_ai`), name, goal, status (`active` | `archived`), source_template_id.
@@ -382,6 +383,16 @@ dropPercent        = 10    # на сколько снижать
 5. Исходник хранится 30 дней после успешной обработки, затем удаляется. Промежуточные файлы
    (`norm.mp4`, `stab.trf`, `stab.mp4`, `loop.mp4`, `pose.npz`) удаляются сразу после шага.
    Загрузки, не доведённые до конца за 3 дня, чистятся ночной задачей `media.cleanup`.
+
+**Фото тренажёра вместо видео.** Пока ролик не снят, упражнение публикуется по фото своего тренажёра
+(`machines.photo_media_id`, `media.kind = 'machine_photo'`): в списке и в карточке показывается фото
+с подписью «Видео скоро», плеера и его кнопок нет. Такие фото не проходят видео-пайплайн и не ставятся
+в очередь: их готовит `pnpm catalog:photos` (sharp — `rotate()`, ≤ 1600 px по длинной стороне, WebP q80,
+EXIF не переносится, плюс миниатюра ≤ 400 px; рецепт тот же, что у фото прогресса), а в `MEDIA_ROOT`
+и в таблицу `media` со статусом `ready` их кладёт `pnpm catalog:import`. Подсветка мышц строится только
+по ролику, поэтому у упражнений без видео `overlay_profile = 'none'`; фигура мышц на 2D-силуэте
+работает как раньше. Как только видео готово, карточка сама переключается на плеер.
+
 
 Технические правила пайплайна (выяснены на реальных роликах, не менять без проверки):
 - **Поворот iPhone.** ffmpeg сам применяет тег поворота при чтении и убирает его из результата, поэтому
