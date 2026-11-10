@@ -1,6 +1,13 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { getGym } from '@/modules/gym'
-import { MUSCLE_OVERLAY_QUEUE, signMediaPath, VIDEO_URL_TTL_SEC } from '@/modules/media'
+import {
+  MUSCLE_OVERLAY_QUEUE,
+  signMediaPath,
+  VIDEO_URL_TTL_SEC,
+  type Media,
+  type ProcessedPaths,
+} from '@/modules/media'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
@@ -23,7 +30,13 @@ export type ExerciseListItem = {
   primaryMuscles: string[]
   secondaryMuscles: string[]
   status: string
+  /** Постер видео. Для упражнения без видео — `null`, вместо него берут `thumbUrl`. */
   posterUrl: string | null
+  /** Фото тренажёра: полное (≤ 1600) и миниатюра (≤ 400). `null`, если у тренажёра нет готового фото. */
+  photoUrl: string | null
+  thumbUrl: string | null
+  /** Есть ли готовый ролик. Пока видео нет, в карточке и в списке показываем фото тренажёра. */
+  hasVideo: boolean
   videoStatus: string | null
   hasMuscles: boolean
 }
@@ -84,17 +97,52 @@ async function scheduleOverlay(exercise: Exercise): Promise<void> {
   }
 }
 
-type PublishData = { videoMediaId: string | null; primaryMuscles: string[]; steps: string[] }
+type PublishData = {
+  videoMediaId: string | null
+  machineId: string | null
+  primaryMuscles: string[]
+  steps: string[]
+}
 
-/** Что мешает опубликовать упражнение; `null`, если всё в порядке. */
+/**
+ * Пути готового фото тренажёра. Фото показываем только если оно обработано и это
+ * действительно фото тренажёра: строка `media` чужого вида (например `progress_photo`
+ * клиента) не должна уехать в общий каталог по подписанной ссылке.
+ */
+function machinePhotoPaths(row: Media | null): ProcessedPaths | null {
+  if (!row || row.kind !== 'machine_photo' || row.status !== 'ready') return null
+  return row.processedPaths?.photo ? row.processedPaths : null
+}
+
+/** Есть ли у тренажёра готовое фото — им карточка заменяет видео, пока ролика нет. */
+async function findMachinePhoto(machineId: string | null): Promise<Media | null> {
+  if (!machineId) return null
+
+  const [row] = await db
+    .select({ photo: media })
+    .from(machines)
+    .innerJoin(media, eq(machines.photoMediaId, media.id))
+    .where(eq(machines.id, machineId))
+    .limit(1)
+
+  const paths = machinePhotoPaths(row?.photo ?? null)
+  return paths ? (row?.photo ?? null) : null
+}
+
+/**
+ * Что мешает опубликовать упражнение; `null`, если всё в порядке.
+ * Правило публикации: мышцы + шаги + (готовое видео **или** фото тренажёра).
+ */
 async function findPublishProblem(data: PublishData): Promise<string | null> {
-  if (!data.videoMediaId) return 'Добавь видео'
+  if (data.videoMediaId) {
+    const [video] = await db.select().from(media).where(eq(media.id, data.videoMediaId)).limit(1)
 
-  const [video] = await db.select().from(media).where(eq(media.id, data.videoMediaId)).limit(1)
-
-  if (!video) return 'Добавь видео'
-  if (video.status === 'processing') return 'Видео ещё обрабатывается'
-  if (video.status !== 'ready') return 'Видео не обработалось — загрузи новое'
+    if (!video) return 'Добавь видео или фото тренажёра'
+    if (video.status === 'processing') return 'Видео ещё обрабатывается'
+    if (video.status !== 'ready') return 'Видео не обработалось — загрузи новое'
+  } else if (!(await findMachinePhoto(data.machineId))) {
+    return 'Добавь видео или фото тренажёра'
+  }
 
   if (data.primaryMuscles.length === 0) return 'Отметь хотя бы одну основную мышцу'
   if (data.steps.length === 0) return 'Добавь хотя бы один шаг «Как делать»'
@@ -303,12 +351,16 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
     conditions.push(sql`replace(lower(${exercises.name}), 'ё', 'е') like ${normalized}`)
   }
 
-  // Одним запросом: упражнение + тренажёр + видео (раньше видео читалось отдельным запросом на каждую строку).
+  // Одним запросом: упражнение + тренажёр + видео + фото тренажёра (раньше видео читалось
+  // отдельным запросом на каждую строку). `machine_photo` — второй join той же таблицы media.
+  const machinePhoto = alias(media, 'machine_photo')
+
   const rows = await db
-    .select({ exercise: exercises, machineName: machines.name, video: media })
+    .select({ exercise: exercises, machineName: machines.name, video: media, photo: machinePhoto })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
     .leftJoin(media, eq(exercises.videoMediaId, media.id))
+    .leftJoin(machinePhoto, eq(machines.photoMediaId, machinePhoto.id))
     .where(and(...conditions))
     .orderBy(asc(exercises.name))
 
@@ -321,8 +373,9 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
     })
   }
 
-  return rows.map(({ exercise, machineName, video }) => {
+  return rows.map(({ exercise, machineName, video, photo }) => {
     const poster = video?.processedPaths?.poster
+    const photoPaths = machinePhotoPaths(photo)
 
     return {
       id: exercise.id,
@@ -333,6 +386,10 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
       secondaryMuscles: exercise.secondaryMuscles,
       status: exercise.status,
       posterUrl: poster ? signMediaPath(poster, VIDEO_URL_TTL_SEC) : null,
+      // Фото тренажёра — медиа каталога, живёт столько же, сколько постер видео.
+      photoUrl: photoPaths?.photo ? signMediaPath(photoPaths.photo, VIDEO_URL_TTL_SEC) : null,
+      thumbUrl: photoPaths?.thumb ? signMediaPath(photoPaths.thumb, VIDEO_URL_TTL_SEC) : null,
+      hasVideo: Boolean(video?.processedPaths?.mp4 || video?.processedPaths?.webm),
       videoStatus: video?.status ?? null,
       hasMuscles: exercise.overlayProfile !== 'none' && Boolean(video?.processedPaths?.musclesMp4),
     }
@@ -341,7 +398,7 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
 
 export type GetExerciseOptions = { includeDrafts?: boolean }
 
-/** Карточка упражнения по id или slug с подписанными ссылками на видео. */
+/** Карточка упражнения по id или slug с подписанными ссылками на видео и фото тренажёра. */
 export async function getExercise(
   idOrSlug: string,
   options: GetExerciseOptions = {},
@@ -349,7 +406,12 @@ export async function getExercise(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug)
 
   const [row] = await db
-    .select({ exercise: exercises, machineName: machines.name, weightStepKg: machines.weightStepKg })
+    .select({
+      exercise: exercises,
+      machineName: machines.name,
+      weightStepKg: machines.weightStepKg,
+      machinePhotoMediaId: machines.photoMediaId,
+    })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
     .where(isUuid ? eq(exercises.id, idOrSlug) : eq(exercises.slug, idOrSlug))
@@ -362,6 +424,11 @@ export async function getExercise(
   const [video] = row.exercise.videoMediaId
     ? await db.select().from(media).where(eq(media.id, row.exercise.videoMediaId)).limit(1)
     : []
+
+  const photoRow = row.machinePhotoMediaId
+    ? await db.select().from(media).where(eq(media.id, row.machinePhotoMediaId)).limit(1)
+    : []
+  const photoPaths = machinePhotoPaths(photoRow[0] ?? null)
 
   const paths = video?.processedPaths
   const showMuscles = row.exercise.overlayProfile !== 'none'
@@ -377,6 +444,10 @@ export async function getExercise(
     secondaryMuscles: row.exercise.secondaryMuscles,
     status: row.exercise.status,
     posterUrl: sign(paths?.poster),
+    // Фото тренажёра заменяет видео в карточке, пока ролика нет.
+    photoUrl: sign(photoPaths?.photo),
+    thumbUrl: sign(photoPaths?.thumb),
+    hasVideo: Boolean(paths?.mp4 || paths?.webm),
     steps: row.exercise.steps,
     mistakes: row.exercise.mistakes,
     tips: row.exercise.tips,

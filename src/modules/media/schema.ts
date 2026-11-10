@@ -1,6 +1,6 @@
 import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
-export type MediaKind = 'exercise_video' | 'photo' | 'progress_photo'
+export type MediaKind = 'exercise_video' | 'photo' | 'progress_photo' | 'machine_photo'
 export type MediaStatus = 'uploaded' | 'processing' | 'ready' | 'failed'
 
 export type ProcessedPaths = {
@@ -10,9 +10,9 @@ export type ProcessedPaths = {
   musclesMp4?: string
   /** Профиль, по которому сделан `musclesMp4`; при смене профиля подсветку пересчитываем. */
   musclesProfile?: string
-  /** Фото прогресса: полноразмерный webp (≤ 1600 по длинной стороне). */
+  /** Фото (прогресса или тренажёра): полноразмерный webp (≤ 1600 по длинной стороне). */
   photo?: string
-  /** Миниатюра для сетки (≤ 400). */
+  /** Миниатюра для сетки и списка каталога (≤ 400). */
   thumb?: string
 }
 

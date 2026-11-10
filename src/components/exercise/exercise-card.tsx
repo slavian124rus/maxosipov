@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ExercisePhoto } from '@/components/exercise/exercise-photo'
 import { ExerciseVideo } from '@/components/exercise/exercise-video'
 import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
 import { muscleName, type MuscleCode } from '@/shared/muscles'
@@ -25,16 +26,26 @@ export function ExerciseCard({ exercise }: { exercise: ExerciseDetail }) {
 
   const primary = exercise.primaryMuscles as MuscleCode[]
   const secondary = exercise.secondaryMuscles as MuscleCode[]
+  // Видео ещё не снято — показываем фото тренажёра и подпись «Видео скоро».
+  const hasVideo = Boolean(exercise.videoMp4Url || exercise.videoWebmUrl)
 
   return (
     <div className="flex flex-col gap-5 pb-24">
-      <ExerciseVideo
-        mp4={exercise.videoMp4Url}
-        webm={exercise.videoWebmUrl}
-        musclesMp4={exercise.musclesMp4Url}
-        poster={exercise.posterUrl}
-        name={exercise.name}
-      />
+      {hasVideo ? (
+        <ExerciseVideo
+          mp4={exercise.videoMp4Url}
+          webm={exercise.videoWebmUrl}
+          musclesMp4={exercise.musclesMp4Url}
+          poster={exercise.posterUrl}
+          name={exercise.name}
+        />
+      ) : (
+        <ExercisePhoto
+          src={exercise.photoUrl ?? exercise.thumbUrl}
+          machineName={exercise.machineName}
+          name={exercise.name}
+        />
+      )}
 
       <div className="flex flex-col gap-2 px-4">
         <h1 className="font-display text-[34px] leading-none font-medium">{exercise.name}</h1>

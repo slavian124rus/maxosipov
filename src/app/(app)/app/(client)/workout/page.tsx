@@ -73,7 +73,8 @@ export default async function WorkoutPage({
         repMax: entry.repMax,
         restSec: entry.restSec,
         stepKg: detail?.weightStepKg ?? 2.5,
-        posterUrl: detail?.posterUrl ?? null,
+        // Пока видео нет, в тренировке показываем фото тренажёра вместо пустого превью.
+        posterUrl: detail?.posterUrl ?? detail?.photoUrl ?? null,
         videoMp4Url: detail?.videoMp4Url ?? null,
         videoWebmUrl: detail?.videoWebmUrl ?? null,
         recommendation: recommendation

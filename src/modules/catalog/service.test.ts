@@ -6,7 +6,7 @@ import { gyms } from '@/modules/gym'
 import { media } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
-import { createExercise, getExercise, listExercises, publishExercise, updateExercise } from './service'
+import { createExercise, createMachine, getExercise, listExercises, publishExercise, updateExercise } from './service'
 import type { ExerciseInput } from './validation'
 
 vi.mock('@/shared/queue', () => ({ enqueueJob: vi.fn(async () => {}) }))
@@ -119,10 +119,206 @@ beforeEach(async () => {
   processingVideoId = processing!.id
 })
 
-test('публикация без видео → «Добавь видео»', async () => {
+/**
+ * Тренажёр с фото (`machine_photo`). `photo = null` — тренажёр без фото.
+ * Пути по умолчанию такие же, как после `processPhoto`: `photo.webp` + `thumb.webp`.
+ */
+async function createMachineWithPhoto(
+  name: string,
+  photo: {
+    kind?: 'machine_photo' | 'progress_photo'
+    status?: 'ready' | 'processing'
+    paths?: { photo?: string; thumb?: string } | null
+  } | null,
+): Promise<string> {
+  let photoMediaId: string | null = null
+
+  if (photo) {
+    const [row] = await db
+      .insert(media)
+      .values({
+        kind: photo.kind ?? 'machine_photo',
+        ownerId: actor.id,
+        status: photo.status ?? 'ready',
+        sizeBytes: 1000,
+        mime: 'image/webp',
+        totalChunks: 1,
+        processedPaths:
+          photo.paths === null
+            ? null
+            : (photo.paths ?? {
+                photo: '2026/11/machine/photo.webp',
+                thumb: '2026/11/machine/thumb.webp',
+              }),
+      })
+      .returning()
+
+    photoMediaId = row!.id
+  }
+
+  const machine = await createMachine(actor, { name, zone: 'Ноги', weightStepKg: 5, photoMediaId })
+  return machine.id
+}
+
+test('публикация без видео и без фото тренажёра → «Добавь видео или фото тренажёра»', async () => {
   const exercise = await createExercise(actor, baseInput)
-  await expect(publishExercise(actor, exercise.id)).rejects.toThrow('Добавь видео')
+  await expect(publishExercise(actor, exercise.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
 })
+
+test('без видео публикуется по готовому фото тренажёра', async () => {
+  const machineId = await createMachineWithPhoto('Жим ногами 45°', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+
+  expect((await publishExercise(actor, exercise.id)).status).toBe('published')
+})
+
+test('фото тренажёра ещё обрабатывается → не публикуем', async () => {
+  const machineId = await createMachineWithPhoto('Гакк-машина', { status: 'processing' })
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+
+  await expect(publishExercise(actor, exercise.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
+})
+
+test('у тренажёра нет готовых файлов фото → не публикуем', async () => {
+  const machineId = await createMachineWithPhoto('Бабочка', { paths: null })
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+
+  await expect(publishExercise(actor, exercise.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
+})
+test('фото прогресса клиента не заменяет фото тренажёра', async () => {
+  // Иначе личный снимок клиента уехал бы в общий каталог по подписанной ссылке.
+  const machineId = await createMachineWithPhoto('Скамья для пресса', { kind: 'progress_photo' })
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+
+  await expect(publishExercise(actor, exercise.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
+
+  const detail = await getExercise(exercise.id, { includeDrafts: true })
+  expect(detail?.photoUrl).toBeNull()
+  expect(detail?.thumbUrl).toBeNull()
+})
+
+test('фото чужого тренажёра не помогает опубликовать упражнение', async () => {
+  await createMachineWithPhoto('Тяга верхнего блока', {})
+  const exercise = await createExercise(actor, baseInput) // machineId: null
+
+  await expect(publishExercise(actor, exercise.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
+})
+
+test('мышцы и шаги обязательны и для упражнения с фото тренажёра', async () => {
+  const machineId = await createMachineWithPhoto('Жим ногами сидя', {})
+
+  const noMuscles = await createExercise(actor, {
+    ...baseInput,
+    name: 'Без мышц',
+    machineId,
+    primaryMuscles: [],
+  })
+  await expect(publishExercise(actor, noMuscles.id)).rejects.toThrow(
+    'Отметь хотя бы одну основную мышцу',
+  )
+
+  const noSteps = await createExercise(actor, { ...baseInput, name: 'Без шагов', machineId, steps: [] })
+  await expect(publishExercise(actor, noSteps.id)).rejects.toThrow(
+    'Добавь хотя бы один шаг «Как делать»',
+  )
+})
+
+test('getExercise отдаёт подписанные photoUrl и thumbUrl, когда видео нет', async () => {
+  const machineId = await createMachineWithPhoto('Сгибание ног лёжа', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+  await publishExercise(actor, exercise.id)
+
+  const detail = await getExercise(exercise.slug)
+  expect(detail?.videoMp4Url).toBeNull()
+  expect(detail?.hasVideo).toBe(false)
+  expect(detail?.photoUrl).toMatch(
+    /^\/media\/2026\/11\/machine\/photo\.webp\?exp=\d+&sig=[0-9a-f]+$/,
+  )
+  expect(detail?.thumbUrl).toMatch(
+    /^\/media\/2026\/11\/machine\/thumb\.webp\?exp=\d+&sig=[0-9a-f]+$/,
+  )
+})
+test('в списке упражнение без видео несёт фото тренажёра', async () => {
+  const machineId = await createMachineWithPhoto('Парта для бицепса', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+  await publishExercise(actor, exercise.id)
+
+  const [item] = await listExercises({ status: 'published' })
+  expect(item?.id).toBe(exercise.id)
+  expect(item?.hasVideo).toBe(false)
+  expect(item?.posterUrl).toBeNull()
+  expect(item?.photoUrl).toContain('machine/photo.webp')
+  expect(item?.thumbUrl).toContain('machine/thumb.webp')
+})
+
+test('у упражнения с видео постер остаётся постером видео', async () => {
+  const machineId = await createMachineWithPhoto('Рычажная тяга', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const [item] = await listExercises({ status: 'published' })
+  expect(item?.hasVideo).toBe(true)
+  expect(item?.posterUrl).toContain('ready/poster.webp')
+
+  const detail = await getExercise(exercise.slug)
+  expect(detail?.posterUrl).toContain('ready/poster.webp')
+  // Фото тренажёра всё равно отдаём: оно нужно, если видео заменят или ролик не загрузится.
+  expect(detail?.photoUrl).toContain('machine/photo.webp')
+})
+
+test('фото тренажёра в списке берётся только у своего тренажёра', async () => {
+  const withPhoto = await createMachineWithPhoto('Жим ногами 45°', {})
+  const withoutPhoto = await createMachineWithPhoto('Гакк-машина', null)
+
+  const first = await createExercise(actor, { ...baseInput, name: 'Жим ногами', machineId: withPhoto })
+  const second = await createExercise(actor, {
+    ...baseInput,
+    name: 'Гакк-приседания',
+    machineId: withoutPhoto,
+  })
+  await publishExercise(actor, first.id)
+  await expect(publishExercise(actor, second.id)).rejects.toThrow(
+    'Добавь видео или фото тренажёра',
+  )
+
+  const [item] = await listExercises({ status: 'published' })
+  expect(item?.name).toBe('Жим ногами')
+  expect(item?.thumbUrl).toContain('machine/thumb.webp')
+})
+
+test('опубликованное без видео уходит в черновики, если тренажёр заменить на тренажёр без фото', async () => {
+  const machineId = await createMachineWithPhoto('Брусья с упором на локтях', {})
+  const bare = await createMachineWithPhoto('Силовая рама', null)
+
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+  await publishExercise(actor, exercise.id)
+  expect((await getExercise(exercise.slug))?.status).toBe('published')
+
+  const updated = await updateExercise(actor, exercise.id, { ...baseInput, machineId: bare })
+  expect(updated.status).toBe('draft')
+  expect(await getExercise(exercise.slug)).toBeNull()
+})
+
+test('видео важнее фото: с готовым видео публикуется и тренажёр без фото', async () => {
+  const machineId = await createMachineWithPhoto('Тренажёр для голени', null)
+  const exercise = await createExercise(actor, { ...baseInput, machineId, videoMediaId: readyVideoId })
+
+  expect((await publishExercise(actor, exercise.id)).status).toBe('published')
+})
+
+
+
+
 
 test('публикация без основной мышцы → понятная ошибка', async () => {
   const exercise = await createExercise(actor, {

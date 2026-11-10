@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { clientProfiles, users } from '@/modules/auth'
 import { exercises, machines } from '@/modules/catalog'
 import { gyms } from '@/modules/gym'
+import { media } from '@/modules/media'
 import { programDays, programExercises, programs } from '@/modules/training'
 import { db } from '@/shared/db'
 import { resetDb, prepareTestDb, seedDefaultRoles, closeDb } from '../../../tests/db'
@@ -161,6 +162,47 @@ test('каталог содержит только опубликованные 
   expect(text).not.toContain('Секретное упражнение')
   expect(data.catalog.map((item) => item.id)).toContain(exerciseId)
   expect(data.catalog.map((item) => item.id)).not.toContain(draftExerciseId)
+})
+
+test('каталог содержит упражнение без видео, если оно опубликовано по фото тренажёра', async () => {
+  const [owner] = await db.select({ id: users.id }).from(users).limit(1)
+  const [photo] = await db
+    .insert(media)
+    .values({
+      kind: 'machine_photo',
+      ownerId: owner!.id,
+      status: 'ready',
+      sizeBytes: 100,
+      mime: 'image/webp',
+      totalChunks: 1,
+      processedPaths: { photo: '2026/11/m/photo.webp', thumb: '2026/11/m/thumb.webp' },
+    })
+    .returning()
+
+  const [machine] = await db
+    .insert(machines)
+    .values({ gymId, name: 'Гакк-машина', zone: 'Ноги', weightStepKg: 5, photoMediaId: photo!.id })
+    .returning()
+
+  const photoOnlyPublished = await addExercise('Гакк-приседания', 'published')
+  const photoOnlyDraft = await addExercise('Черновик без видео', 'draft')
+  await db
+    .update(exercises)
+    .set({ machineId: machine!.id, videoMediaId: null })
+    .where(eq(exercises.id, photoOnlyPublished))
+  await db
+    .update(exercises)
+    .set({ machineId: machine!.id, videoMediaId: null })
+    .where(eq(exercises.id, photoOnlyDraft))
+
+  const data = await loadContextData(clientId)
+  const ids = data.catalog.map((item) => item.id)
+
+  // Видео не требуется: опубликованное упражнение МаксИИм предлагает, черновик — нет.
+  expect(ids).toContain(photoOnlyPublished)
+  expect(ids).not.toContain(photoOnlyDraft)
+  expect(buildContextBlock(data)).toContain('Гакк-приседания')
+  expect(buildContextBlock(data)).not.toContain('Черновик без видео')
 })
 
 test('при согласии на здоровье появляется раздел «Ограничения»', async () => {

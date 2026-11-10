@@ -74,8 +74,12 @@ export default async function TrainerExercisesPage({
                 ) : null}
               </span>
               <span className="text-[13px] text-text-muted">
-                {item.machineName ?? 'Без тренажёра'} · видео:{' '}
-                {item.videoStatus ? (VIDEO_LABEL[item.videoStatus] ?? item.videoStatus) : 'нет'}
+                {item.machineName ?? 'Без тренажёра'} ·{' '}
+                {item.hasVideo
+                  ? `видео: ${VIDEO_LABEL[item.videoStatus ?? ''] ?? item.videoStatus ?? 'нет'}`
+                  : item.thumbUrl
+                    ? 'видео нет — в каталоге фото тренажёра'
+                    : 'видео нет'}
               </span>
             </Link>
           </li>
