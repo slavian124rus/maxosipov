@@ -116,14 +116,10 @@ export const KOLIZEY_MACHINES: CatalogMachine[] = [
     name: 'Тренажёр для сгибания ног сидя',
     zone: 'Ноги',
     weightStepKg: 5,
-    // Внизу кадра человек — обрезано детектором позы (осталось 42% кадра).
-    photo: {
-      file: 'photo_2026-10-16_21-46-27.jpg',
-      crop: { left: 167, top: 0, width: 625, height: 833 },
-    },
+    // Детектор позы ошибочно нашёл человека: на кадре людей нет, берём его целиком.
+    photo: { file: 'photo_2026-10-16_21-46-27.jpg', crop: null },
     needsReview: true,
-    reviewNote:
-      'Кадр обрезан, чтобы убрать человека; проверить, что тренажёр влез и это не комбо со разгибанием',
+    reviewNote: 'Проверить, что это именно сгибание ног сидя, а не разгибание',
   },
   {
     slug: 'rychazhnaya-tyaga-s-uporom-v-grud',
@@ -148,13 +144,10 @@ export const KOLIZEY_MACHINES: CatalogMachine[] = [
     name: 'Блочный жим от плеч сидя',
     zone: 'Плечи',
     weightStepKg: 2.5,
-    // Внизу кадра человек — обрезано детектором (лицо и поза, осталось 46% кадра).
-    photo: {
-      file: 'photo_2026-10-16_21-46-31 (2).jpg',
-      crop: { left: 155, top: 0, width: 650, height: 866 },
-    },
+    // Детектор ошибочно нашёл человека: на кадре людей нет, берём его целиком.
+    photo: { file: 'photo_2026-10-16_21-46-31 (2).jpg', crop: null },
     needsReview: true,
-    reviewNote: 'Кадр обрезан, чтобы убрать человека; проверить, что тренажёр влез',
+    reviewNote: 'Проверить, что это жим от плеч, а не другой блочный тренажёр',
   },
   {
     slug: 'trenazhyor-dlya-tricepsa',
