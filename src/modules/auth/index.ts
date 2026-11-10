@@ -7,6 +7,7 @@ export {
   createSession,
   destroySession,
   SESSION_COOKIE,
+  cookieDomainFor,
   sessionCookieOptions,
   validateSessionToken,
 } from './session'

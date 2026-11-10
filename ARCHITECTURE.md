@@ -75,7 +75,8 @@
               ┌────┴────┐
               │  caddy  │  HTTPS (Let's Encrypt), сжатие, кэш, отдача /media
               └────┬────┘
-   maxosipov.ru ───┤─── app.maxosipov.ru
+   maxosipov.ru ───┼─── app.maxosipov.ru
+                   └─── admin.maxosipov.ru
                    │
               ┌────┴────┐         ┌──────────┐
               │   web   │◄───────►│    db    │ PostgreSQL (+ очередь pg-boss)
@@ -90,7 +91,10 @@
 
 - `web` и `worker` собираются из одного Docker-образа, разные команды запуска.
 - **Маршрутизация по домену:** `proxy.ts` (конвенция Next 16, бывший `middleware.ts`) по заголовку `Host` направляет `maxosipov.ru` в группу
-  маршрутов `(site)`, `app.maxosipov.ru` — в `(app)`. Локально: `localhost:3000` → сайт, `app.localhost:3000` → приложение.
+  маршрутов `(site)`, `app.maxosipov.ru` — в `(app)` (клиентская часть), `admin.maxosipov.ru` — в `(app)/app/trainer` (кабинет тренера и админка владельца;
+  пути на этом домене сохраняют префикс `/trainer`, корень `/` открывает кабинет). На `app.*` пути `/trainer*` redirect 308 на `admin.*`.
+  Сессия общая: кука `sid` ставится на `.maxosipov.ru` (домен берётся из `APP_URL`), вход — один экран на оба домена.
+  Локально: `localhost:3000` → сайт, `app.localhost:3000` → приложение, `admin.localhost:3000` → кабинет.
 - **Медиа** лежат на томе `/data/media`, отдаются Caddy напрямую с долгим кэшем; доступ к роликам
   проверяется подписанными ссылками с коротким сроком жизни (выдаёт `web`).
 - **Бэкапы:** каждую ночь `pg_dump` + `/data/media` через restic во внешнее S3-совместимое хранилище в РФ;

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { db } from '@/shared/db'
+import { env } from '@/shared/env'
 import { sessions } from './schema'
 
 /** Cookie с токеном сессии. */
@@ -74,6 +75,16 @@ export async function destroySession(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
 }
 
+/**
+ * Домен куки: `app.maxosipov.ru` → `.maxosipov.ru`, чтобы сессия работала и на `admin.maxosipov.ru`.
+ * Локально (`app.localhost`, `localhost`) — без домена.
+ */
+export function cookieDomainFor(appUrl: string): string | undefined {
+  const { hostname } = new URL(appUrl)
+  const match = /^app\.(.+\..+)$/.exec(hostname)
+  return match?.[1] ? `.${match[1]}` : undefined
+}
+
 /** Параметры cookie `sid`: 90 дней, `httpOnly`, `secure` в production, `sameSite: 'lax'`. */
 export function sessionCookieOptions(expiresAt: Date) {
   return {
@@ -82,5 +93,11 @@ export function sessionCookieOptions(expiresAt: Date) {
     sameSite: 'lax' as const,
     path: '/',
     expires: expiresAt,
+    ...(process.env.NODE_ENV === 'production' ? domainOption() : {}),
   }
+}
+
+function domainOption(): { domain: string } | Record<string, never> {
+  const domain = cookieDomainFor(env.APP_URL)
+  return domain ? { domain } : {}
 }

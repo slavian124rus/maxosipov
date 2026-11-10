@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { users } from './schema'
 import { sessions } from './schema'
-import { createSession, destroySession, validateSessionToken } from './session'
+import { cookieDomainFor, createSession, destroySession, validateSessionToken } from './session'
 import { closeDb, prepareTestDb, resetDb, seedDefaultRoles } from '../../../tests/db'
 import { db } from '@/shared/db'
 
@@ -95,4 +95,11 @@ test('destroySession удаляет сессию', async () => {
 
 test('неизвестный токен → null', async () => {
   expect(await validateSessionToken('нет-такого-токена')).toBeNull()
+})
+
+test('cookieDomainFor: общая кука на поддоменах только для боевого домена', () => {
+  expect(cookieDomainFor('https://app.maxosipov.ru')).toBe('.maxosipov.ru')
+  expect(cookieDomainFor('https://app.maxosipov.ru/')).toBe('.maxosipov.ru')
+  expect(cookieDomainFor('http://app.localhost:3000')).toBeUndefined()
+  expect(cookieDomainFor('http://localhost:3000')).toBeUndefined()
 })
