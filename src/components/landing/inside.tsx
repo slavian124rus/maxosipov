@@ -13,7 +13,7 @@ type Props = {
 /** «Что внутри приложения»: переключаемые экраны с телефоном (интерактив в `InsideTabs`). */
 export function Inside({ eyebrow, title, items, lead, tabsLabel }: Props) {
   return (
-    <Section id="inside" eyebrow={eyebrow} title={title} lead={lead}>
+    <Section id="inside" eyebrow={eyebrow} title={title} lead={lead} className="overflow-x-clip">
       <InsideTabs items={items} label={tabsLabel} />
     </Section>
   )

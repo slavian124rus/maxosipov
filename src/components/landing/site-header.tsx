@@ -95,7 +95,7 @@ export function SiteHeader({
         solid ? 'border-border bg-bg/90 backdrop-blur-md' : 'border-transparent bg-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6 md:h-[72px]">
+      <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6 md:h-[72px]">
         <a
           href="#top"
           onClick={() => setOpen(false)}
@@ -135,7 +135,7 @@ export function SiteHeader({
           })}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <a
             href={loginHref}
             className="hidden h-11 items-center justify-center rounded-control px-4 text-[15px] font-semibold text-text transition-colors hover:bg-surface-2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:inline-flex"
@@ -144,7 +144,7 @@ export function SiteHeader({
           </a>
           <a
             href={loginHref}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-accent px-4 text-[15px] font-bold text-white transition-colors hover:bg-accent-pressed focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-accent px-3 text-[15px] font-bold min-[360px]:px-4 text-white transition-colors hover:bg-accent-pressed focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <span className="sm:hidden">{ctaShortLabel}</span>
             <span className="hidden sm:inline">{ctaLabel}</span>

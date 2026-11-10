@@ -22,7 +22,7 @@ export function Coach({ title, text }: Props) {
       lead={text}
       className="border-y border-border/60 bg-surface-1/40"
     >
-      <div className="grid items-start gap-10 lg:grid-cols-[1fr_460px] lg:gap-16">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-10 lg:grid-cols-[1fr_460px] lg:gap-16">
         <Reveal className="flex flex-col gap-3">
           <ul className="flex flex-col gap-4">
             {LANDING_UI.coach.points.map((point) => (
@@ -39,7 +39,7 @@ export function Coach({ title, text }: Props) {
           </ul>
         </Reveal>
 
-        <Reveal delay={0.1} className="flex w-full justify-center lg:justify-end">
+        <Reveal delay={0.1} className="flex w-full min-w-0 justify-center lg:justify-end">
           <CoachDialog
             scenarios={COACH_DEMO}
             avatar={LANDING_UI.coach.avatar}

@@ -87,7 +87,7 @@ export function CoachDialog({
   }
 
   return (
-    <div className="flex w-full flex-col gap-3 rounded-sheet border border-border bg-surface-1/80 p-4 md:max-w-[460px] md:p-5">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-3 rounded-sheet border border-border bg-surface-1/80 p-4 md:max-w-[460px] md:p-5">
       <div className="flex items-center gap-3 border-b border-border/70 pb-3">
         <span className="relative grid size-10 shrink-0 place-items-center rounded-full border border-muscle-primary/40 bg-muscle-primary/10 font-display text-[14px] text-text">
           {avatar}

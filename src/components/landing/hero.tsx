@@ -86,7 +86,7 @@ export function Hero({
   }, [])
 
   return (
-    <section id="top" className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-bg">
+    <section id="top" className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-bg max-lg:min-h-[max(100svh,910px)]">
       <div
         ref={photoRef}
         className="absolute inset-y-0 right-0 w-full will-change-transform lg:w-[74%] lg:[mask-image:linear-gradient(to_right,transparent_0%,#000_34%)]"
@@ -100,7 +100,7 @@ export function Hero({
             height={1280}
             fetchPriority="high"
             decoding="async"
-            className="size-full object-cover object-[50%_18%] lg:object-[50%_30%]"
+            className="size-full object-cover object-[50%_0%] lg:object-[50%_30%]"
           />
         </picture>
       </div>
@@ -125,7 +125,7 @@ export function Hero({
             {badge}
           </p>
 
-          <h1 className="font-display text-[44px] leading-[1] font-medium tracking-[-0.01em] text-balance text-text [text-shadow:0_2px_28px_rgba(0,0,0,.6)] sm:text-[56px] lg:text-[76px] lg:leading-[0.98]">
+          <h1 className="font-display text-[clamp(30px,11vw,44px)] leading-[1] font-medium tracking-[-0.01em] text-balance text-text [text-shadow:0_2px_28px_rgba(0,0,0,.6)] sm:text-[56px] lg:text-[76px] lg:leading-[0.98]">
             {renderTitle(title, accent)}
           </h1>
 
@@ -158,9 +158,9 @@ export function Hero({
             {stats.map((stat) => (
               <li
                 key={stat.label}
-                className="flex min-w-0 flex-col gap-1 rounded-card border border-text/15 bg-bg/70 px-3 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,.7)] backdrop-blur-lg sm:px-4"
+                className="flex min-w-0 flex-col gap-1 rounded-card border border-text/15 bg-bg/70 px-2.5 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,.7)] backdrop-blur-lg sm:px-4"
               >
-                <span className="font-display text-[24px] leading-none font-medium text-text sm:text-[32px]">
+                <span className="font-display text-[clamp(18px,5.6vw,24px)] leading-none font-medium text-text sm:text-[32px]">
                   {stat.value}
                 </span>
                 <span className="text-[12px] leading-snug text-text/80 sm:text-[13px]">{stat.label}</span>
