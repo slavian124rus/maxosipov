@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { exercises } from '@/modules/catalog'
-import { notify } from '@/modules/notifications'
+import { notifyThrottled } from '@/modules/notifications'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
@@ -23,7 +23,11 @@ import {
 
 export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 
-type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+/** Редактор шлёт патч на каждое действие: клиенту — не чаще одного push в полчаса. */
+const PROGRAM_UPDATED_THROTTLE_MS = 30 * 60 * 1000
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Executor = typeof db | Tx
 
 async function publishedExerciseIds(executor: Executor = db): Promise<Set<string>> {
   const rows = await executor
@@ -234,7 +238,7 @@ export async function applyProgramPatchAs(
   // Клиенту — «Максим обновил программу» (push). Ошибка уведомления не отменяет патч.
   if (actorKind === 'trainer' && next.ownerId && next.ownerId !== actor.id) {
     try {
-      await notify(next.ownerId, 'program_updated')
+      await notifyThrottled(next.ownerId, 'program_updated', {}, PROGRAM_UPDATED_THROTTLE_MS)
     } catch (error) {
       console.error('[training] не удалось уведомить об обновлении программы', error)
     }
@@ -249,10 +253,14 @@ export async function copyTemplateToClient(
   templateId: string,
   clientId: string,
   gymId: string,
+  /** Внешняя транзакция: так `assignTemplate` выдаёт шаблон нескольким клиентам «всё или ничего». */
+  outerTx?: Tx,
 ): Promise<ProgramTree> {
   if (actor.id !== clientId) {
     const [client] = await db.select().from(users).where(eq(users.id, clientId)).limit(1)
-    if (!client) throw new Error('Клиент не найден')
+    if (!client || client.gymId !== gymId || client.deletedAt !== null) {
+      throw new Error('Клиент не найден')
+    }
     assertCan(actor, 'clients.edit_programs', {
       clientId,
       clientTrainerId: client.trainerId,
@@ -262,8 +270,11 @@ export async function copyTemplateToClient(
   const template = await getProgramTree(templateId)
   if (!template || template.ownerId !== null) throw new Error('Шаблон не найден')
 
+  const inTransaction = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
+    outerTx ? fn(outerTx) : db.transaction(fn)
+
   const runOnce = (): Promise<ProgramTree> =>
-    db.transaction(async (tx) => {
+    inTransaction(async (tx) => {
     // Сериализуем параллельные копирования для одного клиента (F14):
     // блокировка снимается автоматически в конце транзакции.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${clientId}))`)
@@ -337,7 +348,7 @@ export async function copyTemplateToClient(
     try {
       return await runOnce()
     } catch (error) {
-      if (attempt === 0 && isUniqueViolation(error)) continue
+      if (!outerTx && attempt === 0 && isUniqueViolation(error)) continue
       throw error
     }
   }
@@ -345,7 +356,7 @@ export async function copyTemplateToClient(
   throw new Error('Не удалось создать программу')
 }
 
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&

@@ -1,0 +1,92 @@
+# Всё приложение локально одной командой (сайт, приложение, воркер, база):
+#   docker compose -f docker/compose.local.yml up --build
+# Режим разработки: исходники монтируются из папки проекта, правки подхватываются сразу.
+# Подробности — docs/ops/development.md.
+name: maxosipov-local
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.dev
+  image: maxosipov-dev
+  working_dir: /app
+  env_file: ../.env
+  # Значения ниже перекрывают .env: внутри сети compose база — это хост `db`, а не localhost:5433.
+  environment:
+    NODE_ENV: development
+    DATABASE_URL: postgres://app:app@db:5432/maxosipov
+    TEST_DATABASE_URL: postgres://app:app@db:5432/maxosipov_test
+    APP_URL: http://app.localhost:3000
+    SITE_URL: http://localhost:3000
+    MEDIA_ROOT: /data/media
+    PYTHON_PATH: /opt/mt/bin/python
+    MEDIA_TOOLS_DIR: /app/media-tools
+    HOSTNAME: 0.0.0.0
+    # Файловые события через монтирование Windows-папки не приходят — смотрим опросом.
+    WATCHPACK_POLLING: 'true'
+    CHOKIDAR_USEPOLLING: 'true'
+    # Хранилище pnpm на отдельном томе, чтобы не создавать .pnpm-store в папке проекта.
+    npm_config_store_dir: /pnpm/store
+    npm_config_package_import_method: copy
+  volumes:
+    - ..:/app
+    # node_modules и .next живут в томах: Windows-версии из папки проекта в Linux не работают.
+    - node_modules:/app/node_modules
+    - next_cache:/app/.next
+    - pnpm_store:/pnpm/store
+    - media:/data/media
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: maxosipov
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      # 5433 снаружи (5432 часто занят): подключайся из DBeaver/psql и запускай `pnpm test` с хоста
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d maxosipov']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Разовая подготовка: зависимости, миграции, тестовые данные (сид идемпотентен).
+  setup:
+    <<: *app
+    restart: 'no'
+    command: sh -c "pnpm install --frozen-lockfile && pnpm db:migrate && pnpm db:seed"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    restart: unless-stopped
+    command: pnpm dev -H 0.0.0.0
+    ports:
+      # сайт: http://localhost:3000, приложение: http://app.localhost:3000
+      - '3000:3000'
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    restart: unless-stopped
+    command: pnpm worker
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  node_modules:
+  next_cache:
+  pnpm_store:
+  media:

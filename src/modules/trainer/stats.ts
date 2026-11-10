@@ -1,7 +1,7 @@
 import { getTrialConversion } from '@/modules/access'
 import { countUserMessagesSince } from '@/modules/coach-ai'
 import { getGym } from '@/modules/gym'
-import { assertCan, type Actor } from '@/modules/rbac'
+import { assertCan, permissionScope, type Actor } from '@/modules/rbac'
 import { countFinishedSessionsSince } from '@/modules/training'
 import { listClients } from './clients'
 
@@ -21,7 +21,8 @@ export async function getStats(actor: Actor, now: Date = new Date()): Promise<Tr
   assertCan(actor, 'analytics.view')
 
   const gym = await getGym()
-  const clients = await listClients(actor)
+  // Метрики считаются по клиентам, которых актор видит; без права на клиентов — нули.
+  const clients = permissionScope(actor, 'clients.view') ? await listClients(actor) : []
   const ids = clients.map((client) => client.id)
   const since = new Date(now.getTime() - 7 * DAY_MS)
 
@@ -30,7 +31,7 @@ export async function getStats(actor: Actor, now: Date = new Date()): Promise<Tr
     (client) => client.access.status === 'trial' && client.access.hasAccess,
   ).length
 
-  const conversion = await getTrialConversion(now, gym.settings.trialDays)
+  const conversion = await getTrialConversion(now, gym.settings.trialDays, 90, ids)
 
   const [workoutsLast7d, aiMessagesLast7d] = await Promise.all([
     countFinishedSessionsSince(ids, since),

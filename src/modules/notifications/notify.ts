@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte } from 'drizzle-orm'
 import { db } from '@/shared/db'
-import { isPushConfigured, sendPush } from './push'
+import { isAllowedPushEndpoint, isPushConfigured, sendPush } from './push'
 import {
   notifications,
   pushSubscriptions,
@@ -63,6 +63,37 @@ export async function notify(
   }
 }
 
+/**
+ * Не чаще одного уведомления данного вида на человека за `windowMs`.
+ * Нужно там, где источник событий частый: редактор программы шлёт патч на каждый тап,
+ * а клиенту достаточно одного «Максим обновил программу».
+ */
+export async function notifyThrottled(
+  userId: string,
+  kind: NotificationKind,
+  data: NotificationData,
+  windowMs: number,
+): Promise<boolean> {
+  const since = new Date(Date.now() - windowMs)
+
+  const [recent] = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.kind, kind),
+        gte(notifications.createdAt, since),
+      ),
+    )
+    .limit(1)
+
+  if (recent) return false
+
+  await notify(userId, kind, data)
+  return true
+}
+
 /** Сохраняет подписку устройства; повторная подписка того же endpoint обновляет ключи. */
 export async function subscribePush(
   userId: string,
@@ -74,6 +105,8 @@ export async function subscribePush(
   const auth = subscription.keys?.auth
 
   if (!endpoint || !p256dh || !auth) throw new Error('Некорректная подписка')
+  if (p256dh.length > 256 || auth.length > 256) throw new Error('Некорректная подписка')
+  if (!isAllowedPushEndpoint(endpoint)) throw new Error('Некорректная подписка')
 
   await db
     .insert(pushSubscriptions)

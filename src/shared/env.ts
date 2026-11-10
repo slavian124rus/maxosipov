@@ -38,8 +38,15 @@ const envSchema = z.object({
   YANDEX_CLIENT_SECRET: optionalString,
 
   // СМС
-  SMS_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['smsru', 'console']).default('console')),
+  SMS_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['smsru', 'smsaero', 'console']).default('console')),
   SMS_API_KEY: optionalString,
+  // Только для SMS Aero: логин из кабинета и имя отправителя (по умолчанию бесплатное «SMS Aero»).
+  SMS_AERO_LOGIN: optionalString,
+  SMS_AERO_SIGN: optionalString,
+
+  // Telegram: заявки с лендинга дублируются в группу тренера (бот @maxosipov_leads_bot)
+  TELEGRAM_BOT_TOKEN: optionalString,
+  TELEGRAM_LEADS_CHAT_ID: optionalString,
 
   // ИИ
   AI_BASE_URL: z.preprocess(emptyToUndefined, z.url().default('https://plusvibeapi.ru/v1')),
@@ -81,9 +88,16 @@ const envSchema = z.object({
 })
 
 /**
- * Проверки, которые нельзя выразить одной схемой: `SMS_API_KEY` обязателен для СМС.ру.
+ * Проверки, которые нельзя выразить одной схемой: `SMS_API_KEY` обязателен для СМС.ру и SMS Aero (у SMS Aero ещё `SMS_AERO_LOGIN`).
  */
 function refineEnv(data: z.infer<typeof envSchema>, ctx: z.RefinementCtx): void {
+  if (data.SMS_PROVIDER === 'smsaero') {
+    for (const key of ['SMS_API_KEY', 'SMS_AERO_LOGIN'] as const) {
+      if (!data[key]) {
+        ctx.addIssue({ code: 'custom', path: [key], message: `${key} обязателен при SMS_PROVIDER=smsaero` })
+      }
+    }
+  }
   if (data.SMS_PROVIDER === 'smsru' && !data.SMS_API_KEY) {
     ctx.addIssue({
       code: 'custom',

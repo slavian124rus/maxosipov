@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
+import { PushOptIn } from '@/components/app/push-opt-in'
+import { env } from '@/shared/env'
 
 // Меню «Ещё» зависит от сессии и прав.
 export const instant = false
@@ -55,6 +57,8 @@ export default async function TrainerSettingsPage() {
           Мои тренировки
         </Link>
       </div>
+
+      <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
     </main>
   )
 }

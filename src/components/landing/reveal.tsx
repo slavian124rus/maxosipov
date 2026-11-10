@@ -1,35 +1,24 @@
-'use client'
-
-import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 
 type Props = {
   children: ReactNode
   /** Задержка в секундах — для появления реплик по очереди (план, задача 1). */
   delay?: number
-  /** Насколько сильно блок «выезжает» снизу, px. */
-  offset?: number
   className?: string
-  /** Доля блока, при которой начинается анимация. */
-  amount?: number
 }
 
 /**
- * Появление блока при прокрутке (Motion `whileInView`, DESIGN.md §5: 150–250 мс, easeOut).
- * При `prefers-reduced-motion` анимации нет — контент виден сразу.
+ * Появление блока при прокрутке (Motion, DESIGN.md §5: 250 мс, easeOut).
+ *
+ * В SSR это обычный полностью видимый блок с меткой `data-reveal`: контент не
+ * красится в `opacity: 0` до гидратации и читается без JS (LCP, SEO, доступность).
+ * Анимацию навешивает `RevealDriver` после `load`, подгружая Motion лениво, —
+ * библиотека не попадает в критический путь первого экрана.
  */
-export function Reveal({ children, delay = 0, offset = 20, className, amount = 0.2 }: Props) {
-  const reduced = useReducedMotion()
-
+export function Reveal({ children, delay = 0, className }: Props) {
   return (
-    <motion.div
-      className={className}
-      initial={reduced ? false : { opacity: 0, y: offset }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount }}
-      transition={{ duration: 0.25, ease: 'easeOut', delay }}
-    >
+    <div className={className} data-reveal="" data-reveal-delay={delay > 0 ? delay : undefined}>
       {children}
-    </motion.div>
+    </div>
   )
 }

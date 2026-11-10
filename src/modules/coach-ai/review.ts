@@ -5,15 +5,15 @@ import { can, permissionScope, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { NotFoundError } from '@/shared/errors'
 import {
+  aiProposals,
   applyPatch,
   diffPrograms,
-  getProgramAuthorKinds,
   getProgramTree,
+  programs,
   type ProgramDiffLine,
   type ProgramPatch,
 } from '@/modules/training'
 import { aiMessages } from './schema'
-import { aiProposals } from '@/modules/training'
 
 export type FlagContextLine = { role: 'user' | 'assistant'; content: string; flagged: string | null }
 
@@ -241,19 +241,23 @@ async function proposalLine(payload: unknown, programId: string | null): Promise
   }
 }
 
-/** Принятые изменения МаксИИма в программах тренера: лента «Сегодня» и вкладка «МаксИИм». */
+/**
+ * Принятые изменения МаксИИма в программах тренера: лента «Сегодня» и вкладка «МаксИИм».
+ * Область прав и «программа тренера» проверяются в самом запросе, чтобы `limit` резал уже
+ * отфильтрованные строки: иначе чужие изменения вытесняли бы свои из первых N.
+ */
 export async function listAcceptedProposals(
   actor: Actor,
   options: { unseenOnly?: boolean; clientId?: string; limit?: number } = {},
 ): Promise<TrainerProposalItem[]> {
-  if (!can(actor, 'clients.view_ai_flags')) return []
+  const scope = permissionScope(actor, 'clients.view_ai_flags')
+  if (scope === null) return []
 
   const rows = await db
     .select({
       id: aiProposals.id,
       clientId: aiProposals.userId,
       clientName: users.name,
-      clientTrainerId: users.trainerId,
       programId: aiProposals.programId,
       payload: aiProposals.payload,
       diff: aiProposals.diff,
@@ -262,9 +266,15 @@ export async function listAcceptedProposals(
     })
     .from(aiProposals)
     .innerJoin(users, eq(users.id, aiProposals.userId))
+    .innerJoin(programs, eq(programs.id, aiProposals.programId))
     .where(
       and(
         eq(aiProposals.status, 'accepted'),
+        // Только программы, которые ведёт тренер: свои клиентские изменения ему не нужны.
+        eq(programs.authorKind, 'trainer'),
+        isNull(users.deletedAt),
+        eq(users.gymId, actor.gymId),
+        scope === 'own' ? eq(users.trainerId, actor.id) : undefined,
         options.unseenOnly ? isNull(aiProposals.trainerSeenAt) : undefined,
         options.clientId ? eq(aiProposals.userId, options.clientId) : undefined,
       ),
@@ -272,24 +282,9 @@ export async function listAcceptedProposals(
     .orderBy(desc(aiProposals.createdAt))
     .limit(options.limit ?? 20)
 
-  const authorKinds = await getProgramAuthorKinds(
-    rows.map((row) => row.programId).filter((id): id is string => Boolean(id)),
-  )
-
   const items: TrainerProposalItem[] = []
 
   for (const row of rows) {
-    // Только программы, которые ведёт тренер: свои клиентские изменения ему не нужны.
-    if (!row.programId || authorKinds.get(row.programId) !== 'trainer') continue
-    if (
-      !can(actor, 'clients.view_ai_flags', {
-        clientId: row.clientId,
-        clientTrainerId: row.clientTrainerId,
-      })
-    ) {
-      continue
-    }
-
     items.push({
       id: row.id,
       clientId: row.clientId,

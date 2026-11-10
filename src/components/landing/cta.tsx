@@ -11,7 +11,7 @@ type Props = {
 
 /**
  * Красная кнопка лендинга — всегда ведёт на `${APP_URL}/login` (план, Global Constraints).
- * Текст 19 px полужирный: на акцентном фоне это «крупный текст» по WCAG, контраст ≥ 3:1.
+ * Текст 19 px жирный (700): на акцентном фоне это «крупный текст» по WCAG, порог 3:1.
  */
 export function CtaLink({ href, children, size = 'lg', className }: Props) {
   const padding = size === 'lg' ? 'h-14 px-7 text-[19px]' : 'h-12 px-6 text-[17px]'
@@ -19,7 +19,7 @@ export function CtaLink({ href, children, size = 'lg', className }: Props) {
   return (
     <a
       href={href}
-      className={`inline-flex items-center justify-center gap-2 rounded-control bg-accent font-semibold text-white transition-colors hover:bg-accent-pressed focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${padding} ${className ?? ''}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-control bg-accent font-bold text-white transition-colors hover:bg-accent-pressed focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${padding} ${className ?? ''}`}
     >
       {children}
       <ArrowRight size={20} strokeWidth={1.75} aria-hidden="true" />

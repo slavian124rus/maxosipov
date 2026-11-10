@@ -15,6 +15,39 @@ export type PushResult = 'sent' | 'gone' | 'failed'
 export const PUSH_ICON = '/icons/icon-192.png'
 
 /**
+ * Адрес подписки приходит от клиента, а сервер потом сам отправляет на него запрос.
+ * Принимаем только https-адреса настоящих push-сервисов браузеров: FCM (Chrome, Edge, Яндекс),
+ * Mozilla autopush, Apple (Safari/PWA на iPhone), Windows Push. Иначе любой вошедший клиент
+ * мог бы заставить сервер слать запросы во внутреннюю сеть (SSRF).
+ */
+const PUSH_HOST_SUFFIXES = [
+  'googleapis.com',
+  'push.services.mozilla.com',
+  'push.apple.com',
+  'notify.windows.com',
+]
+
+const MAX_ENDPOINT_LENGTH = 2048
+
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  if (endpoint.length > MAX_ENDPOINT_LENGTH) return false
+
+  let url: URL
+  try {
+    url = new URL(endpoint)
+  } catch {
+    return false
+  }
+
+  if (url.protocol !== 'https:' || url.port !== '' || url.username !== '' || url.password !== '') {
+    return false
+  }
+
+  const host = url.hostname.toLowerCase()
+  return PUSH_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`))
+}
+
+/**
  * Ключи читаем из `process.env` в момент отправки: `env` — снимок на старте,
  * а push опционален (без ключей приложение работает, уведомления просто не уходят).
  */

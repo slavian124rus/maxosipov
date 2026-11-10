@@ -24,9 +24,9 @@ export type PersonSchema = {
 }
 
 /**
- * Разбирает адрес из `content/landing.ts` («Красноярск, ул. Говорова, зал «Колизей»»)
- * на город, улицу и название зала. Номера дома в контенте нет — значит, его не будет
- * и в разметке: выдумывать `streetAddress` нельзя (план, задача 4).
+ * Разбирает адрес из `content/landing.ts` («Красноярск, ул. Говорова, 57, Аллея») на город,
+ * улицу с номером дома и название зала, если оно есть в строке. Зал без номера в адресе
+ * (старый формат «…, зал «Колизей»») тоже разбирается; чего нет в контенте — того нет в разметке.
  */
 export function splitAddress(address: string): { locality: string; street: string; gym: string } {
   const parts = address
@@ -34,11 +34,20 @@ export function splitAddress(address: string): { locality: string; street: strin
     .map((part) => part.trim())
     .filter(Boolean)
 
-  const gymPart = parts.slice(2).join(', ')
+  let street = parts[1] ?? ''
+  let rest = parts.slice(2)
+
+  // Номер дома — часть улицы: «ул. Говорова, 57».
+  if (rest[0] && /^\d/.test(rest[0])) {
+    street = `${street}, ${rest[0]}`
+    rest = rest.slice(1)
+  }
+
+  const gymPart = rest.find((part) => /зал/i.test(part)) ?? ''
 
   return {
     locality: parts[0] ?? '',
-    street: parts[1] ?? '',
+    street,
     gym: gymPart.replace(/^зал\s*/i, '').replace(/[«»]/g, '').trim(),
   }
 }

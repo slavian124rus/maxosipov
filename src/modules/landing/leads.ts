@@ -2,7 +2,7 @@ import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { normalizePhone, users } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
-import { notify } from '@/modules/notifications'
+import { notify, notifyLeadInTelegram } from '@/modules/notifications'
 import { assertCan, can, roles, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { leads, type Lead } from './schema'
@@ -108,11 +108,18 @@ export async function createLead(
 }
 
 /**
- * Уведомляет всех сотрудников зала с правом `clients.view` (план, задача 3).
+ * Дублирует заявку в Telegram-группу и уведомляет всех сотрудников зала с правом `clients.view` (план, задача 3).
  * Право проверяется через `rbac.can`, а не сравнением роли (CLAUDE.md §2.7);
  * сначала фильтр по залу и праву, потом отправка — без лишних адресатов.
  */
 async function notifyAboutLead(lead: Lead): Promise<void> {
+  // Telegram-группа тренера: сбой не должен лишать сотрудников уведомления в приложении.
+  try {
+    await notifyLeadInTelegram({ name: lead.name, phone: lead.phone })
+  } catch (error) {
+    console.error('[landing] заявка не ушла в Telegram', error)
+  }
+
   const gym = await getGym()
 
   const staff = await db

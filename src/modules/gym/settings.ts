@@ -10,33 +10,49 @@ const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Цвет в формат
 const priceSchema = z.record(
   z.string().min(1),
   z.object({
-    inPer1k: z.number().min(0).max(100_000),
-    outPer1k: z.number().min(0).max(100_000),
+    inPer1k: z.number().min(0, 'Цена не может быть отрицательной').max(100_000, 'Цена слишком большая'),
+    outPer1k: z.number().min(0, 'Цена не может быть отрицательной').max(100_000, 'Цена слишком большая'),
   }),
 )
 
 export const aiSettingsSchema = z.object({
-  aiMemo: z.string().max(2000),
-  aiDailyLimit: z.number().int().min(0).max(200),
+  aiMemo: z.string().max(2000, 'Памятка — не длиннее 2000 символов'),
+  aiDailyLimit: z
+    .number()
+    .int('Лимит — целое число')
+    .min(0, 'Лимит сообщений — от 0 до 200 в сутки')
+    .max(200, 'Лимит сообщений — от 0 до 200 в сутки'),
   aiPrices: priceSchema,
 })
 
 export const progressionRulesSchema = z.object({
-  sessionsToIncrease: z.number().int().min(1).max(5),
+  sessionsToIncrease: z
+    .number()
+    .int()
+    .min(1, 'Тренировок подряд для повышения — от 1 до 5')
+    .max(5, 'Тренировок подряд для повышения — от 1 до 5'),
   fastTrackOnEasy: z.boolean(),
-  failSessionsToDrop: z.number().int().min(1).max(5),
-  dropPercent: z.number().int().min(5).max(30),
+  failSessionsToDrop: z
+    .number()
+    .int()
+    .min(1, 'Тренировок с недобором для снижения — от 1 до 5')
+    .max(5, 'Тренировок с недобором для снижения — от 1 до 5'),
+  dropPercent: z
+    .number()
+    .int()
+    .min(5, 'Снижение веса — от 5 до 30 %')
+    .max(30, 'Снижение веса — от 5 до 30 %'),
 })
 
 export const brandSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  shortName: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1, 'Укажи название').max(80, 'Название — до 80 символов'),
+  shortName: z.string().trim().min(1, 'Укажи короткое имя').max(40, 'Короткое имя — до 40 символов'),
   accent: hexColor,
   logoMediaId: z.string().uuid().nullable().optional(),
 })
 
 export const contactsSchema = z.object({
-  phone: z.string().trim().max(30).nullable(),
+  phone: z.string().trim().max(30, 'Телефон слишком длинный').nullable(),
   photoMediaId: z.string().uuid().nullable().optional(),
 })
 

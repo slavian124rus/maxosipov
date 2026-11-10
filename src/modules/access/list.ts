@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { assertCan, permissionScope, roles, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
@@ -86,40 +86,57 @@ export async function listSubscriptionsForActor(
   }))
 }
 
-/** Конверсия пробного периода: у скольких из закончившихся за период проб был `granted`. */
+/**
+ * Конверсия пробного периода: у скольких из закончившихся за период проб был `granted`.
+ * Из базы читаются только пробы, закончившиеся в окне, и выдачи их владельцев — не вся история.
+ * `userIds` сужает расчёт до видимых актору клиентов.
+ */
 export async function getTrialConversion(
   now: Date,
   trialDays: number,
   days = 90,
+  userIds?: string[],
 ): Promise<{ paid: number; total: number }> {
+  if (userIds && userIds.length === 0) return { paid: 0, total: 0 }
+
   const windowStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
   const trialMs = trialDays * 24 * 60 * 60 * 1000
 
-  const events = await db
-    .select({ userId: subscriptionEvents.userId, type: subscriptionEvents.type, createdAt: subscriptionEvents.createdAt })
+  const starts = await db
+    .select({ userId: subscriptionEvents.userId, createdAt: subscriptionEvents.createdAt })
     .from(subscriptionEvents)
-
-  const starts = events.filter(
-    (event) =>
-      event.type === 'trial_started' &&
-      event.createdAt.getTime() + trialMs <= now.getTime() &&
-      event.createdAt.getTime() >= windowStart.getTime() - trialMs,
-  )
-
-  let paid = 0
-
-  for (const start of starts) {
-    const granted = events.some(
-      (event) =>
-        event.type === 'granted' &&
-        event.userId === start.userId &&
-        event.createdAt.getTime() >= start.createdAt.getTime(),
+    .where(
+      and(
+        eq(subscriptionEvents.type, 'trial_started'),
+        gte(subscriptionEvents.createdAt, new Date(windowStart.getTime() - trialMs)),
+        lte(subscriptionEvents.createdAt, new Date(now.getTime() - trialMs)),
+        userIds ? inArray(subscriptionEvents.userId, userIds) : undefined,
+      ),
     )
-    if (granted) paid += 1
-  }
+
+  if (starts.length === 0) return { paid: 0, total: 0 }
+
+  const grants = await db
+    .select({ userId: subscriptionEvents.userId, createdAt: subscriptionEvents.createdAt })
+    .from(subscriptionEvents)
+    .where(
+      and(
+        eq(subscriptionEvents.type, 'granted'),
+        inArray(subscriptionEvents.userId, [...new Set(starts.map((start) => start.userId))]),
+      ),
+    )
+
+  const paid = starts.filter((start) =>
+    grants.some(
+      (grant) =>
+        grant.userId === start.userId && grant.createdAt.getTime() >= start.createdAt.getTime(),
+    ),
+  ).length
 
   return { paid, total: starts.length }
 }
+
+/** История подписки одного клиента — с проверкой права на этого клиента. */
 export async function listSubscriptionEvents(
   actor: Actor,
   userId: string,

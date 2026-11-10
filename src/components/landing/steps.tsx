@@ -20,22 +20,23 @@ export function Steps({ steps, ctaHref }: Props) {
       title={LANDING_UI.steps.title}
       className="border-t border-border/60"
     >
-      <ol className="grid gap-8 md:grid-cols-3 md:gap-6">
+      <ol className="grid gap-4 md:grid-cols-3 md:gap-6">
         {steps.map((step, index) => (
-          <Reveal
-            key={step}
-            delay={index * 0.08}
-            className="relative flex flex-col gap-2 border-t border-border pt-5 md:border-0 md:pt-0"
-          >
-            <span
-              aria-hidden="true"
-              className="font-display text-[56px] leading-none font-medium text-accent md:text-[72px]"
+          <li key={step} className="relative">
+            <Reveal
+              delay={index * 0.08}
+              className="flex h-full flex-col gap-3 rounded-card border border-border bg-surface-1 p-5 transition-colors hover:border-muscle-primary/50 md:p-6"
             >
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <span className="sr-only">{`Шаг ${index + 1}`}</span>
-            <p className="max-w-[320px] text-[17px] leading-snug text-text md:text-[20px]">{step}</p>
-          </Reveal>
+              <span
+                aria-hidden="true"
+                className="font-display text-[56px] leading-none font-medium text-accent md:text-[72px]"
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="sr-only">{`Шаг ${index + 1}`}</span>
+              <p className="text-[17px] leading-snug text-text md:text-[20px]">{step}</p>
+            </Reveal>
+          </li>
         ))}
       </ol>
 

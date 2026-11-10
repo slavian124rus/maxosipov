@@ -1,5 +1,5 @@
 import type { PgBoss } from 'pg-boss'
-import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 import { aiMessages } from '@/modules/coach-ai'
 import { getGym, getHeadTrainerId } from '@/modules/gym'
 import { notify } from '@/modules/notifications'
@@ -19,13 +19,19 @@ const TZ = 'Asia/Krasnoyarsk'
 const DAY_MS = 24 * 60 * 60 * 1000
 const ENDING_DAYS = 7
 
-function daysLeft(endsAt: Date, now: Date): number {
-  return Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS)
-}
+/** Напоминание «закончилась» шлём, пока с конца доступа прошло не больше этого срока. */
+const ENDED_WINDOW_DAYS = 2
+
+/** «Осталось 3 дня» — текст из плана дословный, поэтому шлём ровно за 3 дня до конца. */
+const ENDING_REMINDER_DAYS = 3
 
 /**
  * Клиентам: «заканчивается через 3 дня» и «закончилась».
  * `dedupeKey` содержит дату окончания — повторный запуск задачи ничего не дублирует.
+ *
+ * Почему в выборке и `expired`: задача `subscriptions.expire` раз в час переводит истёкшие
+ * `trial`/`active` в `expired`, к 10:00 «закончившиеся» подписки уже в этом статусе.
+ * Замороженные и отключённые подписки напоминаний не получают.
  */
 export async function sendClientReminders(now: Date = new Date()): Promise<{ ending: number; ended: number }> {
   const gym = await getGym()
@@ -35,31 +41,38 @@ export async function sendClientReminders(now: Date = new Date()): Promise<{ end
     .select({ userId: subscriptions.userId, status: subscriptions.status, endsAt: subscriptions.endsAt })
     .from(subscriptions)
     .innerJoin(users, eq(users.id, subscriptions.userId))
-    .where(and(inArray(subscriptions.status, ['trial', 'active']), isNull(users.deletedAt)))
+    .where(
+      and(
+        inArray(subscriptions.status, ['trial', 'active', 'expired']),
+        gte(subscriptions.endsAt, new Date(now.getTime() - ENDED_WINDOW_DAYS * DAY_MS)),
+        lte(subscriptions.endsAt, new Date(now.getTime() + ENDING_REMINDER_DAYS * DAY_MS)),
+        isNull(users.deletedAt),
+      ),
+    )
 
   let ending = 0
   let ended = 0
 
   for (const row of rows) {
     const date = dayKey(row.endsAt, timeZone)
-    const left = daysLeft(row.endsAt, now)
 
-    if (left >= 0 && left <= 3) {
-      await notify(row.userId, 'sub_ends_3d', {}, `sub3d:${row.userId}:${date}`)
-      ending += 1
+    if (row.endsAt.getTime() <= now.getTime()) {
+      await notify(row.userId, 'sub_ended', {}, `subend:${row.userId}:${date}`)
+      ended += 1
       continue
     }
 
-    if (left < 0) {
-      await notify(row.userId, 'sub_ended', {}, `subend:${row.userId}:${date}`)
-      ended += 1
+    const left = Math.ceil((row.endsAt.getTime() - now.getTime()) / DAY_MS)
+    if (row.status !== 'expired' && left === ENDING_REMINDER_DAYS) {
+      await notify(row.userId, 'sub_ends_3d', {}, `sub3d:${row.userId}:${date}`)
+      ending += 1
     }
   }
 
   return { ending, ended }
 }
 
-/** Тренеру: сводка на сегодня (истекающий доступ и неразобранные жалобы). */
+/** Тренеру: сводка на сегодня (истекающий доступ и все неразобранные жалобы, как в ленте). */
 export async function sendTrainerDaily(now: Date = new Date()): Promise<{ expiring: number; pain: number }> {
   const trainerId = await getHeadTrainerId()
   if (!trainerId) return { expiring: 0, pain: 0 }
@@ -78,7 +91,7 @@ export async function sendTrainerDaily(now: Date = new Date()): Promise<{ expiri
         lte(subscriptions.endsAt, until),
         gte(subscriptions.endsAt, now),
         isNull(users.deletedAt),
-        eq(users.trainerId, trainerId),
+        or(eq(users.trainerId, trainerId), isNull(users.trainerId)),
       ),
     )
 
@@ -90,10 +103,10 @@ export async function sendTrainerDaily(now: Date = new Date()): Promise<{ expiri
     .where(
       and(
         eq(roles.isClient, true),
-        eq(users.trainerId, trainerId),
+        or(eq(users.trainerId, trainerId), isNull(users.trainerId)),
+        isNull(users.deletedAt),
         sql`${aiMessages.flagged} is not null`,
         isNull(aiMessages.resolvedAt),
-        gte(aiMessages.createdAt, new Date(now.getTime() - ENDING_DAYS * DAY_MS)),
       ),
     )
 

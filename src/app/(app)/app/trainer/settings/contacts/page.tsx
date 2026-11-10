@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveContactsAction } from '../actions'
 
 // Настройки зависят от сессии и прав.
@@ -20,7 +21,7 @@ export default async function ContactsSettingsPage() {
         Телефон показывается клиенту на экране «Подписка закончилась» и в кнопке «Позвонить».
       </p>
 
-      <form action={saveContactsAction} className="flex flex-col gap-4">
+      <ActionForm action={saveContactsAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-[15px] text-text">
           Телефон Максима
           <input
@@ -35,7 +36,7 @@ export default async function ContactsSettingsPage() {
         <button type="submit" className="h-12 rounded-control bg-accent text-[15px] text-white">
           Сохранить
         </button>
-      </form>
+      </ActionForm>
     </main>
   )
 }

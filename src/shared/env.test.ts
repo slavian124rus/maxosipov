@@ -36,6 +36,14 @@ test('smsru без SMS_API_KEY — ошибка', () => {
   expect(() => parseEnv({ ...base, SMS_PROVIDER: 'smsru' })).toThrow(/SMS_API_KEY/)
 })
 
+test('smsaero без SMS_AERO_LOGIN — ошибка, с ключом и логином — ок', () => {
+  expect(() => parseEnv({ ...base, SMS_PROVIDER: 'smsaero', SMS_API_KEY: 'k' })).toThrow(/SMS_AERO_LOGIN/)
+  expect(() => parseEnv({ ...base, SMS_PROVIDER: 'smsaero', SMS_AERO_LOGIN: 'a@b.ru' })).toThrow(/SMS_API_KEY/)
+  expect(
+    parseEnv({ ...base, SMS_PROVIDER: 'smsaero', SMS_API_KEY: 'k', SMS_AERO_LOGIN: 'a@b.ru' }).SMS_PROVIDER,
+  ).toBe('smsaero')
+})
+
 test('missingAiEnv: перечисляет незаполненные переменные МаксИИма', async () => {
   const { missingAiEnv } = await import('./env')
   expect(missingAiEnv({})).toEqual([

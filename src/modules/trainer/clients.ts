@@ -159,11 +159,14 @@ export async function getClientCard(actor: Actor, clientId: string): Promise<Cli
   const viewPhotos = can(actor, 'clients.view_photos', target)
   const photos = viewPhotos ? await listProgressPhotos(actor, clientId) : []
 
-  const notes = await db
-    .select()
-    .from(trainerNotes)
-    .where(eq(trainerNotes.clientId, clientId))
-    .orderBy(trainerNotes.createdAt)
+  // Заметки приватны: без права `clients.notes` вкладка пустая и форма не показывается.
+  const notes = can(actor, 'clients.notes', target)
+    ? await db
+        .select()
+        .from(trainerNotes)
+        .where(eq(trainerNotes.clientId, clientId))
+        .orderBy(trainerNotes.createdAt)
+    : []
 
   // Полная переписка тренеру не видна: только жалобы и предложения (ARCHITECTURE.md §9.9).
   const viewAiFlags = can(actor, 'clients.view_ai_flags', target)

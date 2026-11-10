@@ -5,23 +5,26 @@ import { addMeasurement } from '@/modules/body'
 import { requireUser } from '@/modules/auth'
 import { resolveFlag } from '@/modules/coach-ai'
 import { addNote } from '@/modules/trainer'
+import { formFailure } from '../form-errors'
+import { SAVED_FORM_STATE, type FormState } from '../form-state'
 
 /** Заметка тренера о клиенте; «показать клиенту» — галочка в форме. */
-export async function addNoteAction(formData: FormData): Promise<void> {
+export async function addNoteAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
   const clientId = String(formData.get('clientId') ?? '')
   const text = String(formData.get('text') ?? '')
   const visibleToClient = formData.get('visible') === 'on'
 
-  if (!clientId) return
+  if (!clientId) return { error: 'Не выбран клиент', saved: false }
 
   try {
     await addNote(actor, clientId, { text, visibleToClient })
   } catch (error) {
-    console.error('[trainer] заметка не сохранена', error)
+    return formFailure(error, 'Заметка не сохранена')
   }
 
   revalidatePath(`/trainer/clients/${clientId}`)
+  return SAVED_FORM_STATE
 }
 
 /** «Разобрался» на карточке клиента: жалоба уходит из ленты и из вкладки. */

@@ -4,6 +4,7 @@ import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
 import { env } from '@/shared/env'
 import { MemoField } from '@/components/trainer/settings/memo-field'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveAiSettingsAction } from '../actions'
 
 // Настройки зависят от сессии и прав.
@@ -26,7 +27,7 @@ export default async function AiSettingsPage() {
     <main className="flex flex-col gap-5 px-4 py-6">
       <h1 className="text-[22px] font-semibold">МаксИИм</h1>
 
-      <form action={saveAiSettingsAction} className="flex flex-col gap-4">
+      <ActionForm action={saveAiSettingsAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-[15px] text-text">Памятка МаксИИма</p>
           <p className="text-[13px] text-text-muted">
@@ -84,7 +85,7 @@ export default async function AiSettingsPage() {
         <button type="submit" className="h-12 rounded-control bg-accent text-[15px] text-white">
           Сохранить
         </button>
-      </form>
+      </ActionForm>
 
       <a href="/trainer/settings/stats" className="text-[15px] text-accent">
         Расход за месяц

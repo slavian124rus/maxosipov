@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listRoles, PERMISSIONS, PERMISSION_GROUPS, PERMISSION_LABELS } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveRoleAction } from '../../actions'
 
 // Редактор роли зависит от сессии и прав.
@@ -29,7 +30,7 @@ export default async function RoleEditorPage({ params }: { params: Promise<{ id:
           Системную роль «Владелец» изменить нельзя: у неё всегда все права.
         </p>
       ) : (
-        <form action={saveRoleAction} className="flex flex-col gap-4">
+        <ActionForm action={saveRoleAction} className="flex flex-col gap-4">
           <input type="hidden" name="id" value={role.id} />
 
           <label className="flex flex-col gap-1 text-[15px] text-text">
@@ -69,7 +70,7 @@ export default async function RoleEditorPage({ params }: { params: Promise<{ id:
           <button type="submit" className="h-12 rounded-control bg-accent text-[15px] text-white">
             Сохранить роль
           </button>
-        </form>
+        </ActionForm>
       )}
     </main>
   )

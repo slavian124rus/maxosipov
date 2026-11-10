@@ -56,8 +56,31 @@ export async function setClientTrainer(
 ): Promise<void> {
   assertCan(actor, 'users.assign_roles')
 
-  const [client] = await db.select().from(users).where(eq(users.id, clientId)).limit(1)
-  if (!client) throw new Error('Пользователь не найден')
+  const [client] = await db
+    .select({ user: users, isClient: roles.isClient })
+    .from(users)
+    .innerJoin(roles, eq(users.roleId, roles.id))
+    .where(eq(users.id, clientId))
+    .limit(1)
+
+  if (!client || client.user.gymId !== actor.gymId || client.user.deletedAt !== null) {
+    throw new Error('Пользователь не найден')
+  }
+  if (!client.isClient) throw new Error('Тренера можно назначить только клиенту')
+
+  if (trainerId !== null) {
+    const [trainer] = await db
+      .select({ user: users, isClient: roles.isClient })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.id, trainerId))
+      .limit(1)
+
+    if (!trainer || trainer.user.gymId !== actor.gymId || trainer.user.deletedAt !== null) {
+      throw new Error('Тренер не найден')
+    }
+    if (trainer.isClient) throw new Error('Тренером может быть только сотрудник зала')
+  }
 
   await db
     .update(users)
@@ -68,7 +91,7 @@ export async function setClientTrainer(
     actorId: actor.id,
     action: 'trainer.assign',
     target: clientId,
-    before: { trainerId: client.trainerId },
+    before: { trainerId: client.user.trainerId },
     after: { trainerId },
   })
 }

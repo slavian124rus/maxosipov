@@ -46,9 +46,11 @@ export async function addNote(
   return note
 }
 
-/** Все заметки клиента для тренера: старые сверху, как их читают. */
+/** Все заметки клиента для тренера (право `clients.notes`): старые сверху, как их читают. */
 export async function listNotes(actor: Actor, clientId: string): Promise<TrainerNote[]> {
   await assertClientVisible(actor, clientId)
+  // Заметки тренера приватны: видит тот, кому разрешено их вести (`clients.notes`), а не каждый, кто видит клиента.
+  assertCan(actor, 'clients.notes', await target(clientId))
 
   return db
     .select()

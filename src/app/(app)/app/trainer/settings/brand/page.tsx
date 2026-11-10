@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveBrandAction } from '../actions'
 
 // Настройки зависят от сессии и прав.
@@ -20,7 +21,7 @@ export default async function BrandSettingsPage() {
         Название и цвет берутся из настроек — при смене бренда код менять не нужно.
       </p>
 
-      <form action={saveBrandAction} className="flex flex-col gap-4">
+      <ActionForm action={saveBrandAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-[15px] text-text">
           Название
           <input
@@ -52,7 +53,7 @@ export default async function BrandSettingsPage() {
         <button type="submit" className="h-12 rounded-control bg-accent text-[15px] text-white">
           Сохранить
         </button>
-      </form>
+      </ActionForm>
     </main>
   )
 }

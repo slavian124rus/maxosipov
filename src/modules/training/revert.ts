@@ -4,7 +4,12 @@ import { exercises } from '@/modules/catalog'
 import type { Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { diffPrograms, type ProgramTree } from './patch'
-import { assertProgramWrite, copyTemplateToClient, getProgramTree } from './programs'
+import {
+  assertProgramWrite,
+  copyTemplateToClient,
+  getProgramTree,
+  isUniqueViolation,
+} from './programs'
 import { aiProposals, programChanges, programDays, programExercises, programs } from './schema'
 
 /** Ошибка отката: программа уже ушла дальше, автоматически вернуть нельзя. */
@@ -110,26 +115,55 @@ export async function revertChange(actor: Actor, changeId: string): Promise<Prog
       after: before,
     })
 
-    await tx
-      .update(aiProposals)
-      .set({ status: 'reverted', updatedAt: now })
-      .where(and(eq(aiProposals.programId, change.programId), eq(aiProposals.status, 'accepted')))
+    // Предложением МаксИИма считается только то, что породило откатываемое изменение:
+    // последнее принятое по этой программе. Откат правки Максима предложения не трогает.
+    if (change.actorKind === 'ai_proposal_accepted') {
+      const [proposal] = await tx
+        .select({ id: aiProposals.id })
+        .from(aiProposals)
+        .where(and(eq(aiProposals.programId, change.programId), eq(aiProposals.status, 'accepted')))
+        .orderBy(desc(aiProposals.updatedAt))
+        .limit(1)
+
+      if (proposal) {
+        await tx
+          .update(aiProposals)
+          .set({ status: 'reverted', updatedAt: now })
+          .where(eq(aiProposals.id, proposal.id))
+      }
+    }
 
     return before
   })
 }
 
-/** Назначает шаблон нескольким клиентам: каждому — своя активная копия. */
+/**
+ * Назначает шаблон нескольким клиентам: каждому — своя активная копия.
+ * Одна транзакция на всех: если хоть у одного клиента нет прав или копия не создалась,
+ * не получает шаблон никто. Клиенты идут в порядке id — параллельные вызовы не блокируют друг друга.
+ */
 export async function assignTemplate(
   actor: Actor,
   templateId: string,
   clientIds: string[],
 ): Promise<void> {
-  const unique = [...new Set(clientIds)]
+  const unique = [...new Set(clientIds)].sort()
   if (unique.length === 0) throw new Error('Выбери хотя бы одного клиента')
 
-  for (const clientId of unique) {
-    await copyTemplateToClient(actor, templateId, clientId, actor.gymId)
+  // Параллельное копирование тому же клиенту может отклонить уникальный индекс «одна активная
+  // программа» (F14): транзакция откатывается целиком, повторяем один раз.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await db.transaction(async (tx) => {
+        for (const clientId of unique) {
+          await copyTemplateToClient(actor, templateId, clientId, actor.gymId, tx)
+        }
+      })
+      return
+    } catch (error) {
+      if (attempt === 0 && isUniqueViolation(error)) continue
+      throw error
+    }
   }
 }
 

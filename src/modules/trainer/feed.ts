@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, lte } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users } from '@/modules/auth'
 import { listAcceptedProposals, listTrainerFlags, type TrainerProposalItem } from '@/modules/coach-ai'
@@ -77,6 +77,8 @@ export async function getTrainerFeed(actor: Actor, now: Date = new Date()): Prom
     .from(subscriptions)
     .where(
       and(
+        inArray(subscriptions.userId, ids),
+        inArray(subscriptions.status, ['trial', 'active']),
         gte(subscriptions.endsAt, now),
         lte(subscriptions.endsAt, new Date(now.getTime() + ENDING_DAYS * DAY_MS)),
       ),

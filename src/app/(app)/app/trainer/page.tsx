@@ -3,6 +3,8 @@ import { requireUser } from '@/modules/auth'
 import { getTrainerFeed } from '@/modules/trainer'
 import { formatLongDate } from '@/shared/dates'
 import { FeedSection } from '@/components/trainer/feed-section'
+import { PushOptIn } from '@/components/app/push-opt-in'
+import { env } from '@/shared/env'
 import { markProposalSeenAction, resolveFlagAction } from './actions'
 
 // Лента зависит от сессии и данных клиентов.
@@ -119,6 +121,9 @@ export default async function TrainerTodayPage() {
           ))}
         </FeedSection>
       ) : null}
+
+      {/* Без этой кнопки Максим не получит push о жалобах: разрешение — только по нажатию. */}
+      <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
     </main>
   )
 }

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveProgressionAction } from '../actions'
 
 // Настройки зависят от сессии и прав.
@@ -18,7 +19,7 @@ export default async function ProgressionSettingsPage() {
     <main className="flex flex-col gap-5 px-4 py-6">
       <h1 className="text-[22px] font-semibold">Правила прогрессии</h1>
 
-      <form action={saveProgressionAction} className="flex flex-col gap-4">
+      <ActionForm action={saveProgressionAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-[15px] text-text">
           Тренировок подряд для повышения веса
           <span className="text-[13px] text-text-muted">
@@ -74,7 +75,7 @@ export default async function ProgressionSettingsPage() {
         <button type="submit" className="h-12 rounded-control bg-accent text-[15px] text-white">
           Сохранить
         </button>
-      </form>
+      </ActionForm>
     </main>
   )
 }

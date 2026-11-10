@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { users } from '@/modules/auth'
 import { exercises } from '@/modules/catalog'
 import { gyms } from '@/modules/gym'
-import type { Actor } from '@/modules/rbac'
+import { ForbiddenError, roles as rolesTable, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { closeDb, prepareTestDb, resetDb, seedDefaultRoles } from '../../../tests/db'
 import { applyProgramPatchAs, copyTemplateToClient, getActiveProgram, getProgramTree } from './programs'
-import { REVERT_CONFLICT, revertChange, saveAsTemplate } from './revert'
+import { assignTemplate, REVERT_CONFLICT, revertChange, saveAsTemplate } from './revert'
 import { aiProposals, programChanges, programDays, programExercises, programs } from './schema'
 
 let gymId: string
@@ -204,4 +204,103 @@ test('saveAsTemplate копирует дерево в шаблон зала', as
   expect(tree?.ownerId).toBeNull()
   expect(tree?.name).toBe('Ноги и спина')
   expect(tree?.days[0]?.exercises[0]?.exerciseId).toBe(exerciseA)
+})
+async function acceptedProposal(programId: string, updatedAt: Date): Promise<string> {
+  const [row] = await db
+    .insert(aiProposals)
+    .values({
+      userId: client.id,
+      programId,
+      kind: 'patch',
+      diff: { ops: [] },
+      payload: { ops: [] },
+      status: 'accepted',
+      createdAt: updatedAt,
+      updatedAt,
+    })
+    .returning({ id: aiProposals.id })
+  return row!.id
+}
+
+async function proposalStatus(id: string): Promise<string | undefined> {
+  const [row] = await db.select().from(aiProposals).where(eq(aiProposals.id, id))
+  return row?.status
+}
+
+test('откат изменения МаксИИма помечает reverted только последнее принятое предложение', async () => {
+  const { programId, changeId } = await programWithAiChange()
+  const older = await acceptedProposal(programId, new Date(Date.now() - 3 * 60 * 60 * 1000))
+  const latest = await acceptedProposal(programId, new Date(Date.now() - 60 * 1000))
+
+  await revertChange(trainer, changeId)
+
+  expect(await proposalStatus(latest)).toBe('reverted')
+  expect(await proposalStatus(older)).toBe('accepted')
+})
+
+test('откат собственной правки Максима не трогает принятые предложения МаксИИма', async () => {
+  const { programId } = await programWithAiChange()
+  const proposal = await acceptedProposal(programId, new Date(Date.now() - 60 * 1000))
+
+  const tree = (await getProgramTree(programId))!
+  await applyProgramPatchAs(
+    trainer,
+    programId,
+    { ops: [{ op: 'set_note', programExerciseId: tree.days[0]!.exercises[0]!.id, note: 'Спина прямая' }] },
+    'trainer',
+  )
+
+  const [own] = await db
+    .select()
+    .from(programChanges)
+    .where(eq(programChanges.programId, programId))
+    .orderBy(desc(programChanges.createdAt))
+    .limit(1)
+  expect(own?.actorKind).toBe('trainer')
+
+  await revertChange(trainer, own!.id)
+
+  expect(await proposalStatus(proposal)).toBe('accepted')
+  expect((await getProgramTree(programId))!.days[0]!.exercises[0]!.note).toBeNull()
+})
+
+async function secondClient(): Promise<Actor> {
+  const [clientRole] = await db.select().from(rolesTable).where(eq(rolesTable.name, 'Клиент'))
+  const [row] = await db
+    .insert(users)
+    .values({ phone: '+79990000012', name: 'Мария', gymId, roleId: clientRole!.id })
+    .returning()
+  return { id: row!.id, roleId: clientRole!.id, gymId, isOwner: false, permissions: [] }
+}
+
+test('assignTemplate: все клиенты получают шаблон одной транзакцией', async () => {
+  const other = await secondClient()
+
+  await assignTemplate(trainer, templateId, [client.id, other.id, client.id])
+
+  expect((await getActiveProgram(client.id))?.name).toBe('Старт: 3 дня')
+  expect((await getActiveProgram(other.id))?.name).toBe('Старт: 3 дня')
+})
+
+test('assignTemplate: нет прав хотя бы на одного клиента — шаблон не получает никто', async () => {
+  const other = await secondClient()
+  // Тренер с областью own: свой клиент (trainerId = trainer) доступен, клиент без тренера — нет.
+  const restricted: Actor = {
+    ...trainer,
+    permissions: [{ code: 'clients.edit_programs', scope: 'own' }],
+  }
+
+  await expect(assignTemplate(restricted, templateId, [client.id, other.id])).rejects.toBeInstanceOf(
+    ForbiddenError,
+  )
+
+  expect(await getActiveProgram(client.id)).toBeNull()
+  expect(await getActiveProgram(other.id)).toBeNull()
+})
+
+test('assignTemplate: клиент не найден — ничего не создаётся', async () => {
+  await expect(
+    assignTemplate(trainer, templateId, [client.id, '99999999-9999-4999-8999-999999999999']),
+  ).rejects.toThrow('Клиент не найден')
+  expect(await getActiveProgram(client.id)).toBeNull()
 })

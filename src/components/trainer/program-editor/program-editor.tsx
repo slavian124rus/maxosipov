@@ -164,8 +164,11 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
     setError(null)
     startTransition(async () => {
       const result = await patchProgramAction({ programId: program.id, patch, clientId })
-      if (result.error) setError(result.error)
-      else router.refresh()
+      if (result.error) {
+        setError(result.error)
+        // Перетаскивание показано сразу, до ответа сервера: при ошибке возвращаем порядок как в базе.
+        setDays(program.days)
+      } else router.refresh()
     })
   }
 

@@ -9,7 +9,7 @@ type Props = {
   lead?: string
   children?: ReactNode
   className?: string
-  /** Ширина содержимого: обычная (1120) или узкая (760) для текстовых блоков. */
+  /** Ширина содержимого: обычная (1200) или узкая (760) для текстовых блоков. */
   narrow?: boolean
 }
 
@@ -24,7 +24,7 @@ export function Section({ id, eyebrow, title, lead, children, className, narrow 
       className={`relative scroll-mt-20 px-4 py-16 sm:px-6 md:py-24 ${className ?? ''}`}
     >
       <div
-        className={`mx-auto flex w-full flex-col gap-8 ${narrow ? 'max-w-[760px]' : 'max-w-[1120px]'}`}
+        className={`mx-auto flex w-full flex-col gap-8 ${narrow ? 'max-w-[760px]' : 'max-w-[1200px]'}`}
       >
         {eyebrow || title || lead ? (
           <Reveal className="flex flex-col gap-3">

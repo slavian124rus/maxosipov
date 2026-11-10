@@ -68,7 +68,7 @@ test.describe('кабинет тренера', () => {
          join programs p on p.id = pd.program_id
          join users u on u.id = p.owner_id
         where u.phone = $1 and p.status = 'active'
-        order by pe."order"
+        order by pd."order", pe."order"
         limit 1`,
       [CLIENT],
     )

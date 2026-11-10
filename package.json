@@ -16,7 +16,9 @@
     "verify": "pnpm lint && pnpm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "docker:up": "docker compose -f docker/compose.local.yml up --build",
+    "docker:down": "docker compose -f docker/compose.local.yml down"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.87",

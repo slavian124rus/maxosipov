@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listPeople, listRoles } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { setTrainerAction } from '../actions'
 import { RoleForm } from '../people-form'
 
@@ -52,7 +53,7 @@ export default async function PeoplePage({
             />
 
             {person.roleName === 'Клиент' ? (
-              <form action={setTrainerAction} className="flex gap-2">
+              <ActionForm action={setTrainerAction} className="flex flex-wrap gap-2">
                 <input type="hidden" name="clientId" value={person.id} />
                 <select
                   name="trainerId"
@@ -70,7 +71,7 @@ export default async function PeoplePage({
                 <button type="submit" className="h-11 rounded-control bg-surface-2 px-3 text-[13px] text-text">
                   Тренер
                 </button>
-              </form>
+              </ActionForm>
             ) : null}
           </div>
         ))}

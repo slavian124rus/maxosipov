@@ -12,6 +12,8 @@ import {
 import { PERMISSIONS, type Permission, type RolePermission } from '@/modules/rbac'
 import { assignRole, createRole, setClientTrainer, updateRole } from '@/modules/rbac'
 import { env } from '@/shared/env'
+import { formFailure } from '../form-errors'
+import { SAVED_FORM_STATE, type FormState } from '../form-state'
 
 const PAGE = '/trainer/settings'
 
@@ -31,7 +33,7 @@ function modelName(kind: 'main' | 'fast' | 'fallback'): string {
 }
 
 /** Памятка МаксИИма, дневной лимит и цены моделей. */
-export async function saveAiSettingsAction(formData: FormData): Promise<void> {
+export async function saveAiSettingsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
   const aiPrices: AiSettingsInput['aiPrices'] = {}
@@ -48,14 +50,15 @@ export async function saveAiSettingsAction(formData: FormData): Promise<void> {
       aiPrices,
     })
   } catch (error) {
-    console.error('[settings] МаксИИм не сохранён', error)
+    return formFailure(error, 'Не удалось сохранить настройки МаксИИма')
   }
 
   revalidatePath(PAGE)
+  return SAVED_FORM_STATE
 }
 
 /** Правила прогрессии весов. */
-export async function saveProgressionAction(formData: FormData): Promise<void> {
+export async function saveProgressionAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
   try {
@@ -66,14 +69,15 @@ export async function saveProgressionAction(formData: FormData): Promise<void> {
       dropPercent: Math.round(number(formData, 'dropPercent')),
     })
   } catch (error) {
-    console.error('[settings] правила прогрессии не сохранены', error)
+    return formFailure(error, 'Не удалось сохранить правила прогрессии')
   }
 
   revalidatePath(PAGE)
+  return SAVED_FORM_STATE
 }
 
 /** Бренд: название, короткое имя, акцентный цвет. */
-export async function saveBrandAction(formData: FormData): Promise<void> {
+export async function saveBrandAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
   try {
@@ -84,14 +88,15 @@ export async function saveBrandAction(formData: FormData): Promise<void> {
       logoMediaId: null,
     })
   } catch (error) {
-    console.error('[settings] бренд не сохранён', error)
+    return formFailure(error, 'Не удалось сохранить бренд')
   }
 
   revalidatePath(PAGE)
+  return SAVED_FORM_STATE
 }
 
 /** Контакты Максима для экрана «Продли у Максима». */
-export async function saveContactsAction(formData: FormData): Promise<void> {
+export async function saveContactsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
   try {
@@ -100,10 +105,11 @@ export async function saveContactsAction(formData: FormData): Promise<void> {
       photoMediaId: null,
     })
   } catch (error) {
-    console.error('[settings] контакты не сохранены', error)
+    return formFailure(error, 'Не удалось сохранить контакты')
   }
 
   revalidatePath(PAGE)
+  return SAVED_FORM_STATE
 }
 
 function permissionsFrom(formData: FormData): RolePermission[] {
@@ -119,7 +125,7 @@ function permissionsFrom(formData: FormData): RolePermission[] {
 }
 
 /** Создание или правка роли (право `roles.manage`). */
-export async function saveRoleAction(formData: FormData): Promise<void> {
+export async function saveRoleAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
   const id = text(formData, 'id')
   const name = text(formData, 'name')
@@ -129,11 +135,12 @@ export async function saveRoleAction(formData: FormData): Promise<void> {
     if (id) await updateRole(actor, id, { name, permissions })
     else await createRole(actor, { name, permissions })
   } catch (error) {
-    console.error('[settings] роль не сохранена', error)
+    return formFailure(error, 'Не удалось сохранить роль')
   }
 
   revalidatePath('/trainer/settings/roles')
   if (id) revalidatePath(`/trainer/settings/roles/${id}`)
+  return SAVED_FORM_STATE
 }
 
 /** Смена роли человеку (право `users.assign_roles`). */
@@ -161,7 +168,7 @@ export async function assignRoleFormAction(
   try {
     await assignRole(actor, text(formData, 'userId'), text(formData, 'roleId'))
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Не удалось сменить роль' }
+    return { error: formFailure(error, 'Не удалось сменить роль').error }
   }
 
   revalidatePath('/trainer/settings/people')
@@ -169,15 +176,16 @@ export async function assignRoleFormAction(
 }
 
 /** Привязка клиента к тренеру. */
-export async function setTrainerAction(formData: FormData): Promise<void> {
+export async function setTrainerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
   try {
     const trainerId = text(formData, 'trainerId')
     await setClientTrainer(actor, text(formData, 'clientId'), trainerId || null)
   } catch (error) {
-    console.error('[settings] тренер не назначен', error)
+    return formFailure(error, 'Не удалось назначить тренера')
   }
 
   revalidatePath('/trainer/settings/people')
+  return SAVED_FORM_STATE
 }

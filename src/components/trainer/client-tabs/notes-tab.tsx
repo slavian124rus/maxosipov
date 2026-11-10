@@ -1,4 +1,5 @@
 import type { ClientCard } from '@/modules/trainer'
+import { ActionForm } from '@/components/trainer/action-form'
 import { addNoteAction } from '@/app/(app)/app/trainer/clients/actions'
 
 function dateRu(date: Date): string {
@@ -28,7 +29,7 @@ export function NotesTab({ card }: { card: ClientCard }) {
       )}
 
       {card.permissions.notes ? (
-        <form
+        <ActionForm
           action={addNoteAction}
           className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3"
         >
@@ -49,7 +50,7 @@ export function NotesTab({ card }: { card: ClientCard }) {
           <button type="submit" className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text">
             Сохранить заметку
           </button>
-        </form>
+        </ActionForm>
       ) : null}
     </div>
   )

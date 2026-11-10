@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listRoles } from '@/modules/rbac'
+import { ActionForm } from '@/components/trainer/action-form'
 import { saveRoleAction } from '../actions'
 
 // Роли зависят от сессии и прав.
@@ -39,7 +40,7 @@ export default async function RolesPage() {
         ))}
       </div>
 
-      <form action={saveRoleAction} className="flex gap-2">
+      <ActionForm action={saveRoleAction} className="flex flex-wrap gap-2">
         <input
           name="name"
           placeholder="Название новой роли"
@@ -49,7 +50,7 @@ export default async function RolesPage() {
         <button type="submit" className="h-12 rounded-control bg-surface-2 px-4 text-[15px] text-text">
           Создать
         </button>
-      </form>
+      </ActionForm>
 
       <Link href="/trainer/settings/people" className="text-[15px] text-accent">
         Люди и роли

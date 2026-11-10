@@ -1,5 +1,38 @@
 # Локальная разработка
 
+## Всё через Docker (рекомендуется)
+
+Одна команда поднимает базу, сайт с приложением и воркер. Нужен только Docker Desktop:
+
+```bash
+pnpm docker:up        # то же: docker compose -f docker/compose.local.yml up --build
+```
+
+Первый запуск долгий (образ с ffmpeg и MediaPipe, установка зависимостей, миграции и сид).
+Когда в логах появится `Ready` от `web`, открывай:
+
+- сайт: `http://localhost:3000`
+- приложение, кабинет тренера, админка: `http://app.localhost:3000`
+- СМС-код для входа (`SMS_PROVIDER=console`) печатается в логах: `docker compose -f docker/compose.local.yml logs -f web`
+
+Режим разработки: папка проекта смонтирована в контейнеры, правки видны сразу.
+`node_modules` и `.next` лежат в томах Docker (версии из Windows в Linux не работают).
+После изменения воркера: `docker compose -f docker/compose.local.yml restart worker`.
+
+| Что сделать | Команда (добавь `-f docker/compose.local.yml` после `docker compose`) |
+|---|---|
+| остановить | `pnpm docker:down` |
+| тесты | `docker compose -f docker/compose.local.yml run --rm web pnpm test` |
+| сбросить всё (база, медиа, зависимости) | `docker compose -f docker/compose.local.yml down -v` |
+| зайти в БД | порт `localhost:5433`, пользователь `app`, пароль `app`, база `maxosipov` |
+
+Ограничения: service worker, офлайн и push работают только в продакшн-сборке
+(`pnpm build && pnpm start` на хосте или `docker/compose.yml` на сервере); в режиме разработки
+их нет. Порты 3000 и 5433 должны быть свободны (старую БД из `compose.dev.yml` останови:
+`docker compose -f docker/compose.dev.yml down`).
+
+## Без Docker для приложения (только база в Docker)
+
 ## База данных
 
 ```bash
