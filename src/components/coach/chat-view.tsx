@@ -7,6 +7,39 @@ import { ArrowLeft, ArrowUp, Mic, Square } from 'lucide-react'
 import type { ProposalCard as ProposalCardData } from '@/modules/coach-ai'
 import { ProposalCard } from './proposal-card'
 import { QuickChips } from './quick-chips'
+import { RichText } from './rich-text'
+
+const STARTERS = [
+  { title: 'Собери тренировку', hint: 'Под твою цель и время', text: 'Собери тренировку' },
+  { title: 'Разбор недели', hint: 'Что получилось, что подтянуть', text: 'Разбор недели' },
+  { title: 'Почему такой вес?', hint: 'Объясню рекомендацию', text: 'Почему такой вес?' },
+  { title: 'Чем заменить упражнение', hint: 'Подберу из зала Колизей', text: 'Чем заменить ' },
+] as const
+
+function Avatar({ size = 32 }: { size?: number }) {
+  return (
+    <span
+      style={{ width: size, height: size }}
+      className="flex shrink-0 items-center justify-center rounded-full bg-accent font-display text-[15px] text-white"
+    >
+      М
+    </span>
+  )
+}
+
+function TypingDots() {
+  return (
+    <span className="flex items-center gap-1 py-1" aria-label="МаксИИм печатает">
+      {[0, 1, 2].map((dot) => (
+        <span
+          key={dot}
+          className="h-2 w-2 animate-pulse rounded-full bg-text-muted"
+          style={{ animationDelay: `${dot * 180}ms` }}
+        />
+      ))}
+    </span>
+  )
+}
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -242,17 +275,52 @@ return (
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4">
-        <p className="text-[13px] text-text-muted">{HINT}</p>
+        {messages.length === 0 ? (
+          <div className="flex flex-1 flex-col justify-center gap-5 py-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Avatar size={64} />
+              <h1 className="text-[22px] font-semibold">Привет! Я МаксИИм</h1>
+              <p className="max-w-[280px] text-[15px] text-text-secondary">
+                Помогу с тренировкой, весами и техникой. Только упражнения из зала Колизей
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {STARTERS.map((starter) => (
+                <button
+                  key={starter.title}
+                  type="button"
+                  onClick={() => {
+                    setInput(starter.text)
+                    inputRef.current?.focus()
+                  }}
+                  className="flex min-h-[84px] flex-col items-start gap-1 rounded-card border border-border bg-surface-1 p-3 text-left active:bg-surface-2"
+                >
+                  <span className="text-[15px] font-medium leading-tight">{starter.title}</span>
+                  <span className="text-[13px] leading-snug text-text-muted">{starter.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-center text-[12px] text-text-muted">{HINT}</p>
+        )}
 
         {messages.map((message, index) =>
           message.role === 'assistant' ? (
-            <div key={index} className="max-w-[88%] self-start whitespace-pre-wrap text-[16px] text-text">
-              {message.content || (streaming && index === messages.length - 1 ? 'Печатает…' : '')}
+            <div key={index} className="flex max-w-[92%] items-start gap-2 self-start">
+              <Avatar />
+              <div className="rounded-[18px] rounded-tl-[6px] bg-surface-1 px-3.5 py-2.5 text-[16px] leading-snug text-text">
+                {message.content ? (
+                  <RichText text={message.content} />
+                ) : streaming && index === messages.length - 1 ? (
+                  <TypingDots />
+                ) : null}
+              </div>
             </div>
           ) : (
             <div
               key={index}
-              className="max-w-[88%] self-end whitespace-pre-wrap rounded-card bg-surface-2 px-3 py-2 text-[16px] text-text"
+              className="max-w-[85%] self-end whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2.5 text-[16px] leading-snug text-white"
             >
               {message.content}
             </div>
@@ -268,7 +336,7 @@ return (
       </div>
 
       <div className="shrink-0 border-t border-border bg-bg px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2">
-        {input.trim() ? null : (
+        {input.trim() || messages.length === 0 ? null : (
           <div className="mb-2">
             <QuickChips
               onPick={(text) => {
