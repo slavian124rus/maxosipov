@@ -14,7 +14,12 @@ FROM deps AS build
 WORKDIR /app
 COPY . .
 # На этапе сборки приложение импортирует env.ts — подставляем безопасные заглушки.
+# Адреса нужны настоящими: лендинг prerender-ится с каноническим URL, OG и ссылками на приложение.
+ARG SITE_URL=https://maxosipov.ru
+ARG APP_URL=https://app.maxosipov.ru
 ENV NEXT_TELEMETRY_DISABLED=1 \
+    SITE_URL=$SITE_URL \
+    APP_URL=$APP_URL \
     DATABASE_URL=postgres://build:build@localhost:5432/build \
     AUTH_SECRET=build-time-placeholder-secret-min-32-chars \
     MEDIA_URL_SIGNING_SECRET=build-time-placeholder-signing-secret

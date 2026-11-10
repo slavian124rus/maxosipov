@@ -20,6 +20,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      # Адреса нужны на этапе сборки: лендинг prerender-ится с каноническим URL,
+      # OG-картинкой и ссылками на приложение (см. комментарий в Dockerfile).
+      args:
+        SITE_URL: ${SITE_URL:-https://maxosipov.ru}
+        APP_URL: ${APP_URL:-https://app.maxosipov.ru}
     restart: unless-stopped
     env_file: ../.env
     environment:
@@ -36,6 +41,9 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        SITE_URL: ${SITE_URL:-https://maxosipov.ru}
+        APP_URL: ${APP_URL:-https://app.maxosipov.ru}
     restart: unless-stopped
     env_file: ../.env
     environment:
