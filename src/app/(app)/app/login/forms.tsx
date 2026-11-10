@@ -121,9 +121,19 @@ export function CodeForm(props: { target: CodeTarget; linkId?: string }) {
     return () => clearTimeout(timer)
   }, [secondsLeft])
 
+  // Автоотправка ровно один раз на введённый код: иначе после ошибки форма отправляла бы
+  // тот же код снова и сжигала все попытки.
+  const submittedCode = useRef<string | null>(null)
+
   useEffect(() => {
-    if (code.length === length && !pending) formRef.current?.requestSubmit()
-  }, [code, pending, length])
+    if (code.length < length) {
+      submittedCode.current = null
+      return
+    }
+    if (submittedCode.current === code) return
+    submittedCode.current = code
+    formRef.current?.requestSubmit()
+  }, [code, length])
 
   function setDigit(index: number, value: string): void {
     const digit = value.replace(/\D/g, '').slice(-1)
