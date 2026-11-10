@@ -33,6 +33,10 @@ services:
       db:
         condition: service_healthy
     command: ['sh', '-c', 'node dist/migrate.js && node server.js']
+    # Загрузки и импорт каталога пишут в MEDIA_ROOT; Caddy и worker читают тот же каталог на хосте.
+    # Без тома файлы оседают внутри контейнера и пропадают при деплое.
+    volumes:
+      - /data/media:/data/media
     ports:
       # наружу сайт отдаёт caddy; порт на localhost нужен для проверки health при деплое
       - '127.0.0.1:3000:3000'
