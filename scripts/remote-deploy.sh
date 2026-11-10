@@ -24,6 +24,8 @@ $COMPOSE pull
 
 echo "→ запуск контейнеров"
 $COMPOSE up -d --remove-orphans
+# Caddyfile смонтирован как файл: сам Caddy его не перечитывает, поэтому новые домены применяем явно.
+$COMPOSE exec -T caddy caddy reload --config /etc/caddy/Caddyfile || echo "! caddy reload не удался (не критично)" >&2
 
 echo "→ ждём /api/health до 120 с"
 for _ in $(seq 1 60); do
