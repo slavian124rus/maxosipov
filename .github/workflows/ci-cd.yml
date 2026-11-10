@@ -1,0 +1,163 @@
+name: CI/CD
+
+# PR и push в main: lint + типы + unit-тесты + production-сборка.
+# push в main: дополнительно собираем Docker-образ в GHCR и выкладываем на сервер.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # github.repository уже в нижнем регистре (требование GHCR)
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  check:
+    name: Lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: maxosipov
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d maxosipov"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Тесты работают с отдельной базой; создаётся шагом ниже.
+      DATABASE_URL: postgres://app:app@localhost:5432/maxosipov
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/maxosipov_test
+      # Заглушки для сборки (как в docker/Dockerfile) — реальные секреты CI не нужны.
+      SITE_URL: https://maxosipov.ru
+      APP_URL: https://app.maxosipov.ru
+      AUTH_SECRET: ci-placeholder-secret-min-32-chars-long
+      MEDIA_URL_SIGNING_SECRET: ci-placeholder-signing-secret
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # версию берёт из packageManager в package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Создать тестовую базу
+        run: PGPASSWORD=app psql -h localhost -U app -d maxosipov -c 'CREATE DATABASE maxosipov_test OWNER app;'
+
+      - name: Lint и типы
+        run: pnpm lint
+
+      - name: Unit-тесты
+        run: pnpm test
+
+      - name: Production-сборка
+        run: pnpm build
+
+  image:
+    name: Docker image → GHCR
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy → maxosipov.ru
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: 62.109.0.116
+      DEPLOY_USER: deploy
+      # Публичный host key сервера (ssh-keyscan -t ed25519) — защита от подмены хоста.
+      DEPLOY_HOST_KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMyrP6ClCgelZwhfw5IiYBLFsR8GjtdCCc3NnOFAFaF0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Настроить SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY" || { echo "::error::Не задан секрет SSH_PRIVATE_KEY (docs/ops/ci-cd.md)"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "$DEPLOY_HOST $DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+
+      - name: Загрузить compose и Caddyfile
+        run: scp docker/compose.prod.yml docker/Caddyfile "$DEPLOY_USER@$DEPLOY_HOST:/opt/maxosipov/docker/"
+
+      - name: Выложить
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'export IMAGE=%q\n' "$IMAGE:${{ github.sha }}"
+            printf 'export GHCR_USER=%q\n' "${{ github.actor }}"
+            printf 'export GHCR_TOKEN=%q\n' "$GHCR_TOKEN"
+            cat scripts/remote-deploy.sh
+          } | ssh "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s'
+
+      - name: Проверить сайт снаружи
+        run: |
+          for url in https://maxosipov.ru https://app.maxosipov.ru/api/health; do
+            for i in $(seq 1 15); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+              [ "$code" = "200" ] && { echo "✓ $url → 200"; continue 2; }
+              sleep 4
+            done
+            echo "::error::$url не отвечает 200 (последний код: $code)"; exit 1
+          done
