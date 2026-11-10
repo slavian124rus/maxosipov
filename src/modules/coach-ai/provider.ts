@@ -17,6 +17,10 @@ const provider = createOpenAICompatible({
   baseURL: env.AI_BASE_URL,
   apiKey: env.AI_API_KEY ?? 'not-configured',
   includeUsage: true,
+  // Шлюз принимает `response_format: json_schema`. Без этого флага SDK игнорирует схему,
+  // модель отвечает обычным текстом и `generateObject` падает на разборе JSON
+  // (черновик упражнения, разбор голосового ввода) — пользователь видит «МаксИИм недоступен».
+  supportsStructuredOutputs: true,
 })
 
 function modelId(kind: ModelKind): string | undefined {
@@ -80,6 +84,12 @@ export async function withFallback<T>(
     try {
       return await withTimeout(fn(resolve('fallback')), timeoutMs)
     } catch (fallbackError) {
+      // Причину нельзя терять: пользователь видит только «недоступен», а разбираться приходится по логам.
+      console.error('[ai] обе модели не ответили', {
+        primary: primaryError instanceof Error ? primaryError.message : String(primaryError),
+        fallback: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      })
+
       throw new AiUnavailableError('МаксИИм сейчас недоступен', {
         cause: { primary: primaryError, fallback: fallbackError },
       })
