@@ -16,7 +16,7 @@ export function QuickChips({ onPick }: { onPick: (text: string) => void }) {
           key={chip.label}
           type="button"
           onClick={() => onPick(chip.text)}
-          className="shrink-0 rounded-full border border-border px-3 py-1.5 text-[13px] text-text-secondary"
+          className="shrink-0 rounded-full border border-border px-3.5 py-2 text-[14px] text-text-secondary"
         >
           {chip.label}
         </button>
