@@ -80,7 +80,8 @@ export function ExerciseForm({ machines, initial }: Props) {
   }
 
   const canNext = ((): boolean => {
-    if (step === 0) return Boolean(videoMediaId) && !upload.uploading
+    // Видео необязательно: без него в карточке показывается фото тренажёра («Видео скоро»).
+    if (step === 0) return !upload.uploading
     if (step === 1) return machineId !== ''
     if (step === 2) return muscles.primary.length > 0
     if (step === 3) return name.trim().length >= 2 && steps.some((item) => item.trim())
@@ -117,21 +118,42 @@ export function ExerciseForm({ machines, initial }: Props) {
             <p className="text-[15px] text-text-secondary">
               Снимай вертикально, весь тренажёр и ты целиком, 2–3 чистых повторения.
             </p>
+            <p className="text-[15px] text-text-secondary">
+              Видео можно добавить позже: пока его нет, в карточке показывается фото тренажёра.
+            </p>
+
+            <label
+              htmlFor="exercise-video-file"
+              className={`inline-flex min-h-14 cursor-pointer items-center justify-center rounded-card border border-border bg-surface-2 px-4 text-[17px] text-text ${
+                upload.uploading ? 'pointer-events-none opacity-60' : ''
+              }`}
+            >
+              {videoFile ? 'Выбрать другой файл' : 'Выбрать видео'}
+            </label>
             <input
+              id="exercise-video-file"
               type="file"
               accept="video/*"
-              capture="environment"
+              disabled={upload.uploading}
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (file) void uploadVideo(file)
               }}
-              className="text-[15px] text-text-secondary"
+              className="sr-only"
             />
+            {videoFile ? (
+              <p className="break-all text-[13px] text-text-muted">{videoFile.name}</p>
+            ) : null}
+
             {upload.uploading ? (
               <p className="text-[15px] text-text-secondary">Загружаем… {upload.progress}%</p>
             ) : null}
             {upload.error ? <p className="text-[15px] text-danger">{upload.error}</p> : null}
-            {videoMediaId ? <p className="text-[15px] text-success">Видео загружено</p> : null}
+            {videoMediaId && !upload.uploading ? (
+              <p className="text-[15px] text-success">
+                {videoMediaId === 'existing' ? 'Видео уже загружено' : 'Видео загружено'}
+              </p>
+            ) : null}
             <VideoCrop file={videoFile} value={cropX} onChange={setCropX} />
           </>
         ) : null}
@@ -276,7 +298,7 @@ export function ExerciseForm({ machines, initial }: Props) {
                 {repMin}–{repMax} раз · шагов: {steps.filter((item) => item.trim()).length}
               </p>
               <p className="text-[13px] text-text-muted">
-                {videoMediaId ? 'Видео загружено' : 'Без видео — можно сохранить только черновик'}
+                {videoMediaId ? 'Видео загружено' : 'Без видео — в карточке будет фото тренажёра'}
               </p>
             </div>
 
@@ -301,7 +323,7 @@ export function ExerciseForm({ machines, initial }: Props) {
             disabled={!canNext}
             onClick={() => setStep(step + 1)}
           >
-            Дальше
+            {step === 0 && !videoMediaId ? 'Пропустить' : 'Дальше'}
           </Button>
         ) : (
           <>

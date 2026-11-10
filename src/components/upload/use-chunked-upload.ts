@@ -53,6 +53,8 @@ export function useChunkedUpload() {
       const statusBody = (await statusResponse.json()) as { received_chunks?: number[] }
       const done = new Set(statusBody.received_chunks ?? [])
 
+      let uploadedChunks = done.size
+
       for (let index = 0; index < totalChunks; index += 1) {
         if (done.has(index)) continue
 
@@ -70,8 +72,10 @@ export function useChunkedUpload() {
 
         if (!uploaded) throw new Error('Загрузка прервалась — попробуй ещё раз')
 
+        uploadedChunks += 1
+
         setState({
-          progress: Math.round(((done.size + 1) / totalChunks) * 100),
+          progress: Math.round((uploadedChunks / totalChunks) * 100),
           uploading: true,
           error: null,
           mediaId: id,
