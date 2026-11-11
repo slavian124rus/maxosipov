@@ -21,7 +21,11 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
 
   return (
     <ExerciseForm
-      machines={machines.map((machine) => ({ id: machine.id, name: machine.name }))}
+      machines={machines.map((machine) => ({
+        id: machine.id,
+        name: machine.name,
+        zone: machine.zone,
+      }))}
       initial={exercise}
     />
   )

@@ -14,7 +14,11 @@ export default async function NewExercisePage() {
 
   return (
     <ExerciseForm
-      machines={machines.map((machine) => ({ id: machine.id, name: machine.name }))}
+      machines={machines.map((machine) => ({
+        id: machine.id,
+        name: machine.name,
+        zone: machine.zone,
+      }))}
     />
   )
 }

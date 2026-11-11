@@ -40,7 +40,8 @@ test('мастер: видео → тренажёр → мышцы → опис�
   await page.getByRole('button', { name: 'Черновик' }).click()
   await expect(page.getByText('Сохранено')).toBeVisible({ timeout: 20_000 })
 
-  // Черновик виден тренеру
+  // Черновик виден тренеру: ищем его — поиск сам раскрывает нужную ветку дерева.
   await page.goto('http://app.localhost:3000/trainer/exercises?tab=draft')
+  await page.getByLabel('Поиск по упражнениям').fill(uniqueName)
   await expect(page.getByText(uniqueName).first()).toBeVisible({ timeout: 15_000 })
 })

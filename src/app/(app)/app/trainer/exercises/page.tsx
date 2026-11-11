@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
-import { listExercises } from '@/modules/catalog'
+import { listExercises, type ExerciseListItem } from '@/modules/catalog'
+import { muscleName } from '@/shared/muscles'
+import { ExerciseTree } from '@/components/trainer/exercise-tree'
+import type { ExerciseTreeItem } from '@/components/trainer/catalog-tree'
 
 // Кабинет зависит от сессии и прав.
 export const instant = false
@@ -13,17 +16,39 @@ const VIDEO_LABEL: Record<string, string> = {
   failed: 'Ошибка',
 }
 
+/** Подпись про видео для строки дерева. */
+function videoLabel(item: ExerciseListItem): string {
+  if (item.hasVideo) {
+    return `видео: ${VIDEO_LABEL[item.videoStatus ?? ''] ?? item.videoStatus ?? 'нет'}`
+  }
+
+  return item.thumbUrl ? 'видео нет — в каталоге фото тренажёра' : 'видео нет'
+}
+
 export default async function TrainerExercisesPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>
 }) {
   const { actor } = await requireUser()
-  const { tab = 'published' } = await searchParams
+  const { tab } = await searchParams
 
   const canEdit = can(actor, 'catalog.edit')
-  const status = tab === 'draft' ? 'draft' : 'published'
-  const items = await listExercises({ status })
+  // Один запрос на обе вкладки: дерево, поиск и счётчики вкладок живут в ExerciseTree.
+  const items = await listExercises({ status: 'all' })
+
+  const treeItems: ExerciseTreeItem[] = items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    status: item.status === 'draft' ? 'draft' : 'published',
+    machineId: item.machineId,
+    machineName: item.machineName,
+    machineZone: item.machineZone,
+    // Поиск работает и по мышцам — названия берём из справочника.
+    muscles: [...new Set([...item.primaryMuscles, ...item.secondaryMuscles])].map(muscleName),
+    videoLabel: videoLabel(item),
+    hasMuscles: item.hasMuscles,
+  }))
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
@@ -39,58 +64,8 @@ export default async function TrainerExercisesPage({
         ) : null}
       </div>
 
-      <div className="flex gap-2">
-        {[
-          { value: 'published', label: 'Опубликованы' },
-          { value: 'draft', label: 'Черновики' },
-        ].map((option) => (
-          <Link
-            key={option.value}
-            href={`/trainer/exercises?tab=${option.value}`}
-            className={`rounded-full border px-3 py-1.5 text-[13px] ${
-              status === option.value
-                ? 'border-accent bg-surface-2 text-text'
-                : 'border-border bg-surface-1 text-text-secondary'
-            }`}
-          >
-            {option.label}
-          </Link>
-        ))}
-      </div>
-
-      <ul className="flex flex-col gap-2">
-        {items.map((item) => (
-          <li key={item.id}>
-            <Link
-              href={`/trainer/exercises/${item.id}`}
-              className="flex flex-col gap-1 rounded-card border border-border bg-surface-1 px-4 py-3"
-            >
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="text-[17px]">{item.name}</span>
-                {item.hasMuscles ? (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-gold">
-                    Мышцы на видео
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-[13px] text-text-muted">
-                {item.machineName ?? 'Без тренажёра'} ·{' '}
-                {item.hasVideo
-                  ? `видео: ${VIDEO_LABEL[item.videoStatus ?? ''] ?? item.videoStatus ?? 'нет'}`
-                  : item.thumbUrl
-                    ? 'видео нет — в каталоге фото тренажёра'
-                    : 'видео нет'}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-
-      {items.length === 0 ? (
-        <p className="text-[15px] text-text-secondary">
-          {status === 'draft' ? 'Черновиков нет' : 'Опубликованных упражнений нет'}
-        </p>
-      ) : null}
+      <ExerciseTree items={treeItems} initialTab={tab === 'draft' ? 'draft' : 'published'} />
     </main>
   )
 }
+

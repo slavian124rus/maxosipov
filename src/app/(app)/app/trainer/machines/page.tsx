@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
-import { listMachines } from '@/modules/catalog'
+import { listExercises, listMachines } from '@/modules/catalog'
 import { MachineForm } from '@/components/trainer/machine-form'
+import { MachineTree } from '@/components/trainer/machine-tree'
+import type { MachineTreeItem } from '@/components/trainer/catalog-tree'
 
 // Кабинет зависит от сессии и прав.
 export const instant = false
@@ -10,31 +12,35 @@ export const instant = false
 export default async function TrainerMachinesPage() {
   const { actor } = await requireUser()
   if (!can(actor, 'catalog.edit')) notFound()
-  const machines = await listMachines()
+
+  const [machines, exercises] = await Promise.all([
+    listMachines(),
+    listExercises({ status: 'published' }),
+  ])
+
+  // Сколько опубликованных упражнений на каждом тренажёре.
+  const counts = new Map<string, number>()
+  for (const exercise of exercises) {
+    if (!exercise.machineId) continue
+    counts.set(exercise.machineId, (counts.get(exercise.machineId) ?? 0) + 1)
+  }
+
+  const items: MachineTreeItem[] = machines.map((machine) => ({
+    id: machine.id,
+    name: machine.name,
+    zone: machine.zone,
+    weightStepKg: machine.weightStepKg,
+    exerciseCount: counts.get(machine.id) ?? 0,
+  }))
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
       <h1 className="text-[22px] font-semibold">Тренажёры</h1>
 
-      <ul className="flex flex-col gap-2">
-        {machines.map((machine) => (
-          <li
-            key={machine.id}
-            className="flex items-baseline justify-between gap-2 rounded-card border border-border bg-surface-1 px-4 py-3"
-          >
-            <span className="text-[17px]">{machine.name}</span>
-            <span className="text-[13px] text-text-muted">
-              {machine.zone ?? 'без зоны'} · шаг {machine.weightStepKg} кг
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      {machines.length === 0 ? (
-        <p className="text-[15px] text-text-secondary">Пока ни одного тренажёра</p>
-      ) : null}
+      <MachineTree machines={items} />
 
       <MachineForm />
     </main>
   )
 }
+

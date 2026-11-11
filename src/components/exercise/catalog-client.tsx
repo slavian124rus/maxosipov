@@ -42,7 +42,7 @@ export function CatalogClient({ items, machines }: Props) {
     const needle = normalize(query)
 
     return items.filter((item) => {
-      if (machineId && item.machineName === null) return false
+      if (machineId && item.machineId !== machineId) return false
       if (!needle) return true
       return normalize(`${item.name} ${item.machineName ?? ''}`).includes(needle)
     })

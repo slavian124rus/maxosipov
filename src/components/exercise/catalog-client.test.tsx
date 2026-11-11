@@ -37,19 +37,22 @@ function stubFigureFetch(): void {
 const MACHINES = [
   { id: 'machine-1', name: 'Верхний блок' },
   { id: 'machine-2', name: 'Гакк-машина' },
+  { id: 'machine-3', name: 'Жим лёжа' },
 ]
 
 function exercise(
   name: string,
   primaryMuscles: string[],
   secondaryMuscles: string[] = [],
-  machineName: string | null = null,
+  machine: { id: string; name: string } | null = null,
 ): ExerciseListItem {
   return {
     id: name,
     slug: name.toLowerCase().replace(/\s+/g, '-'),
     name,
-    machineName,
+    machineId: machine?.id ?? null,
+    machineName: machine?.name ?? null,
+    machineZone: null,
     primaryMuscles,
     secondaryMuscles,
     status: 'published',
@@ -63,10 +66,10 @@ function exercise(
 }
 
 const ITEMS: ExerciseListItem[] = [
-  exercise('Тяга верхнего блока к груди', ['lats'], ['biceps', 'traps-middle'], 'Верхний блок'),
-  exercise('Жим лёжа в тренажёре', ['chest'], ['triceps', 'delts-front'], 'Жим лёжа'),
-  exercise('Гакк-приседания', ['quads'], ['glutes'], 'Гакк-машина'),
-  exercise('Сгибания на бицепс', ['biceps'], [], 'Верхний блок'),
+  exercise('Тяга верхнего блока к груди', ['lats'], ['biceps', 'traps-middle'], MACHINES[0]),
+  exercise('Жим лёжа в тренажёре', ['chest'], ['triceps', 'delts-front'], MACHINES[2]),
+  exercise('Гакк-приседания', ['quads'], ['glutes'], MACHINES[1]),
+  exercise('Сгибания на бицепс', ['biceps'], [], MACHINES[0]),
 ]
 
 /** Названия упражнений в списке — в том порядке, в каком их видит человек. */
@@ -179,4 +182,20 @@ test('упражнения, где мышца основная, идут выш�
   fireEvent.click(screen.getByRole('button', { name: /Бицепс/ }))
 
   expect(listedExercises()).toEqual(['Сгибания на бицепс', 'Тяга верхнего блока к груди'])
+})
+
+test('фильтр по тренажёру оставляет только его упражнения', () => {
+  render(<CatalogClient items={ITEMS} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Верхний блок' }))
+  expect(listedExercises()).toEqual(['Тяга верхнего блока к груди', 'Сгибания на бицепс'])
+
+  // Счётчики мышц пересчитываются по найденному: квадрицепсы остались в других тренажёрах.
+  const group = screen.getByRole('group', { name: 'Мышцы' })
+  expect(within(group).getByRole('button', { name: /Квадрицепсы/ }).hasAttribute('disabled')).toBe(
+    true,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Все тренажёры' }))
+  expect(listedExercises()).toHaveLength(4)
 })

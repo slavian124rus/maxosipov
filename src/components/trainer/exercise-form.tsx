@@ -8,6 +8,8 @@ import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
 import { cycleMuscle, type MuscleState } from '@/components/muscle-figure/state'
 import { VideoCrop } from '@/components/trainer/video-crop'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
+import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalog-tree'
+import { Highlight, TreeSearchField } from '@/components/trainer/tree-ui'
 import { muscleName, type MuscleCode } from '@/shared/muscles'
 import type { ExerciseDetail, Machine } from '@/modules/catalog'
 import { saveExerciseAction, draftExerciseAction, type SaveExerciseState } from '@/app/(app)/app/trainer/exercises/actions'
@@ -16,7 +18,7 @@ const INITIAL: SaveExerciseState = { error: null, id: null }
 const TOTAL_STEPS = 5
 
 type Props = {
-  machines: Pick<Machine, 'id' | 'name'>[]
+  machines: Pick<Machine, 'id' | 'name' | 'zone'>[]
   initial?: ExerciseDetail | null
 }
 
@@ -26,6 +28,7 @@ export function ExerciseForm({ machines, initial }: Props) {
 
   const [step, setStep] = useState(0)
   const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [machineQuery, setMachineQuery] = useState('')
   const [videoMediaId, setVideoMediaId] = useState<string | null>(
     initial?.videoMp4Url ? 'existing' : null,
   )
@@ -78,6 +81,20 @@ export function ExerciseForm({ machines, initial }: Props) {
       setDrafting(false)
     }
   }
+
+  /** Тренажёры в мастере тоже сгруппированы по зонам и ищутся — их в зале два десятка. */
+  const machineGroups = (() => {
+    const needle = normalizeQuery(machineQuery)
+    const visible = needle
+      ? machines.filter(
+          (machine) =>
+            normalizeQuery(machine.name).includes(needle) ||
+            normalizeQuery(machine.zone ?? '').includes(needle),
+        )
+      : machines
+
+    return groupMachinesByZone(visible)
+  })()
 
   const canNext = ((): boolean => {
     // Видео необязательно: без него в карточке показывается фото тренажёра («Видео скоро»).
@@ -161,24 +178,44 @@ export function ExerciseForm({ machines, initial }: Props) {
         {step === 1 ? (
           <>
             <h1 className="text-[22px] font-semibold">Тренажёр</h1>
-            <div className="flex flex-col gap-2">
-              {machines.map((machine) => (
-                <button
-                  key={machine.id}
-                  type="button"
-                  onClick={() => setMachineId(machine.id)}
-                  className={`min-h-14 rounded-card border px-4 py-3 text-left text-[17px] ${
-                    machineId === machine.id
-                      ? 'border-accent bg-surface-2 text-text'
-                      : 'border-border bg-surface-1 text-text-secondary'
-                  }`}
-                >
-                  {machine.name}
-                </button>
+
+            <TreeSearchField
+              value={machineQuery}
+              onChange={setMachineQuery}
+              placeholder="Тренажёр или зона"
+              label="Поиск тренажёра"
+            />
+
+            <div className="flex flex-col gap-4">
+              {machineGroups.map((group) => (
+                <div key={group.key} className="flex flex-col gap-2">
+                  <p className="text-[13px] text-text-muted">
+                    <Highlight text={group.title} query={machineQuery} />
+                  </p>
+
+                  {group.machines.map((machine) => (
+                    <button
+                      key={machine.id}
+                      type="button"
+                      onClick={() => setMachineId(machine.id)}
+                      aria-pressed={machineId === machine.id}
+                      className={`min-h-14 rounded-card border px-4 py-3 text-left text-[17px] ${
+                        machineId === machine.id
+                          ? 'border-accent bg-surface-2 text-text'
+                          : 'border-border bg-surface-1 text-text-secondary'
+                      }`}
+                    >
+                      <Highlight text={machine.name} query={machineQuery} />
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
+
             <p className="text-[13px] text-text-muted">
-              Новый тренажёр добавляется в разделе «Тренажёры».
+              {machineGroups.length === 0
+                ? 'Такого тренажёра нет — добавь его в разделе «Тренажёры».'
+                : 'Новый тренажёр добавляется в разделе «Тренажёры».'}
             </p>
           </>
         ) : null}

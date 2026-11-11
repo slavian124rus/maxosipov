@@ -26,7 +26,10 @@ export type ExerciseListItem = {
   id: string
   slug: string
   name: string
+  machineId: string | null
   machineName: string | null
+  /** Зона тренажёра — уровень иерархии в кабинете тренера. `null` без тренажёра или без зоны. */
+  machineZone: string | null
   primaryMuscles: string[]
   secondaryMuscles: string[]
   status: string
@@ -356,7 +359,13 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
   const machinePhoto = alias(media, 'machine_photo')
 
   const rows = await db
-    .select({ exercise: exercises, machineName: machines.name, video: media, photo: machinePhoto })
+    .select({
+      exercise: exercises,
+      machineName: machines.name,
+      machineZone: machines.zone,
+      video: media,
+      photo: machinePhoto,
+    })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
     .leftJoin(media, eq(exercises.videoMediaId, media.id))
@@ -373,7 +382,7 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
     })
   }
 
-  return rows.map(({ exercise, machineName, video, photo }) => {
+  return rows.map(({ exercise, machineName, machineZone, video, photo }) => {
     const poster = video?.processedPaths?.poster
     const photoPaths = machinePhotoPaths(photo)
 
@@ -381,7 +390,9 @@ export async function listExercises(filter: ExerciseFilter = {}): Promise<Exerci
       id: exercise.id,
       slug: exercise.slug,
       name: exercise.name,
+      machineId: exercise.machineId,
       machineName,
+      machineZone,
       primaryMuscles: exercise.primaryMuscles,
       secondaryMuscles: exercise.secondaryMuscles,
       status: exercise.status,
@@ -409,6 +420,7 @@ export async function getExercise(
     .select({
       exercise: exercises,
       machineName: machines.name,
+      machineZone: machines.zone,
       weightStepKg: machines.weightStepKg,
       machinePhotoMediaId: machines.photoMediaId,
     })
@@ -439,7 +451,9 @@ export async function getExercise(
     id: row.exercise.id,
     slug: row.exercise.slug,
     name: row.exercise.name,
+    machineId: row.exercise.machineId,
     machineName: row.machineName,
+    machineZone: row.machineZone,
     primaryMuscles: row.exercise.primaryMuscles,
     secondaryMuscles: row.exercise.secondaryMuscles,
     status: row.exercise.status,
