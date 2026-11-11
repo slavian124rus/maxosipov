@@ -65,6 +65,9 @@ export async function createUpload(
     // Своё фото прогресса загружает только клиент с доступом (ARCHITECTURE §8.4).
     await assertClientAccess(actor.id)
     await assertPhotoQuota(actor.id)
+  } else if (input.kind === 'machine_photo') {
+    // Фото тренажёра — каталог зала: его снимает и меняет тренер (D17).
+    assertCan(actor, 'catalog.edit')
   } else {
     throw new Error('Загрузка фото пока недоступна')
   }
@@ -166,8 +169,8 @@ export type CompleteDeps = {
  */
 export async function completeUpload(id: string, deps: CompleteDeps = {}): Promise<void> {
   const row = await findMedia(id)
-  // Фото прогресса идут в свою очередь (sharp), видео упражнений — в ffmpeg-пайплайн.
-  const queueName = row.kind === 'progress_photo' ? PHOTO_QUEUE : PROCESS_MEDIA_QUEUE
+  // Видео упражнений идёт в ffmpeg-пайплайн, все фото (прогресс и тренажёры) — в очередь sharp.
+  const queueName = row.kind === 'exercise_video' ? PROCESS_MEDIA_QUEUE : PHOTO_QUEUE
   const enqueue = deps.enqueue ?? ((mediaId: string) => enqueueJob(queueName, { mediaId }))
 
   if (row.originalPath) return

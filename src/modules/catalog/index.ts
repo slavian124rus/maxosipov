@@ -27,6 +27,7 @@ export {
   getExercise,
   listExercises,
   listMachines,
+  listMachinesWithPhotos,
   publishExercise,
   unpublishExercise,
   updateExercise,
@@ -37,6 +38,7 @@ export type {
   ExerciseFilter,
   ExerciseListItem,
   GetExerciseOptions,
+  MachineListItem,
 } from './service'
 
 

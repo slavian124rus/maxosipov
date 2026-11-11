@@ -8,10 +8,12 @@ import {
   publishExercise,
   unpublishExercise,
   updateExercise,
+  updateMachine,
   type ExerciseInput,
 } from '@/modules/catalog'
 import { requireUser } from '@/modules/auth'
 import { draftExerciseText, type ExerciseDraft } from '@/modules/coach-ai'
+import { parseWeightStep } from '@/components/trainer/machine-values'
 import { setProcessingOptions } from '@/modules/media'
 import { assertCan } from '@/modules/rbac'
 import type { MuscleCode } from '@/shared/muscles'
@@ -142,8 +144,9 @@ export async function draftExerciseAction(input: {
   }
 }
 
-export type MachineState = { error: string | null; ok: boolean }
+export type MachineState = { error: string | null; ok: boolean; id: string | null }
 
+/** Создаёт тренажёр или обновляет существующий (имя, зона, шаг веса, фото). */
 export async function saveMachineAction(
   _prev: MachineState,
   formData: FormData,
@@ -151,16 +154,30 @@ export async function saveMachineAction(
   const { actor } = await requireUser()
 
   try {
-    await createMachine(actor, {
+    const input = {
       name: text(formData.get('name')),
       zone: text(formData.get('zone')) || null,
-      weightStepKg: Number(text(formData.get('weightStepKg')) || 5),
-      photoMediaId: null,
-    })
+      weightStepKg: parseWeightStep(text(formData.get('weightStepKg'))),
+      photoMediaId: text(formData.get('photoMediaId')) || null,
+    }
+
+    const id = text(formData.get('id'))
+    const machine = id
+      ? await updateMachine(actor, id, input)
+      : await createMachine(actor, input)
+
     revalidatePath('/trainer/machines')
-    return { error: null, ok: true }
+    revalidatePath('/trainer/exercises')
+    // Фото тренажёра показывается в каталоге клиента вместо видео.
+    revalidatePath('/exercises')
+
+    return { error: null, ok: true, id: machine.id }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Не удалось сохранить', ok: false }
+    return {
+      error: error instanceof Error ? error.message : 'Не удалось сохранить',
+      ok: false,
+      id: null,
+    }
   }
 }
 

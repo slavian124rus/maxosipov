@@ -6,6 +6,7 @@ import {
   signMediaPath,
   VIDEO_URL_TTL_SEC,
   type Media,
+  type MediaRowStatus,
   type ProcessedPaths,
 } from '@/modules/media'
 import { assertCan, type Actor } from '@/modules/rbac'
@@ -167,6 +168,7 @@ async function assertExerciseVideo(videoMediaId: string | null): Promise<void> {
 export async function createMachine(actor: Actor, input: MachineInput): Promise<Machine> {
   assertCan(actor, 'catalog.edit')
   const data = machineInputSchema.parse(input)
+  await assertMachinePhoto(data.photoMediaId)
   const gym = await getGym()
 
   const [row] = await db
@@ -191,6 +193,7 @@ export async function updateMachine(
 ): Promise<Machine> {
   assertCan(actor, 'catalog.edit')
   const data = machineInputSchema.parse(input)
+  await assertMachinePhoto(data.photoMediaId)
 
   const [row] = await db
     .update(machines)
@@ -208,8 +211,57 @@ export async function updateMachine(
   return row
 }
 
+/**
+ * К тренажёру можно привязать только фото тренажёра: личный снимок клиента
+ * (`progress_photo`) не должен уехать в общий каталог по подписанной ссылке.
+ */
+async function assertMachinePhoto(photoMediaId: string | null): Promise<void> {
+  if (!photoMediaId) return
+
+  const [row] = await db
+    .select({ kind: media.kind })
+    .from(media)
+    .where(eq(media.id, photoMediaId))
+    .limit(1)
+
+  if (!row || row.kind !== 'machine_photo') throw new Error('Фото тренажёра не найдено')
+}
+
 export async function listMachines(): Promise<Machine[]> {
   return db.select().from(machines).where(isNull(machines.archivedAt)).orderBy(asc(machines.name))
+}
+
+/** Тренажёр со ссылками на фото — для кабинета тренера. */
+export type MachineListItem = Machine & {
+  /** Полное фото (≤ 1600) и миниатюра (≤ 400); `null`, пока фото нет или оно не готово. */
+  photoUrl: string | null
+  thumbUrl: string | null
+  photoStatus: MediaRowStatus | null
+}
+
+/**
+ * Тренажёры с подписанными ссылками на фото (DESIGN.md §8.9): тренер видит, у какого
+ * тренажёра фото есть, у какого нет, и может заменить его в форме.
+ */
+export async function listMachinesWithPhotos(): Promise<MachineListItem[]> {
+  const rows = await db
+    .select({ machine: machines, photo: media })
+    .from(machines)
+    .leftJoin(media, eq(machines.photoMediaId, media.id))
+    .where(isNull(machines.archivedAt))
+    .orderBy(asc(machines.name))
+
+  return rows.map(({ machine, photo }) => {
+    const paths = machinePhotoPaths(photo)
+
+    return {
+      ...machine,
+      photoUrl: paths?.photo ? signMediaPath(paths.photo, VIDEO_URL_TTL_SEC) : null,
+      thumbUrl: paths?.thumb ? signMediaPath(paths.thumb, VIDEO_URL_TTL_SEC) : null,
+      // Статус нужен, чтобы показать «Фото обрабатывается…» сразу после загрузки.
+      photoStatus: photo?.kind === 'machine_photo' ? photo.status : null,
+    }
+  })
 }
 
 export async function createExercise(actor: Actor, input: ExerciseInput): Promise<Exercise> {

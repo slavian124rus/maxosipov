@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 
-export type UploadKind = 'exercise_video' | 'photo' | 'progress_photo'
+export type UploadKind = 'exercise_video' | 'machine_photo' | 'photo' | 'progress_photo'
 
 export type UploadState = {
   progress: number

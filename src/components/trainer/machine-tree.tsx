@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Dumbbell } from 'lucide-react'
+import { ChevronRight, Dumbbell } from 'lucide-react'
 import {
   buildMachineTree,
   filterMachineTree,
@@ -10,12 +10,39 @@ import {
 import { BranchChevron, BranchCount, Highlight, TreeSearchField } from '@/components/trainer/tree-ui'
 
 /** Шаг веса по DESIGN §9.2 — с запятой: «2,5 кг». */
-function weightLabel(value: number): string {
+export function weightLabel(value: number): string {
   return `${String(value).replace('.', ',')} кг`
 }
 
-/** Тренажёры зала деревом: зона → тренажёр, с поиском и числом упражнений. */
-export function MachineTree({ machines }: { machines: MachineTreeItem[] }) {
+/** Подпись под названием тренажёра: шаг веса, число упражнений и состояние фото. */
+export function machineMeta(machine: MachineTreeItem): string {
+  const parts = [`шаг ${weightLabel(machine.weightStepKg)}`]
+
+  parts.push(
+    machine.exerciseCount > 0
+      ? `${machine.exerciseCount} в каталоге`
+      : 'в каталоге пока нет',
+  )
+
+  if (machine.photoStatus === 'processing' || machine.photoStatus === 'uploaded') {
+    parts.push('фото обрабатывается')
+  } else if (machine.photoStatus === 'failed') {
+    parts.push('фото не загрузилось')
+  } else if (!machine.thumbUrl) {
+    parts.push('без фото')
+  }
+
+  return parts.join(' · ')
+}
+
+/** Тренажёры зала деревом: зона → тренажёр, с поиском, фото и переходом в правку. */
+export function MachineTree({
+  machines,
+  onEdit,
+}: {
+  machines: MachineTreeItem[]
+  onEdit: (id: string) => void
+}) {
   const [query, setQuery] = useState('')
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set())
 
@@ -75,28 +102,48 @@ export function MachineTree({ machines }: { machines: MachineTreeItem[] }) {
                 {open ? (
                   <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3">
                     {zone.machines.map((machine) => (
-                      <li
-                        key={machine.id}
-                        className="flex items-center gap-2 rounded-control bg-surface-1 px-3 py-2.5"
-                      >
-                        <Dumbbell
-                          size={16}
-                          strokeWidth={1.75}
-                          aria-hidden
-                          className="shrink-0 text-text-muted"
-                        />
-                        <span className="flex flex-col gap-0.5">
-                          <span className="text-[15px]">
-                            <Highlight text={machine.name} query={query} />
+                      <li key={machine.id}>
+                        <button
+                          type="button"
+                          onClick={() => onEdit(machine.id)}
+                          className="flex w-full items-center gap-3 rounded-control bg-surface-1 px-3 py-2.5 text-left"
+                        >
+                          {machine.thumbUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка
+                            <img
+                              src={machine.thumbUrl}
+                              alt=""
+                              width={48}
+                              height={48}
+                              className="h-12 w-12 shrink-0 rounded-[12px] object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] bg-surface-2">
+                              <Dumbbell
+                                size={20}
+                                strokeWidth={1.75}
+                                aria-hidden
+                                className="text-text-muted"
+                              />
+                            </span>
+                          )}
+
+                          <span className="flex min-w-0 flex-col gap-0.5">
+                            <span className="text-[15px]">
+                              <Highlight text={machine.name} query={query} />
+                            </span>
+                            <span className="tabular-nums text-[13px] text-text-muted">
+                              {machineMeta(machine)}
+                            </span>
                           </span>
-                          <span className="tabular-nums text-[13px] text-text-muted">
-                            {`шаг ${weightLabel(machine.weightStepKg)}${
-                              machine.exerciseCount > 0
-                                ? ` · ${machine.exerciseCount} в каталоге`
-                                : ' · в каталоге пока нет'
-                            }`}
-                          </span>
-                        </span>
+
+                          <ChevronRight
+                            size={18}
+                            strokeWidth={1.75}
+                            aria-hidden
+                            className="ml-auto shrink-0 text-text-muted"
+                          />
+                        </button>
                       </li>
                     ))}
                   </ul>

@@ -45,6 +45,10 @@ export type MachineTreeItem = {
   weightStepKg: number
   /** Сколько опубликованных упражнений на тренажёре. */
   exerciseCount: number
+  /** Миниатюра фото тренажёра; `null`, пока фото нет или оно обрабатывается. */
+  thumbUrl?: string | null
+  /** Статус фото: `processing` — показываем «Фото обрабатывается». */
+  photoStatus?: 'uploaded' | 'processing' | 'ready' | 'failed' | null
 }
 
 export type MachineZoneBranch = {

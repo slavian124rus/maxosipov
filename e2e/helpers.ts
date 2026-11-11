@@ -20,10 +20,14 @@ async function forceDevCode(phone: string): Promise<void> {
   )
 }
 
-export async function signInAs(page: Page, phone: string): Promise<void> {
+export async function signInAs(
+  page: Page,
+  phone: string,
+  base = 'http://app.localhost:3000',
+): Promise<void> {
   if (process.env.E2E_PROD) await queryDb('delete from otp_codes where phone = $1', [phone])
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.goto('http://app.localhost:3000/login/phone')
+    await page.goto(`${base}/login/phone`)
 
     const input = page.getByLabel('Номер телефона')
     await input.fill(phone)

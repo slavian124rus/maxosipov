@@ -2,9 +2,10 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import type { Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
+import { PHOTO_QUEUE } from '@/shared/queues'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
 import { media } from './schema'
 import {
@@ -252,6 +253,52 @@ test('вид photo (не прогресс) по-прежнему недосту�
   await expect(
     createUpload(actor, { kind: 'photo', fileName: 'p.jpg', sizeBytes: 1000, mime: 'image/jpeg' }),
   ).rejects.toThrow('Загрузка фото пока недоступна')
+})
+
+test('тренер загружает фото тренажёра, клиент — нет', async () => {
+  const created = await createUpload(actor, {
+    kind: 'machine_photo',
+    fileName: 'machine.jpg',
+    sizeBytes: 1000,
+    mime: 'image/jpeg',
+  })
+  expect(created.totalChunks).toBe(1)
+
+  await expect(
+    createUpload(client, {
+      kind: 'machine_photo',
+      fileName: 'machine.jpg',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+    }),
+  ).rejects.toThrow(/прав/i)
+})
+
+test('фото тренажёра идёт в очередь sharp, а не в видео-пайплайн', async () => {
+  const { id } = await createUpload(actor, {
+    kind: 'machine_photo',
+    fileName: 'machine.jpg',
+    sizeBytes: 10,
+    mime: 'image/jpeg',
+  })
+  await putChunk(id, 0, Buffer.alloc(10, 1))
+
+  // Очередь выбирается внутри completeUpload — подменяем постановку задачи.
+  const queued: string[] = []
+  const queueModule = await import('@/shared/queue')
+  const spy = vi
+    .spyOn(queueModule, 'enqueueJob')
+    .mockImplementation(async (name: string) => {
+      queued.push(name)
+    })
+
+  try {
+    await completeUpload(id)
+  } finally {
+    spy.mockRestore()
+  }
+
+  expect(queued).toEqual([PHOTO_QUEUE])
 })
 
 test('несовпадение размера сбрасывает загрузку, можно залить заново', async () => {

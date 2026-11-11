@@ -6,7 +6,17 @@ import { gyms } from '@/modules/gym'
 import { media } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
-import { createExercise, createMachine, getExercise, listExercises, publishExercise, updateExercise } from './service'
+import {
+  createExercise,
+  createMachine,
+  getExercise,
+  listExercises,
+  listMachinesWithPhotos,
+  publishExercise,
+  updateExercise,
+  updateMachine,
+} from './service'
+import { machines } from './schema'
 import type { ExerciseInput } from './validation'
 
 vi.mock('@/shared/queue', () => ({ enqueueJob: vi.fn(async () => {}) }))
@@ -122,6 +132,9 @@ beforeEach(async () => {
 /**
  * Тренажёр с фото (`machine_photo`). `photo = null` — тренажёр без фото.
  * Пути по умолчанию такие же, как после `processPhoto`: `photo.webp` + `thumb.webp`.
+ *
+ * Строка тренажёра пишется напрямую: проверки `createMachine`/`updateMachine` (только
+ * `machine_photo`) тестируются отдельно, а здесь важен путь чтения и публикации.
  */
 async function createMachineWithPhoto(
   name: string,
@@ -156,8 +169,12 @@ async function createMachineWithPhoto(
     photoMediaId = row!.id
   }
 
-  const machine = await createMachine(actor, { name, zone: 'Ноги', weightStepKg: 5, photoMediaId })
-  return machine.id
+  const [machine] = await db
+    .insert(machines)
+    .values({ gymId: actor.gymId, name, zone: 'Ноги', weightStepKg: 5, photoMediaId })
+    .returning()
+
+  return machine!.id
 }
 
 test('публикация без видео и без фото тренажёра → «Добавь видео или фото тренажёра»', async () => {
@@ -526,6 +543,111 @@ test('к упражнению нельзя привязать фото вмес�
   await expect(
     updateExercise(actor, exercise.id, { ...baseInput, videoMediaId: photo!.id }),
   ).rejects.toThrow('Видео не найдено')
+})
+
+test('тренажёр правится: название, зона, шаг веса и фото', async () => {
+  const machine = await createMachine(actor, {
+    name: 'Гакк-машина',
+    zone: 'Ноги',
+    weightStepKg: 5,
+    photoMediaId: null,
+  })
+
+  const [photo] = await db
+    .insert(media)
+    .values({
+      kind: 'machine_photo',
+      ownerId: actor.id,
+      status: 'ready',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+      processedPaths: { photo: 'p/photo.webp', thumb: 'p/thumb.webp' },
+    })
+    .returning()
+
+  const updated = await updateMachine(actor, machine.id, {
+    name: 'Гакк-машина (наклон)',
+    zone: 'Ноги',
+    weightStepKg: 2.5,
+    photoMediaId: photo!.id,
+  })
+
+  expect(updated.name).toBe('Гакк-машина (наклон)')
+  expect(updated.weightStepKg).toBe(2.5)
+  expect(updated.photoMediaId).toBe(photo!.id)
+
+  // Фото приходит в кабинет тренера подписанной ссылкой.
+  const [listed] = await listMachinesWithPhotos()
+  expect(listed?.photoUrl).toContain('sig=')
+  expect(listed?.photoStatus).toBe('ready')
+
+  // Фото можно убрать.
+  const cleared = await updateMachine(actor, machine.id, {
+    name: 'Гакк-машина (наклон)',
+    zone: null,
+    weightStepKg: 2.5,
+    photoMediaId: null,
+  })
+  expect(cleared.photoMediaId).toBeNull()
+  expect(cleared.zone).toBeNull()
+})
+
+test('к тренажёру нельзя привязать чужой вид фото', async () => {
+  const machine = await createMachine(actor, {
+    name: 'Бабочка',
+    zone: 'Грудь',
+    weightStepKg: 2.5,
+    photoMediaId: null,
+  })
+
+  const [progress] = await db
+    .insert(media)
+    .values({
+      kind: 'progress_photo',
+      ownerId: actor.id,
+      status: 'ready',
+      sizeBytes: 1000,
+      mime: 'image/jpeg',
+      totalChunks: 1,
+    })
+    .returning()
+
+  await expect(
+    updateMachine(actor, machine.id, {
+      name: 'Бабочка',
+      zone: 'Грудь',
+      weightStepKg: 2.5,
+      photoMediaId: progress!.id,
+    }),
+  ).rejects.toThrow('Фото тренажёра не найдено')
+
+  await expect(
+    createMachine(actor, {
+      name: 'Новый',
+      zone: null,
+      weightStepKg: 5,
+      photoMediaId: progress!.id,
+    }),
+  ).rejects.toThrow('Фото тренажёра не найдено')
+})
+
+test('править тренажёр может только тот, у кого есть catalog.edit', async () => {
+  const machine = await createMachine(actor, {
+    name: 'Парта для бицепса',
+    zone: 'Руки',
+    weightStepKg: 2.5,
+    photoMediaId: null,
+  })
+
+  await expect(
+    updateMachine(client, machine.id, {
+      name: 'Взлом',
+      zone: 'Руки',
+      weightStepKg: 2.5,
+      photoMediaId: null,
+    }),
+  ).rejects.toBeInstanceOf(ForbiddenError)
 })
 
 test('опубликованное упражнение после правки без шагов возвращается в черновики', async () => {
