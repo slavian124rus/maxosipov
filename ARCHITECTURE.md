@@ -165,6 +165,12 @@
 - `subscriptions` — **текущее состояние, одна строка на клиента**: user_id (unique), status (`trial` | `active` | `frozen` | `expired` | `disabled`), starts_at, ends_at, frozen_at, status_before_freeze.
 - `subscription_events` — история: user_id, type (`trial_started` | `granted` | `frozen` | `unfrozen` | `disabled` | `expired`), months, until_date, price_rub, note, actor_id, created_at.
 
+**Правка своих данных.** Имя (`users.name`) и анкету (`client_profiles`) клиент меняет сам в `/profile`
+(`saveProfileDetails`, `updateUserName`); согласия повторно не спрашиваются, ограничения по здоровью
+сохраняются только при действующем `health_consent_at` — снял галочку, данные о здоровье стёрты.
+Имя клиента может поправить и тренер в карточке (`updateClientName`): право `clients.edit_programs`
+со своей областью, то есть владелец и тренер своих клиентов. Схема не менялась — миграций нет.
+
 **Роли и права**
 - `roles`: name, is_system (Владелец), permissions (массив кодов прав с областью).
 - `role_audit`: actor_id, action, target, before, after.

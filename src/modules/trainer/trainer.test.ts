@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
-import { getClientCard, listClients } from './clients'
+import { getClientCard, listClients, updateClientName } from './clients'
 import { addNote, listNotes, listVisibleNotes } from './notes'
 import { getTrainerFeed } from './feed'
 import { resolveFlag } from '@/modules/coach-ai'
@@ -92,4 +92,26 @@ test('лента: тренировка четырёхчасовой давнос
   const feed = await getTrainerFeed(world.trainer)
   expect(feed.trainingNow).toHaveLength(1)
   expect(feed.trainingNow[0]?.id).toBe(world.clientId)
+})
+test('тренер меняет имя своего клиента, чужого — 404', async () => {
+  const saved = await updateClientName(world.trainer, world.clientId, '  Иван Петров (зал) ')
+  expect(saved).toBe('Иван Петров (зал)')
+
+  const card = await getClientCard(world.trainer, world.clientId)
+  expect(card.name).toBe('Иван Петров (зал)')
+
+  // Свой тренер видит право на правку имени, чужой клиент ему недоступен.
+  expect(card.permissions.editName).toBe(true)
+  await expect(
+    updateClientName(world.otherTrainer, world.clientId, 'Чужой'),
+  ).rejects.toBeInstanceOf(NotFoundError)
+})
+
+test('имя клиента валидируется: слишком короткое не сохраняется', async () => {
+  await expect(updateClientName(world.trainer, world.clientId, ' Я ')).rejects.toThrow(
+    'Имя слишком короткое',
+  )
+
+  const card = await getClientCard(world.trainer, world.clientId)
+  expect(card.name).toBe('Иван Петров')
 })

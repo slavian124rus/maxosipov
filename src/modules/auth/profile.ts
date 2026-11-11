@@ -1,7 +1,13 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/shared/db'
 import { clientProfiles, users, type ClientProfile } from './schema'
-import { clientProfileSchema, type ClientProfileInput } from './profile-schema'
+import {
+  clientProfileSchema,
+  profileDetailsSchema,
+  userNameSchema,
+  type ClientProfileInput,
+  type ProfileDetailsInput,
+} from './profile-schema'
 
 /** Анкета клиента (или `null`, если онбординг не пройден). */
 export async function getClientProfile(userId: string): Promise<ClientProfile | null> {
@@ -54,7 +60,63 @@ export async function saveOnboarding(
   if (contact) await saveContactPhone(userId, contact.phone)
 }
 
-/** Сохраняет телефон, если он свободен: чужой номер молча пропускаем (контакт не подтверждён). */
+/**
+ * Меняет только имя: его правит и сам человек в профиле, и тренер в карточке клиента.
+ * Возвращает сохранённое (обрезанное) имя.
+ */
+export async function updateUserName(userId: string, rawName: string): Promise<string> {
+  const name = userNameSchema.parse(rawName)
+
+  await db.update(users).set({ name, updatedAt: new Date() }).where(eq(users.id, userId))
+
+  return name
+}
+
+/**
+ * Клиент правит свои данные сам (DESIGN.md §8.1 «Профиль»): имя и анкету.
+ * Согласия не трогаем — они даны при онбординге; ограничения пишем только если
+ * согласие на здоровье уже есть, иначе поле остаётся пустым.
+ */
+export async function saveProfileDetails(
+  userId: string,
+  input: ProfileDetailsInput,
+): Promise<void> {
+  const data = profileDetailsSchema.parse(input)
+  const now = new Date()
+
+  const existing = await getClientProfile(userId)
+  // Согласие на здоровье можно дать (и отозвать) в профиле. Отозвали — данные о здоровье стираем.
+  const healthConsentAt = data.healthConsent ? (existing?.healthConsentAt ?? now) : null
+  const limitations = healthConsentAt ? (data.limitations ?? null) : null
+
+  const values = {
+    userId,
+    sex: data.sex,
+    birthYear: data.birthYear,
+    heightCm: data.heightCm,
+    weightKg: data.weightKg,
+    goal: data.goal,
+    experience: data.experience,
+    sessionsPerWeek: data.sessionsPerWeek,
+    limitations,
+    healthConsentAt,
+    updatedAt: now,
+  }
+
+  await db
+    .insert(clientProfiles)
+    .values(values)
+    .onConflictDoUpdate({ target: clientProfiles.userId, set: values })
+
+  await db
+    .update(users)
+    .set({ name: data.name, updatedAt: now })
+    .where(eq(users.id, userId))
+}
+
+/**
+ * Сохраняет телефон, если он свободен: чужой номер молча пропускаем (контакт не подтверждён).
+ */
 async function saveContactPhone(userId: string, phone: string): Promise<void> {
   const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1)
   if (taken) return

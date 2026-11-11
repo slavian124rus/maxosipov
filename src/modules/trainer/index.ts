@@ -1,4 +1,4 @@
-export { getClientCard, listClients } from './clients'
+export { getClientCard, listClients, updateClientName } from './clients'
 export type { ClientCard, ClientFilter, ClientListItem, ClientSessionItem } from './clients'
 
 export { addNote, listNotes, listVisibleNotes } from './notes'

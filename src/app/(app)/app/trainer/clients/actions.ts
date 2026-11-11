@@ -4,9 +4,32 @@ import { revalidatePath } from 'next/cache'
 import { addMeasurement } from '@/modules/body'
 import { requireUser } from '@/modules/auth'
 import { resolveFlag } from '@/modules/coach-ai'
-import { addNote } from '@/modules/trainer'
+import { addNote, updateClientName } from '@/modules/trainer'
 import { formFailure } from '../form-errors'
 import { SAVED_FORM_STATE, type FormState } from '../form-state'
+
+/**
+ * Тренер или владелец правит имя клиента в карточке (DESIGN.md §8.9):
+ * в списке клиентов видно имя, а не «Без имени».
+ */
+export async function renameClientAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { actor } = await requireUser()
+  const clientId = String(formData.get('clientId') ?? '')
+  const name = String(formData.get('name') ?? '')
+
+  if (!clientId) return { error: 'Не выбран клиент', saved: false }
+
+  try {
+    await updateClientName(actor, clientId, name)
+  } catch (error) {
+    return formFailure(error, 'Имя не сохранено')
+  }
+
+  revalidatePath(`/trainer/clients/${clientId}`)
+  revalidatePath('/trainer/clients')
+  revalidatePath('/trainer')
+  return SAVED_FORM_STATE
+}
 
 /** Заметка тренера о клиенте; «показать клиенту» — галочка в форме. */
 export async function addNoteAction(_prev: FormState, formData: FormData): Promise<FormState> {

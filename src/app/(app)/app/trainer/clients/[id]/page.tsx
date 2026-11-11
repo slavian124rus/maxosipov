@@ -8,6 +8,7 @@ import { isNotFoundError } from '@/shared/errors'
 import { dayKey } from '@/shared/dates'
 import type { CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { PageHeader, Panel, TrainerPage } from '@/components/trainer/page'
+import { ClientNameEditor } from '@/components/trainer/client-name-editor'
 import { ProfileTab } from '@/components/trainer/client-tabs/profile-tab'
 import { ProgramTab } from '@/components/trainer/client-tabs/program-tab'
 import { HistoryTab } from '@/components/trainer/client-tabs/history-tab'
@@ -95,7 +96,11 @@ export default async function ClientCardPage({
                 {initials(card.name)}
               </span>
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[15px] text-text">{card.name}</span>
+                {card.permissions.editName ? (
+                  <ClientNameEditor clientId={card.id} name={card.name} />
+                ) : (
+                  <span className="truncate text-[15px] text-text">{card.name || 'Без имени'}</span>
+                )}
                 <span className="truncate text-[13px] text-text-muted">
                   {formatContact(card.contact)}
                 </span>

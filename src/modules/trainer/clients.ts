@@ -5,7 +5,7 @@ import {
   subscriptions,
   type AccessState,
 } from '@/modules/access'
-import { getClientProfile, users, type ClientProfile } from '@/modules/auth'
+import { getClientProfile, updateUserName, users, type ClientProfile } from '@/modules/auth'
 import {
   listMeasurements,
   listProgressPhotos,
@@ -20,7 +20,7 @@ import {
   type ProposalCard,
   type TrainerProposalItem,
 } from '@/modules/coach-ai'
-import { can, permissionScope, roles, type Actor } from '@/modules/rbac'
+import { assertCan, can, permissionScope, roles, type Actor } from '@/modules/rbac'
 import {
   getActiveProgram,
   getLastWorkoutDates,
@@ -33,6 +33,32 @@ import { db } from '@/shared/db'
 import { NotFoundError } from '@/shared/errors'
 import { assertClientVisible } from './notes'
 import { trainerNotes, type TrainerNote } from './schema'
+
+/**
+ * Тренер или владелец меняет имя клиента прямо в карточке (DESIGN.md §8.9):
+ * клиенты часто регистрируются «без имени», и в списке их не отличить.
+ * Право — то же, что на программу: `clients.edit_programs` (у тренера — только свои).
+ */
+export async function updateClientName(
+  actor: Actor,
+  clientId: string,
+  rawName: string,
+): Promise<string> {
+  await assertClientVisible(actor, clientId)
+
+  const [client] = await db
+    .select({ trainerId: users.trainerId })
+    .from(users)
+    .where(eq(users.id, clientId))
+    .limit(1)
+
+  assertCan(actor, 'clients.edit_programs', {
+    clientId,
+    clientTrainerId: client?.trainerId ?? null,
+  })
+
+  return updateUserName(clientId, rawName)
+}
 
 export type ClientFilter = 'all' | 'trial' | 'expiring' | 'expired' | 'active'
 
@@ -71,6 +97,7 @@ export type ClientCard = {
   acceptedProposals: TrainerProposalItem[]
   permissions: {
     editProgram: boolean
+    editName: boolean
     viewPhotos: boolean
     viewAiFlags: boolean
     notes: boolean
@@ -205,6 +232,8 @@ export async function getClientCard(actor: Actor, clientId: string): Promise<Cli
     acceptedProposals,
     permissions: {
       editProgram: can(actor, 'clients.edit_programs', target),
+      /** Имя правит тот, кто ведёт программу: владелец и тренер клиента (DESIGN.md §8.9). */
+      editName: can(actor, 'clients.edit_programs', target),
       viewPhotos,
       viewAiFlags,
       notes: can(actor, 'clients.notes', target),

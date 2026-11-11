@@ -48,10 +48,10 @@ export type { VkExchangeInput } from './oauth/vk'
 export { pendingLinks } from './schema'
 export type { PendingLink } from './schema'
 
-export { clientProfileSchema } from './profile-schema'
-export type { ClientProfileInput } from './profile-schema'
+export { clientProfileSchema, profileDetailsSchema, userNameSchema } from './profile-schema'
+export type { ClientProfileInput, ProfileDetailsInput } from './profile-schema'
 
-export { saveOnboarding, getClientProfile } from './profile'
+export { saveOnboarding, getClientProfile, saveProfileDetails, updateUserName } from './profile'
 
 export { clientProfiles } from './schema'
 export type { ClientExperience, ClientGoal, ClientProfile, ClientSex } from './schema'

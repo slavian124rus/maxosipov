@@ -1,10 +1,11 @@
 import { PushOptIn } from '@/components/app/push-opt-in'
+import { ProfileForm } from '@/components/app/profile-form'
 import { requireClientPage } from '@/components/app/require-client-page'
 
 // Экран зависит от сессии и подписки.
 export const instant = false
 import { getAccessForUser } from '@/modules/access'
-import { formatPhone } from '@/modules/auth'
+import { formatPhone, getClientProfile } from '@/modules/auth'
 import { listVisibleNotes } from '@/modules/trainer'
 import { env } from '@/shared/env'
 import { setWorkoutModeAction } from '../actions'
@@ -29,6 +30,7 @@ export default async function ProfilePage() {
   const { user } = await requireClientPage('/profile')
   const access = await getAccessForUser(user.id)
   const notes = await listVisibleNotes(user.id)
+  const profile = await getClientProfile(user.id)
 
   return (
     <main className="flex flex-col gap-6 px-4 py-6">
@@ -41,6 +43,25 @@ export default async function ProfilePage() {
           {accessLabel(access.status, access.endsAt, access.hasAccess)}
         </p>
       </div>
+
+      <ProfileForm
+        name={user.name}
+        profile={
+          profile
+            ? {
+                sex: profile.sex,
+                birthYear: profile.birthYear,
+                heightCm: profile.heightCm,
+                weightKg: profile.weightKg,
+                goal: profile.goal,
+                experience: profile.experience,
+                sessionsPerWeek: profile.sessionsPerWeek,
+                limitations: profile.limitations,
+                healthConsent: profile.healthConsentAt !== null,
+              }
+            : null
+        }
+      />
 
       {notes.length > 0 ? (
         <section className="flex flex-col gap-2">
