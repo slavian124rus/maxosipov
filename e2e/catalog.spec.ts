@@ -10,6 +10,22 @@ test('каталог: фильтр по широчайшим → карточк�
   // Широчайшие видны сзади
   await page.getByRole('button', { name: 'Сзади' }).first().click()
 
+  // Ряд мышц под фигурой: выбрать мышцу можно и чипом — попасть в него проще, чем в контур.
+  const latsChip = page.getByRole('group', { name: 'Мышцы' }).getByRole('button', {
+    name: /Широчайшие/,
+  })
+  await expect(latsChip).toBeVisible()
+
+  await latsChip.click()
+  await expect(page.getByText(/Фильтр:\s*Широчайшие/)).toBeVisible()
+  await expect(page.getByText('Тяга верхнего блока к груди').first()).toBeVisible({
+    timeout: 15_000,
+  })
+
+  // Повторное касание чипа снимает фильтр.
+  await latsChip.click()
+  await expect(page.getByText(/Фильтр:\s*Широчайшие/)).toHaveCount(0)
+
   const lats = page.locator('[data-muscle="lats"]').first()
   await expect(lats).toBeVisible()
   await lats.click({ force: true })

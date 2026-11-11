@@ -167,6 +167,27 @@ body {
   }
 }
 
+/* Фигура, в которой мышцу можно выбрать касанием (каталог, мастер тренера):
+   отклик на наведение и нажатие — видно, что попадёшь именно в эту мышцу.
+   Прозрачные копии-«зоны касания» (`data-muscle-hit`) не подсвечиваем. */
+.muscle-figure-interactive [data-muscle]:not([data-muscle-hit]) {
+  transition: opacity 150ms ease-out;
+}
+
+.muscle-figure-interactive [data-muscle]:not([data-muscle-hit]):hover {
+  opacity: 0.82;
+}
+
+.muscle-figure-interactive [data-muscle]:not([data-muscle-hit]):active {
+  opacity: 0.64;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-figure-interactive [data-muscle]:not([data-muscle-hit]) {
+    transition: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -65,7 +65,8 @@ function buildSvg(figure: FigureJson, view: 'front' | 'back'): string {
   const map = view === 'front' ? FRONT_MAP : BACK_MAP
   const layers = buildLayers(figure[view], map)
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="22 0 156 400" width="156" height="400">
+  // Корень резиновый: фигура заполняет контейнер и центрируется (DESIGN.md §6.4).
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="22 0 156 400" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
   <path id="silhouette" d="${figure.sil}" fill="#26262B" />
   <ellipse cx="100" cy="30" rx="15" ry="19" fill="#26262B" />
   <rect x="93" y="44" width="14" height="14" rx="4" fill="#26262B" />
