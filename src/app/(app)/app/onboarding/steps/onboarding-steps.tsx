@@ -129,7 +129,7 @@ export function OnboardingSteps({ isIos, askPhone }: { isIos: boolean; askPhone:
 
   if (state.done) {
     return (
-      <div className="flex min-h-dvh flex-col justify-center gap-6 px-4 py-10">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center gap-6 px-4 py-10">
         <div className="flex flex-col gap-2">
           <h1 className="text-[22px] font-semibold">
             Пробный месяц активирован{state.trialUntil ? ` до ${state.trialUntil}` : ''}
@@ -174,7 +174,7 @@ export function OnboardingSteps({ isIos, askPhone }: { isIos: boolean; askPhone:
   })()
 
   return (
-    <form action={formAction} className="flex min-h-dvh flex-col px-4 py-6">
+    <form action={formAction} className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col px-4 py-6">
       <div className="mb-6 h-1 w-full rounded-full bg-surface-2">
         <div
           className="h-1 rounded-full bg-accent transition-all duration-200"

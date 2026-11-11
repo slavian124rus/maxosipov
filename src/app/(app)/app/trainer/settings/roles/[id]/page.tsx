@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listRoles, PERMISSIONS, PERMISSION_GROUPS, PERMISSION_LABELS } from '@/modules/rbac'
@@ -22,9 +23,7 @@ export default async function RoleEditorPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">{role.name}</h1>
-
+    <SettingsPage title={role.name}>
       {role.isSystem ? (
         <p className="text-[15px] text-text-secondary">
           Системную роль «Владелец» изменить нельзя: у неё всегда все права.
@@ -72,6 +71,6 @@ export default async function RoleEditorPage({ params }: { params: Promise<{ id:
           </button>
         </ActionForm>
       )}
-    </main>
+    </SettingsPage>
   )
 }

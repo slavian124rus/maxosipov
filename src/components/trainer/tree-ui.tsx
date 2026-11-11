@@ -80,10 +80,32 @@ export function BranchChevron({ open }: { open: boolean }) {
 }
 
 /** Счётчик в ветке: «4» в кружке, чтобы дерево читалось без раскрытия. */
-export function BranchCount({ count }: { count: number }) {
+export function BranchCount({ count, className = '' }: { count: number; className?: string }) {
   return (
-    <span className="tabular-nums ml-auto shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[12px] text-text-secondary">
+    <span
+      className={`tabular-nums ml-auto shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[12px] text-text-secondary ${className}`}
+    >
       {count}
     </span>
   )
 }
+
+/** Шапка дерева-таблицы: видна только на ПК, колонки совпадают со строками. */
+export function TreeTableHead({
+  first,
+  second,
+  third,
+}: {
+  first: string
+  second: string
+  third?: string
+}) {
+  return (
+    <div className="hidden grid-cols-[minmax(0,1fr)_180px_150px] items-center gap-3 rounded-t-card border border-border bg-surface-2/40 px-3 py-2 text-[12px] tracking-wide text-text-muted uppercase lg:grid">
+      <span>{first}</span>
+      <span>{second}</span>
+      <span>{third}</span>
+    </div>
+  )
+}
+

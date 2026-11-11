@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
@@ -15,9 +16,7 @@ export default async function RolesPage() {
   const roles = await listRoles()
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Роли и права</h1>
-
+    <SettingsPage title="Роли и права">
       <div className="flex flex-col gap-2">
         {roles.map((role) => (
           <div
@@ -55,6 +54,6 @@ export default async function RolesPage() {
       <Link href="/trainer/settings/people" className="text-[15px] text-accent">
         Люди и роли
       </Link>
-    </main>
+    </SettingsPage>
   )
 }

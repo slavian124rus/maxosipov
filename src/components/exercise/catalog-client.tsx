@@ -6,6 +6,9 @@ import { ExerciseListItemRow } from '@/components/exercise/exercise-list-item'
 import type { FigureSide } from '@/components/muscle-figure/state'
 import type { ExerciseListItem, Machine } from '@/modules/catalog'
 import { MUSCLES, muscleName, type MuscleCode } from '@/shared/muscles'
+import { exercisesLabel } from '@/shared/plural'
+
+export { exercisesLabel }
 
 type Props = {
   items: ExerciseListItem[]
@@ -14,16 +17,6 @@ type Props = {
 
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/ё/g, 'е')
-}
-
-/** «1 упражнение · 2 упражнения · 5 упражнений» — DESIGN.md §9.2. */
-export function exercisesLabel(count: number): string {
-  const tens = count % 100
-  const ones = count % 10
-
-  if (ones === 1 && tens !== 11) return `${count} упражнение`
-  if (ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) return `${count} упражнения`
-  return `${count} упражнений`
 }
 
 /**

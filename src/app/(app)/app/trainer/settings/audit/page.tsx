@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listAudit } from '@/modules/rbac'
@@ -20,9 +21,7 @@ export default async function AuditPage() {
   const items = await listAudit(actor)
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Журнал</h1>
-
+    <SettingsPage title="Журнал">
       {items.length === 0 ? (
         <p className="text-[15px] text-text-secondary">Изменений прав пока не было</p>
       ) : (
@@ -44,6 +43,6 @@ export default async function AuditPage() {
           </div>
         ))
       )}
-    </main>
+    </SettingsPage>
   )
 }

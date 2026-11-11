@@ -5,6 +5,7 @@ import { listLeads } from '@/modules/landing'
 import { can } from '@/modules/rbac'
 import { formatLongDate } from '@/shared/dates'
 import { getGym } from '@/modules/gym'
+import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import { markLeadContactedAction } from './actions'
 
 // Список заявок зависит от сессии и прав.
@@ -25,11 +26,8 @@ export default async function TrainerLeadsPage() {
   const now = new Date()
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <header className="flex flex-col gap-1">
-        <p className="text-[13px] text-text-muted">С сайта</p>
-        <h1 className="text-[22px] font-semibold">Заявки</h1>
-      </header>
+    <TrainerPage>
+      <PageHeader eyebrow="С сайта" title="Заявки" description="Кто оставил номер на лендинге" />
 
       {leads.length === 0 ? (
         <p className="text-[15px] text-text-secondary">
@@ -37,7 +35,7 @@ export default async function TrainerLeadsPage() {
         </p>
       ) : null}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {leads.map((lead) => {
           const tel = lead.phone.replace(/[^\d+]/g, '')
           const when = `${formatLongDate(lead.createdAt, timeZone, now)}, ${time.format(lead.createdAt)}`
@@ -88,6 +86,6 @@ export default async function TrainerLeadsPage() {
           )
         })}
       </ul>
-    </main>
+    </TrainerPage>
   )
 }

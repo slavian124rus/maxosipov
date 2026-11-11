@@ -14,7 +14,7 @@ export default async function PaywallPage() {
   const contacts = await getTrainerContacts()
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10 text-center">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col items-center justify-center gap-6 px-4 py-10 text-center">
       {contacts.photoUrl ? (
         <Image
           src={contacts.photoUrl}

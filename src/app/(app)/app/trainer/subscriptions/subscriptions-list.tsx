@@ -50,18 +50,37 @@ export function SubscriptionsList({
 
   return (
     <>
-      <ul className="flex flex-col gap-2">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              onClick={() => setSelected(row)}
-              className="flex w-full flex-col gap-1 rounded-card border border-border bg-surface-1 px-4 py-3 text-left"
-            >
-              <span className="flex items-baseline justify-between gap-3">
-                <span className="text-[17px]">{row.name || 'Без имени'}</span>
+      <div className="overflow-hidden rounded-card border border-border">
+        {/* Шапка таблицы — только на ПК; на телефоне это карточки. */}
+        <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_260px] items-center gap-3 border-b border-border bg-surface-2/40 px-4 py-2.5 text-[12px] tracking-wide text-text-muted uppercase lg:grid">
+          <span>Клиент</span>
+          <span>Контакт</span>
+          <span className="text-right">Доступ</span>
+        </div>
+
+        <ul className="flex flex-col divide-y divide-border/60 bg-surface-1">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <button
+                type="button"
+                onClick={() => setSelected(row)}
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-3 text-left hover:bg-surface-2/50 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_260px]"
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-[17px] lg:text-[15px]">
+                    {row.name || 'Без имени'}
+                  </span>
+                  <span className="truncate text-[13px] text-text-muted lg:hidden">
+                    {row.contact}
+                  </span>
+                </span>
+
+                <span className="hidden truncate text-[13px] text-text-muted lg:block">
+                  {row.contact}
+                </span>
+
                 <span
-                  className={`text-[13px] ${
+                  className={`truncate text-right text-[13px] ${
                     row.tone === 'danger'
                       ? 'text-danger'
                       : row.tone === 'warning'
@@ -72,19 +91,21 @@ export function SubscriptionsList({
                   {row.statusLabel}
                   {row.endsAtLabel ? ` · до ${row.endsAtLabel}` : ''}
                 </span>
-              </span>
-              <span className="text-[13px] text-text-muted">{row.contact}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {rows.length === 0 ? (
         <p className="text-[15px] text-text-secondary">Никого не нашли</p>
       ) : null}
 
       <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
+        <SheetContent
+          side="bottom"
+          className="max-h-[90dvh] overflow-y-auto lg:mx-auto lg:w-[640px] lg:max-w-[92vw] lg:rounded-t-sheet lg:border-x"
+        >
           <SheetHeader>
             <SheetTitle>{selected?.name || 'Без имени'}</SheetTitle>
             <SheetDescription>

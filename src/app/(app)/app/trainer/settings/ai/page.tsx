@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
@@ -24,9 +25,7 @@ export default async function AiSettingsPage() {
   const prices = gym.settings.aiPrices ?? {}
 
   return (
-    <main className="flex flex-col gap-5 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">МаксИИм</h1>
-
+    <SettingsPage title="МаксИИм">
       <ActionForm action={saveAiSettingsAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-[15px] text-text">Памятка МаксИИма</p>
@@ -90,6 +89,6 @@ export default async function AiSettingsPage() {
       <a href="/trainer/settings/stats" className="text-[15px] text-accent">
         Расход за месяц
       </a>
-    </main>
+    </SettingsPage>
   )
 }

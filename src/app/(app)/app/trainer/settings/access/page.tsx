@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { updateAccessSettings } from '@/modules/access'
@@ -27,9 +28,7 @@ export default async function AccessSettingsPage() {
   const gym = await getGym()
 
   return (
-    <main className="flex flex-col gap-6 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Настройки доступа</h1>
-
+    <SettingsPage title="Настройки доступа">
       <form action={save} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2 text-[15px] text-text-secondary">
           Пробный период, дней
@@ -66,6 +65,6 @@ export default async function AccessSettingsPage() {
       >
         К подпискам
       </a>
-    </main>
+    </SettingsPage>
   )
 }

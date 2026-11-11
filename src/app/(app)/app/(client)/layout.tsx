@@ -12,7 +12,7 @@ export const instant = false
  */
 export default function ClientLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
       <div className="flex flex-1 flex-col">{children}</div>
       <OfflineSync />
       <BottomNav />

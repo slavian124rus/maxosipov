@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can, listPeople, listRoles } from '@/modules/rbac'
@@ -21,9 +22,7 @@ export default async function PeoplePage({
   const trainers = people.filter((person) => person.roleName !== 'Клиент')
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Люди</h1>
-
+    <SettingsPage title="Люди">
       <form className="flex gap-2">
         <input
           name="q"
@@ -76,6 +75,6 @@ export default async function PeoplePage({
           </div>
         ))}
       </div>
-    </main>
+    </SettingsPage>
   )
 }

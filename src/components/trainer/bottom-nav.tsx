@@ -2,32 +2,22 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChartColumn, Dumbbell, Ellipsis, PersonStanding, Users } from 'lucide-react'
+import { NAV_ICONS } from '@/components/trainer/nav-icons'
+import { isNavActive, mobileNavItems, type TrainerNavItem } from '@/components/trainer/nav-items'
 
-export type TrainerNavItem = { href: string; label: string; icon: 'today' | 'clients' | 'programs' | 'exercises' | 'more' }
-
-const ICONS = {
-  today: ChartColumn,
-  clients: Users,
-  programs: Dumbbell,
-  exercises: PersonStanding,
-  more: Ellipsis,
-}
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === '/trainer') return pathname === '/trainer'
-  return pathname === href || pathname.startsWith(`${href}/`)
-}
-
-/** Нижнее меню тренера (DESIGN.md §8.9). Пункты без прав не показываются. */
+/**
+ * Нижнее меню тренера (DESIGN.md §8.9) — только на телефоне. На ПК его заменяет
+ * боковое меню (`TrainerSidebar`), поэтому здесь `lg:hidden`.
+ */
 export function TrainerNav({ items }: { items: TrainerNavItem[] }) {
   const pathname = usePathname()
+  const mobile = mobileNavItems(items)
 
   return (
-    <nav className="sticky bottom-0 z-20 mt-auto flex items-end justify-around border-t border-border bg-surface-1 px-2 pb-3 pt-2">
-      {items.map((item) => {
-        const Icon = ICONS[item.icon]
-        const active = isActive(pathname, item.href)
+    <nav className="sticky bottom-0 z-20 mt-auto flex items-end justify-around border-t border-border bg-surface-1 px-2 pt-2 pb-3 lg:hidden">
+      {mobile.map((item) => {
+        const Icon = NAV_ICONS[item.icon]
+        const active = isNavActive(pathname, item.href)
 
         return (
           <Link

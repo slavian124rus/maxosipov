@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
@@ -15,8 +16,7 @@ export default async function BrandSettingsPage() {
   const gym = await getGym()
 
   return (
-    <main className="flex flex-col gap-5 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Бренд</h1>
+    <SettingsPage title="Бренд">
       <p className="text-[13px] text-text-muted">
         Название и цвет берутся из настроек — при смене бренда код менять не нужно.
       </p>
@@ -54,6 +54,6 @@ export default async function BrandSettingsPage() {
           Сохранить
         </button>
       </ActionForm>
-    </main>
+    </SettingsPage>
   )
 }

@@ -94,7 +94,7 @@ const textTokens = [
 
 export function UiShowcase() {
   return (
-    <div className="flex flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 py-6">
       <h1 className="font-display text-[40px] leading-none font-medium">Витрина UI</h1>
       <p className="text-[15px] text-text-secondary">
         Служебная страница: токены, шрифты и компоненты. В продакшене отдаёт 404.

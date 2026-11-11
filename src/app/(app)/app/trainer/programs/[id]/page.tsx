@@ -6,6 +6,7 @@ import { getClientCard } from '@/modules/trainer'
 import { getProgramTree, listProgramChanges } from '@/modules/training'
 import { ProgramEditor, type CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
+import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import { isNotFoundError } from '@/shared/errors'
 
 // Экран зависит от сессии и прав.
@@ -48,11 +49,16 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
   const changes = await listProgramChanges(program.id, 15)
 
   return (
-    <main className="flex flex-col gap-5 px-4 py-6">
-      <header className="flex flex-col gap-1">
-        <p className="text-[13px] text-text-muted">{clientId === null ? 'Шаблон' : 'Программа клиента'}</p>
-        <h1 className="text-[22px] font-semibold">{program.name}</h1>
-      </header>
+    <TrainerPage>
+      <PageHeader
+        back={{
+          href:
+            clientId === null ? '/trainer/programs' : `/trainer/clients/${clientId}?tab=program`,
+          label: clientId === null ? 'Программы' : 'К клиенту',
+        }}
+        eyebrow={clientId === null ? 'Шаблон' : 'Программа клиента'}
+        title={program.name}
+      />
 
       <ProgramEditor program={program} catalog={catalog} clientId={clientId} />
 
@@ -86,6 +92,6 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
           ))
         )}
       </section>
-    </main>
+    </TrainerPage>
   )
 }

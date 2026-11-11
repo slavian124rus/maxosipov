@@ -11,7 +11,7 @@ export async function LegalDoc({ file }: { file: string }) {
   const blocks = text.split('\n').filter((line) => line.trim() !== '')
 
   return (
-    <main className="flex min-h-dvh flex-col gap-3 px-4 py-8">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col gap-3 px-4 py-8">
       <Link href="/" className="text-[15px] text-text-muted underline-offset-4 hover:underline">
         Назад
       </Link>

@@ -11,7 +11,8 @@ import {
   type ExerciseTreeItem,
   type MachineBranch,
 } from '@/components/trainer/catalog-tree'
-import { BranchChevron, BranchCount, Highlight, TreeSearchField } from '@/components/trainer/tree-ui'
+import { BranchChevron, BranchCount, Highlight, TreeSearchField, TreeTableHead } from '@/components/trainer/tree-ui'
+import { exercisesLabel } from '@/shared/plural'
 
 export type ExerciseTab = 'published' | 'draft'
 
@@ -169,42 +170,52 @@ export function ExerciseTree({ items, initialTab }: Props) {
       </div>
 
       {zones.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {zones.map((zone) => {
-            const open = zoneOpen(zone.key)
+        <div className="lg:rounded-card lg:border lg:border-border lg:bg-surface-1">
+          <TreeTableHead first="Зона, тренажёр, упражнение" second="Видео" third="Мышцы" />
 
-            return (
-              <li key={zone.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleZone(zone.key)}
-                  aria-expanded={open}
-                  className="flex w-full items-center gap-2 rounded-card border border-border bg-surface-1 px-3 py-3 text-left"
-                >
-                  <BranchChevron open={open} />
-                  <span className="text-[17px]">
-                    <Highlight text={zone.title} query={query} />
-                  </span>
-                  <BranchCount count={zone.count} />
-                </button>
+          <ul className="flex flex-col gap-2 lg:gap-0 lg:p-1">
+            {zones.map((zone) => {
+              const open = zoneOpen(zone.key)
 
-                {open ? (
-                  <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3">
-                    {zone.machines.map((machine) => (
-                      <MachineNode
-                        key={machine.key}
-                        machine={machine}
-                        query={query}
-                        open={machineOpen(machine.key)}
-                        onToggle={() => toggleMachine(machine.key)}
-                      />
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
+              return (
+                <li key={zone.key}>
+                  <button
+                    type="button"
+                    onClick={() => toggleZone(zone.key)}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 rounded-card border border-border bg-surface-1 px-3 py-3 text-left hover:bg-surface-2/40 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_150px] lg:items-center lg:gap-3 lg:rounded-control lg:border-0 lg:px-3 lg:py-2.5"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <BranchChevron open={open} />
+                      <span className="truncate text-[17px] lg:text-[15px]">
+                        <Highlight text={zone.title} query={query} />
+                      </span>
+                    </span>
+                    <span className="hidden tabular-nums text-[13px] text-text-muted lg:block">
+                      {exercisesLabel(zone.count)}
+                    </span>
+                    <span className="hidden lg:block" />
+                    <BranchCount count={zone.count} className="lg:hidden" />
+                  </button>
+
+                  {open ? (
+                    <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3 lg:mt-0 lg:mb-1 lg:ml-4 lg:gap-0.5">
+                      {zone.machines.map((machine) => (
+                        <MachineNode
+                          key={machine.key}
+                          machine={machine}
+                          query={query}
+                          open={machineOpen(machine.key)}
+                          onToggle={() => toggleMachine(machine.key)}
+                        />
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       ) : null}
 
       {zones.length === 0 ? (
@@ -255,18 +266,29 @@ function MachineNode({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 rounded-control bg-surface-1 px-3 py-2.5 text-left"
+        className="flex w-full items-center gap-2 rounded-control bg-surface-1 px-3 py-2.5 text-left hover:bg-surface-2/40 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_150px] lg:items-center lg:gap-3 lg:px-3 lg:py-2"
       >
-        <BranchChevron open={open} />
-        <Dumbbell size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-text-muted" />
-        <span className="text-[15px]">
-          <Highlight text={machine.title} query={query} />
+        <span className="flex min-w-0 items-center gap-2">
+          <BranchChevron open={open} />
+          <Dumbbell
+            size={16}
+            strokeWidth={1.75}
+            aria-hidden
+            className="shrink-0 text-text-muted"
+          />
+          <span className="truncate text-[15px]">
+            <Highlight text={machine.title} query={query} />
+          </span>
         </span>
-        <BranchCount count={machine.exercises.length} />
+        <span className="hidden tabular-nums text-[13px] text-text-muted lg:block">
+          {exercisesLabel(machine.exercises.length)}
+        </span>
+        <span className="hidden lg:block" />
+        <BranchCount count={machine.exercises.length} className="lg:hidden" />
       </button>
 
       {open ? (
-        <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3">
+        <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3 lg:mt-0 lg:gap-0.5">
           {machine.exercises.map((item) => (
             <li key={item.id}>
               <ExerciseRow item={item} query={query} />
@@ -283,19 +305,19 @@ function ExerciseRow({ item, query }: { item: ExerciseTreeItem; query: string })
   return (
     <Link
       href={`/trainer/exercises/${item.id}`}
-      className="flex flex-col gap-0.5 rounded-control border border-border bg-surface-1 px-3 py-2.5"
+      className="flex flex-col gap-0.5 rounded-control border border-border bg-surface-1 px-3 py-2.5 hover:bg-surface-2/40 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_150px] lg:items-center lg:gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border/50 lg:px-3 lg:py-2"
     >
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="text-[15px] text-text">
-          <Highlight text={item.name} query={query} />
-        </span>
+      <span className="truncate text-[15px] text-text">
+        <Highlight text={item.name} query={query} />
+      </span>
+      <span className="truncate text-[13px] text-text-muted">{item.videoLabel}</span>
+      <span>
         {item.hasMuscles ? (
-          <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-gold">
+          <span className="w-fit rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-gold">
             Мышцы на видео
           </span>
         ) : null}
       </span>
-      <span className="text-[13px] text-text-muted">{item.videoLabel}</span>
     </Link>
   )
 }

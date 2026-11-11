@@ -1,8 +1,10 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { listSubscriptionsForActor, type SubscriptionFilter } from '@/modules/access'
 import { formatContact, requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
-import { notFound } from 'next/navigation'
+import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import { SubscriptionsList, type SubscriptionRowView } from './subscriptions-list'
 
 // Список зависит от сессии и фильтров.
@@ -74,46 +76,56 @@ export default async function TrainerSubscriptionsPage({
   }))
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Подписки</h1>
-
-      <form className="flex gap-2">
-        <input type="hidden" name="filter" value={filter} />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Имя или телефон"
-          className="h-12 w-full rounded-control border border-border bg-surface-1 px-3 text-[15px] text-text outline-none focus-visible:border-accent"
-        />
-        <button
-          type="submit"
-          className="h-12 rounded-control bg-surface-2 px-4 text-[15px] text-text"
-        >
-          Найти
-        </button>
-      </form>
-
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((item) => (
-          <a
-            key={item.value}
-            href={`/trainer/subscriptions?filter=${item.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
-            className={`rounded-full border px-3 py-1.5 text-[13px] ${
-              activeFilter === item.value
-                ? 'border-accent bg-surface-2 text-text'
-                : 'border-border bg-surface-1 text-text-secondary'
-            }`}
+    <TrainerPage>
+      <PageHeader
+        title="Подписки"
+        description="Продление, заморозка и история доступа"
+        actions={
+          <Link
+            href="/trainer/settings/access"
+            className="flex min-h-11 items-center rounded-control border border-border px-4 text-[15px] text-text hover:border-accent"
           >
-            {item.label}
-          </a>
-        ))}
+            Настройки доступа
+          </Link>
+        }
+      />
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <form className="flex gap-2 lg:w-[420px]">
+          <input type="hidden" name="filter" value={filter} />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Имя или телефон"
+            aria-label="Поиск по подпискам"
+            className="h-12 w-full rounded-control border border-border bg-surface-1 px-3 text-[15px] text-text outline-none focus-visible:border-accent"
+          />
+          <button
+            type="submit"
+            className="h-12 shrink-0 rounded-control bg-surface-2 px-4 text-[15px] text-text hover:bg-surface-2/70"
+          >
+            Найти
+          </button>
+        </form>
+
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((item) => (
+            <Link
+              key={item.value}
+              href={`/trainer/subscriptions?filter=${item.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+              className={`flex min-h-9 items-center rounded-full border px-3 text-[13px] ${
+                activeFilter === item.value
+                  ? 'border-accent bg-surface-2 text-text'
+                  : 'border-border bg-surface-1 text-text-secondary hover:text-text'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <SubscriptionsList rows={view} defaultPrice={gym.settings.subscriptionPriceRub} />
-
-      <a href="/trainer/settings/access" className="text-[15px] text-accent underline-offset-4 hover:underline">
-        Настройки доступа
-      </a>
-    </main>
+    </TrainerPage>
   )
 }

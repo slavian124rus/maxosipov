@@ -100,7 +100,7 @@ export function MachineTree({
                 </button>
 
                 {open ? (
-                  <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3">
+                  <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3 lg:mt-2 lg:ml-0 lg:grid lg:grid-cols-2 lg:gap-2 lg:border-0 lg:pl-0 xl:grid-cols-3">
                     {zone.machines.map((machine) => (
                       <li key={machine.id}>
                         <button

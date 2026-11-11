@@ -1,25 +1,17 @@
 import type { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
-import { requireUser } from '@/modules/auth'
+import { formatContact, requireUser } from '@/modules/auth'
+import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
-import { TrainerNav, type TrainerNavItem } from '@/components/trainer/bottom-nav'
+import { env } from '@/shared/env'
+import { TrainerShell } from '@/components/trainer/trainer-shell'
+import { trainerNavItems } from '@/components/trainer/nav-config'
 
 // Кабинет тренера зависит от сессии и прав.
 export const instant = false
 
 export default async function TrainerLayout({ children }: { children: ReactNode }) {
-  const { actor } = await requireUser()
-
-  const items: TrainerNavItem[] = [{ href: '/trainer', label: 'Сегодня', icon: 'today' }]
-
-  if (can(actor, 'clients.view')) items.push({ href: '/trainer/clients', label: 'Клиенты', icon: 'clients' })
-  if (can(actor, 'clients.edit_programs')) {
-    items.push({ href: '/trainer/programs', label: 'Программы', icon: 'programs' })
-  }
-  if (can(actor, 'catalog.edit') || can(actor, 'catalog.publish')) {
-    items.push({ href: '/trainer/exercises', label: 'Упражнения', icon: 'exercises' })
-  }
-  items.push({ href: '/trainer/settings', label: 'Ещё', icon: 'more' })
+  const { user, actor } = await requireUser()
 
   const allowed =
     can(actor, 'subscriptions.grant') ||
@@ -28,10 +20,17 @@ export default async function TrainerLayout({ children }: { children: ReactNode 
     can(actor, 'analytics.view')
   if (!allowed) notFound()
 
+  const [gym, items] = await Promise.all([getGym(), Promise.resolve(trainerNavItems(actor))])
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      <div className="flex flex-1 flex-col">{children}</div>
-      <TrainerNav items={items} />
-    </div>
+    <TrainerShell
+      items={items}
+      gymName={gym.name}
+      user={{ name: user.name, contact: formatContact(user.phone ?? user.email ?? '') }}
+      clientAppUrl={env.APP_URL}
+    >
+      {children}
+    </TrainerShell>
   )
 }
+

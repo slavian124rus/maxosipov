@@ -4,6 +4,7 @@ import { can } from '@/modules/rbac'
 import { listExercises, type ExerciseListItem } from '@/modules/catalog'
 import { muscleName } from '@/shared/muscles'
 import { ExerciseTree } from '@/components/trainer/exercise-tree'
+import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import type { ExerciseTreeItem } from '@/components/trainer/catalog-tree'
 
 // Кабинет зависит от сессии и прав.
@@ -51,21 +52,24 @@ export default async function TrainerExercisesPage({
   }))
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[22px] font-semibold">Упражнения</h1>
-        {canEdit ? (
-          <Link
-            href="/trainer/exercises/new"
-            className="rounded-control bg-accent px-3 py-2 text-[15px] text-white"
-          >
-            Добавить
-          </Link>
-        ) : null}
-      </div>
+    <TrainerPage>
+      <PageHeader
+        title="Упражнения"
+        description="Каталог зала: зона → тренажёр → упражнение"
+        actions={
+          canEdit ? (
+            <Link
+              href="/trainer/exercises/new"
+              className="flex min-h-11 items-center rounded-control bg-accent px-4 text-[15px] text-white hover:bg-accent-pressed"
+            >
+              Добавить
+            </Link>
+          ) : null
+        }
+      />
 
       <ExerciseTree items={treeItems} initialTab={tab === 'draft' ? 'draft' : 'published'} />
-    </main>
+    </TrainerPage>
   )
 }
 

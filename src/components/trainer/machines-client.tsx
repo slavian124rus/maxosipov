@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { MachineTree } from '@/components/trainer/machine-tree'
 import { MachineForm } from '@/components/trainer/machine-form'
+import { PageHeader } from '@/components/trainer/page'
 import {
   Sheet,
   SheetContent,
@@ -64,18 +65,30 @@ export function MachinesClient({ machines, counts }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <button
-        type="button"
-        onClick={startCreate}
-        className="min-h-12 w-full rounded-control bg-accent px-4 text-[15px] text-white"
-      >
-        Добавить тренажёр
-      </button>
+      <PageHeader
+        title="Тренажёры"
+        description="Фото, зона и шаг веса — то, что видит клиент в карточке упражнения"
+        actions={
+          <button
+            type="button"
+            onClick={startCreate}
+            className="flex min-h-11 items-center rounded-control bg-accent px-4 text-[15px] text-white hover:bg-accent-pressed"
+          >
+            Добавить тренажёр
+          </button>
+        }
+      />
 
-      <MachineTree machines={treeItems} onEdit={(id) => setEditing(machines.find((m) => m.id === id) ?? null)} />
+      <MachineTree
+        machines={treeItems}
+        onEdit={(id) => setEditing(machines.find((m) => m.id === id) ?? null)}
+      />
 
       <Sheet open={open} onOpenChange={(next) => (next ? undefined : close())}>
-        <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto">
+        <SheetContent
+          side="bottom"
+          className="max-h-[92dvh] overflow-y-auto lg:mx-auto lg:w-[640px] lg:max-w-[92vw] lg:rounded-t-sheet lg:border-x"
+        >
           <SheetHeader>
             <SheetTitle>{editing ? editing.name : 'Новый тренажёр'}</SheetTitle>
             <SheetDescription>

@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getAiSpend } from '@/modules/gym'
@@ -33,9 +34,7 @@ export default async function StatsPage() {
   ]
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Статистика</h1>
-
+    <SettingsPage title="Статистика">
       <div className="grid grid-cols-2 gap-2">
         {cards.map((card) => (
           <div key={card.label} className="flex flex-col gap-1 rounded-card border border-border bg-surface-1 px-3 py-3">
@@ -60,6 +59,6 @@ export default async function StatsPage() {
           ))}
         </section>
       ) : null}
-    </main>
+    </SettingsPage>
   )
 }

@@ -3,6 +3,7 @@ import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
 import { listExercises, listMachinesWithPhotos } from '@/modules/catalog'
 import { MachinesClient } from '@/components/trainer/machines-client'
+import { TrainerPage } from '@/components/trainer/page'
 
 // Кабинет зависит от сессии и прав.
 export const instant = false
@@ -24,11 +25,9 @@ export default async function TrainerMachinesPage() {
   }
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Тренажёры</h1>
-
+    <TrainerPage>
       <MachinesClient machines={machines} counts={counts} />
-    </main>
+    </TrainerPage>
   )
 }
 

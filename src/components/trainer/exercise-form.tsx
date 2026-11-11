@@ -106,7 +106,7 @@ export function ExerciseForm({ machines, initial }: Props) {
   })()
 
   return (
-    <form action={formAction} className="flex min-h-dvh flex-col px-4 py-6">
+    <form action={formAction} className="mx-auto flex min-h-dvh w-full max-w-[760px] flex-col px-4 py-6 lg:py-8">
       <input type="hidden" name="id" value={initial?.id ?? ''} />
       <input type="hidden" name="videoMediaId" value={videoMediaId === 'existing' ? '' : (videoMediaId ?? '')} />
       <input type="hidden" name="machineId" value={machineId} />

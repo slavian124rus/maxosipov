@@ -1,3 +1,4 @@
+import { SettingsPage } from '@/components/trainer/page'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
@@ -16,9 +17,7 @@ export default async function ProgressionSettingsPage() {
   const rules = gym.settings.progressionRules
 
   return (
-    <main className="flex flex-col gap-5 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Правила прогрессии</h1>
-
+    <SettingsPage title="Правила прогрессии">
       <ActionForm action={saveProgressionAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-[15px] text-text">
           Тренировок подряд для повышения веса
@@ -76,6 +75,6 @@ export default async function ProgressionSettingsPage() {
           Сохранить
         </button>
       </ActionForm>
-    </main>
+    </SettingsPage>
   )
 }
