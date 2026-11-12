@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
-import type { ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import { ExerciseTree } from './exercise-tree'
 import type { ExerciseTreeItem } from './catalog-tree'
 
-// `next/link` вне Next-роутера не рендерится — для теста достаточно обычной ссылки.
-vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: ReactNode }) => (
-    <a href={href}>{children}</a>
-  ),
+// Окно правки живёт на серверном действии и роутере — в jsdom подменяем оба.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }))
+vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
+  loadExerciseAction: async () => ({ exercise: null, machines: [], error: 'Нет данных' }),
+  saveExerciseAction: async () => ({ error: null, id: null }),
+  unpublishAction: async () => {},
+  draftExerciseAction: async () => ({ draft: null, error: null }),
 }))
 
 type Machine = { id: string; name: string; zone: string | null }
@@ -48,9 +49,13 @@ afterEach(() => {
   window.history.replaceState(null, '', '/')
 })
 
-/** Ссылка на упражнение: в jsdom содержимое `<mark>` не входит в доступное имя, поэтому ищем по href. */
-function exerciseLink(name: string): HTMLAnchorElement | null {
-  return document.querySelector(`a[href="/trainer/exercises/${name}"]`)
+/** Строка упражнения — кнопка: в jsdom `<mark>` не входит в доступное имя, ищем по тексту. */
+function exerciseRow(name: string): HTMLButtonElement | null {
+  return (
+    [...document.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes(name) && button.getAttribute('aria-expanded') === null,
+    ) ?? null
+  )
 }
 
 test('вкладки со счётчиками, зоны раскрыты, тренажёры свёрнуты', () => {
@@ -74,15 +79,26 @@ test('клик по тренажёру раскрывает его упражн�
   fireEvent.click(machine)
 
   expect(machine.getAttribute('aria-expanded')).toBe('true')
-  const link = screen.getByRole('link', { name: /Гакк-приседания/ })
-  expect(link.getAttribute('href')).toBe('/trainer/exercises/Гакк-приседания')
+  expect(exerciseRow('Гакк-приседания')).toBeTruthy()
 })
 
 test('упражнения без тренажёра висят прямо на зоне «Без тренажёра»', () => {
   render(<ExerciseTree items={ITEMS} initialTab="published" />)
 
   // Зона раскрыта, уровня тренажёра нет — упражнение видно сразу.
-  expect(screen.getByRole('link', { name: /Швунг со штангой/ })).toBeTruthy()
+  expect(exerciseRow('Швунг со штангой')).toBeTruthy()
+})
+
+test('касание упражнения открывает окно правки, а не уводит со страницы', async () => {
+  render(<ExerciseTree items={ITEMS} initialTab="published" />)
+
+  const row = exerciseRow('Швунг со штангой')
+  if (!row) throw new Error('нет строки упражнения')
+  fireEvent.click(row)
+
+  // Диалог открылся и запросил данные (в тесте действие отвечает ошибкой).
+  expect(await screen.findByText('Нет данных')).toBeTruthy()
+  expect(window.location.pathname).toBe('/')
 })
 
 test('переключение на черновики меняет дерево и адрес', () => {
@@ -114,7 +130,7 @@ test('поиск раскрывает ветку, подсвечивает со�
 
   expect(screen.getByText('Найдено: 1')).toBeTruthy()
   // Ветка раскрылась сама — упражнение видно без клика по тренажёру.
-  expect(exerciseLink('Тяга верхнего блока')).toBeTruthy()
+  expect(exerciseRow('Тяга верхнего блока')).toBeTruthy()
   expect(container.querySelector('mark')?.textContent).toBe('Тяга')
   // Лишние зоны из дерева ушли.
   expect(screen.queryByRole('button', { name: /^Ноги/ })).toBeNull()
@@ -129,7 +145,7 @@ test('поиск работает по тренажёру, зоне и мышц�
 
   fireEvent.change(search, { target: { value: 'ШИРОЧАЙШИЕ' } })
   expect(screen.getByText('Найдено: 1')).toBeTruthy()
-  expect(exerciseLink('Тяга верхнего блока')).toBeTruthy()
+  expect(exerciseRow('Тяга верхнего блока')).toBeTruthy()
 
   fireEvent.change(search, { target: { value: 'ноги' } })
   expect(screen.getByText('Найдено: 1')).toBeTruthy()
@@ -164,11 +180,11 @@ test('«Развернуть» и «Свернуть» управляют все
   render(<ExerciseTree items={ITEMS} initialTab="published" />)
 
   fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
-  expect(exerciseLink('Гакк-приседания')).toBeTruthy()
-  expect(exerciseLink('Тяга верхнего блока')).toBeTruthy()
+  expect(exerciseRow('Гакк-приседания')).toBeTruthy()
+  expect(exerciseRow('Тяга верхнего блока')).toBeTruthy()
 
   fireEvent.click(screen.getByRole('button', { name: 'Свернуть' }))
-  expect(exerciseLink('Гакк-приседания')).toBeNull()
+  expect(exerciseRow('Гакк-приседания')).toBeNull()
   // Зоны свёрнуты — тренажёров не видно.
   expect(screen.queryByRole('button', { name: /Гакк-машина/ })).toBeNull()
   expect(screen.getByRole('button', { name: /^Ноги/ }).getAttribute('aria-expanded')).toBe('false')

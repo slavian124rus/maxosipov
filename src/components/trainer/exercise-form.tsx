@@ -2,33 +2,42 @@
 
 import { useActionState, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
-import { cycleMuscle, type MuscleState } from '@/components/muscle-figure/state'
-import { VideoCrop } from '@/components/trainer/video-crop'
+import type { MuscleState } from '@/components/muscle-figure/state'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
-import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalog-tree'
-import { Highlight, TreeSearchField } from '@/components/trainer/tree-ui'
+import {
+  MachinePanel,
+  MusclesPanel,
+  TextPanel,
+  VideoPanel,
+  type MachineChoice,
+} from '@/components/trainer/exercise-panels'
 import { muscleName, type MuscleCode } from '@/shared/muscles'
-import type { ExerciseDetail, Machine } from '@/modules/catalog'
-import { saveExerciseAction, draftExerciseAction, type SaveExerciseState } from '@/app/(app)/app/trainer/exercises/actions'
+import type { ExerciseDetail } from '@/modules/catalog'
+import {
+  saveExerciseAction,
+  draftExerciseAction,
+  type SaveExerciseState,
+} from '@/app/(app)/app/trainer/exercises/actions'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 const TOTAL_STEPS = 5
 
 type Props = {
-  machines: Pick<Machine, 'id' | 'name' | 'zone'>[]
+  machines: MachineChoice[]
   initial?: ExerciseDetail | null
 }
 
+/**
+ * Мастер нового упражнения (DESIGN.md §8.9): видео → тренажёр → мышцы → описание → проверка.
+ * Правка уже добавленного упражнения идёт не по шагам, а вкладочным окном
+ * (`ExerciseEditor`) — проходить мастер заново не нужно.
+ */
 export function ExerciseForm({ machines, initial }: Props) {
   const [state, formAction, pending] = useActionState(saveExerciseAction, INITIAL)
   const upload = useChunkedUpload()
 
   const [step, setStep] = useState(0)
   const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [machineQuery, setMachineQuery] = useState('')
   const [videoMediaId, setVideoMediaId] = useState<string | null>(
     initial?.videoMp4Url ? 'existing' : null,
   )
@@ -44,7 +53,7 @@ export function ExerciseForm({ machines, initial }: Props) {
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [''])
   const [mistakes, setMistakes] = useState<string[]>(initial?.mistakes ?? [''])
   const [tips, setTips] = useState(initial?.tips ?? '')
-  const [overlayProfile, setOverlayProfile] = useState(initial?.overlayProfile ?? 'none')
+  const [overlayProfile, setOverlayProfile] = useState<string>(initial?.overlayProfile ?? 'none')
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
 
@@ -82,20 +91,6 @@ export function ExerciseForm({ machines, initial }: Props) {
     }
   }
 
-  /** Тренажёры в мастере тоже сгруппированы по зонам и ищутся — их в зале два десятка. */
-  const machineGroups = (() => {
-    const needle = normalizeQuery(machineQuery)
-    const visible = needle
-      ? machines.filter(
-          (machine) =>
-            normalizeQuery(machine.name).includes(needle) ||
-            normalizeQuery(machine.zone ?? '').includes(needle),
-        )
-      : machines
-
-    return groupMachinesByZone(visible)
-  })()
-
   const canNext = ((): boolean => {
     // Видео необязательно: без него в карточке показывается фото тренажёра («Видео скоро»).
     if (step === 0) return !upload.uploading
@@ -105,10 +100,18 @@ export function ExerciseForm({ machines, initial }: Props) {
     return true
   })()
 
+
   return (
-    <form action={formAction} className="mx-auto flex min-h-dvh w-full max-w-[760px] flex-col px-4 py-6 lg:py-8">
+    <form
+      action={formAction}
+      className="mx-auto flex min-h-dvh w-full max-w-[760px] flex-col px-4 py-6 lg:py-8"
+    >
       <input type="hidden" name="id" value={initial?.id ?? ''} />
-      <input type="hidden" name="videoMediaId" value={videoMediaId === 'existing' ? '' : (videoMediaId ?? '')} />
+      <input
+        type="hidden"
+        name="videoMediaId"
+        value={videoMediaId === 'existing' ? '' : (videoMediaId ?? '')}
+      />
       <input type="hidden" name="machineId" value={machineId} />
       <input type="hidden" name="primary" value={muscles.primary.join(',')} />
       <input type="hidden" name="secondary" value={muscles.secondary.join(',')} />
@@ -116,7 +119,11 @@ export function ExerciseForm({ machines, initial }: Props) {
       <input type="hidden" name="repMin" value={repMin} />
       <input type="hidden" name="repMax" value={repMax} />
       <input type="hidden" name="steps" value={JSON.stringify(steps.filter((item) => item.trim()))} />
-      <input type="hidden" name="mistakes" value={JSON.stringify(mistakes.filter((item) => item.trim()))} />
+      <input
+        type="hidden"
+        name="mistakes"
+        value={JSON.stringify(mistakes.filter((item) => item.trim()))}
+      />
       <input type="hidden" name="tips" value={tips} />
       <input type="hidden" name="overlayProfile" value={overlayProfile} />
       <input type="hidden" name="cropX" value={String(cropX)} />
@@ -132,191 +139,56 @@ export function ExerciseForm({ machines, initial }: Props) {
         {step === 0 ? (
           <>
             <h1 className="text-[22px] font-semibold">Видео</h1>
-            <p className="text-[15px] text-text-secondary">
-              Снимай вертикально, весь тренажёр и ты целиком, 2–3 чистых повторения.
-            </p>
-            <p className="text-[15px] text-text-secondary">
-              Видео можно добавить позже: пока его нет, в карточке показывается фото тренажёра.
-            </p>
-
-            <label
-              htmlFor="exercise-video-file"
-              className={`inline-flex min-h-14 cursor-pointer items-center justify-center rounded-card border border-border bg-surface-2 px-4 text-[17px] text-text ${
-                upload.uploading ? 'pointer-events-none opacity-60' : ''
-              }`}
-            >
-              {videoFile ? 'Выбрать другой файл' : 'Выбрать видео'}
-            </label>
-            <input
-              id="exercise-video-file"
-              type="file"
-              accept="video/*"
-              disabled={upload.uploading}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) void uploadVideo(file)
-              }}
-              className="sr-only"
+            <VideoPanel
+              upload={upload}
+              videoFile={videoFile}
+              videoMediaId={videoMediaId}
+              cropX={cropX}
+              onUpload={(file) => void uploadVideo(file)}
+              onCropChange={setCropX}
             />
-            {videoFile ? (
-              <p className="break-all text-[13px] text-text-muted">{videoFile.name}</p>
-            ) : null}
-
-            {upload.uploading ? (
-              <p className="text-[15px] text-text-secondary">Загружаем… {upload.progress}%</p>
-            ) : null}
-            {upload.error ? <p className="text-[15px] text-danger">{upload.error}</p> : null}
-            {videoMediaId && !upload.uploading ? (
-              <p className="text-[15px] text-success">
-                {videoMediaId === 'existing' ? 'Видео уже загружено' : 'Видео загружено'}
-              </p>
-            ) : null}
-            <VideoCrop file={videoFile} value={cropX} onChange={setCropX} />
           </>
         ) : null}
 
         {step === 1 ? (
           <>
             <h1 className="text-[22px] font-semibold">Тренажёр</h1>
-
-            <TreeSearchField
-              value={machineQuery}
-              onChange={setMachineQuery}
-              placeholder="Тренажёр или зона"
-              label="Поиск тренажёра"
-            />
-
-            <div className="flex flex-col gap-4">
-              {machineGroups.map((group) => (
-                <div key={group.key} className="flex flex-col gap-2">
-                  <p className="text-[13px] text-text-muted">
-                    <Highlight text={group.title} query={machineQuery} />
-                  </p>
-
-                  {group.machines.map((machine) => (
-                    <button
-                      key={machine.id}
-                      type="button"
-                      onClick={() => setMachineId(machine.id)}
-                      aria-pressed={machineId === machine.id}
-                      className={`min-h-14 rounded-card border px-4 py-3 text-left text-[17px] ${
-                        machineId === machine.id
-                          ? 'border-accent bg-surface-2 text-text'
-                          : 'border-border bg-surface-1 text-text-secondary'
-                      }`}
-                    >
-                      <Highlight text={machine.name} query={machineQuery} />
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[13px] text-text-muted">
-              {machineGroups.length === 0
-                ? 'Такого тренажёра нет — добавь его в разделе «Тренажёры».'
-                : 'Новый тренажёр добавляется в разделе «Тренажёры».'}
-            </p>
+            <MachinePanel machines={machines} machineId={machineId} onChange={setMachineId} />
           </>
         ) : null}
 
         {step === 2 ? (
           <>
             <h1 className="text-[22px] font-semibold">Мышцы</h1>
-            <MuscleFigure
-              primary={muscles.primary}
-              secondary={muscles.secondary}
-              onMuscleTap={(code) => setMuscles((current) => cycleMuscle(current, code))}
-              size="md"
+            <MusclesPanel
+              muscles={muscles}
+              onChange={setMuscles}
+              overlayProfile={overlayProfile}
+              onOverlayChange={setOverlayProfile}
             />
-            <p className="text-[13px] text-text-muted">
-              Одно касание — основная, второе — помогает, третье — убрать
-            </p>
-            <div className="flex flex-col gap-1 text-[15px] text-text-secondary">
-              <p>Основные: {muscles.primary.map(muscleName).join(', ') || 'нет'}</p>
-              <p>Помогают: {muscles.secondary.map(muscleName).join(', ') || 'нет'}</p>
-            </div>
-            <label className="flex flex-col gap-2 text-[15px] text-text-secondary">
-              Подсветка на видео
-              <select
-                value={overlayProfile}
-                onChange={(event) =>
-                  setOverlayProfile(event.target.value as typeof overlayProfile)
-                }
-                className="h-12 rounded-control border border-border bg-surface-1 px-3 text-[15px] text-text"
-              >
-                <option value="none">Нет</option>
-                <option value="pull_vertical">Тяга сверху</option>
-                <option value="pull_horizontal">Тяга горизонтальная</option>
-              </select>
-            </label>
           </>
         ) : null}
 
         {step === 3 ? (
           <>
             <h1 className="text-[22px] font-semibold">Описание</h1>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Название</Label>
-              <Input id="name" value={name} onChange={(event) => setName(event.target.value)} />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={drafting || name.trim().length < 2}
-                onClick={() => void createDraft()}
-              >
-                {drafting ? 'МаксИИм пишет…' : 'Черновик от МаксИИма'}
-              </Button>
-              {draftError ? <p className="text-[13px] text-danger">{draftError}</p> : null}
-            </div>
-            <div className="flex gap-3">
-              <div className="flex flex-1 flex-col gap-2">
-                <Label htmlFor="repMin">Повторений от</Label>
-                <Input
-                  id="repMin"
-                  inputMode="numeric"
-                  value={repMin}
-                  onChange={(event) => setRepMin(event.target.value.replace(/\D/g, ''))}
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
-                <Label htmlFor="repMax">до</Label>
-                <Input
-                  id="repMax"
-                  inputMode="numeric"
-                  value={repMax}
-                  onChange={(event) => setRepMax(event.target.value.replace(/\D/g, ''))}
-                />
-              </div>
-            </div>
-
-            <ListEditor
-              title="Как делать"
-              items={steps}
-              onChange={setSteps}
-              placeholder="Сядь и зафиксируй колени"
+            <TextPanel
+              name={name}
+              onName={setName}
+              repMin={repMin}
+              repMax={repMax}
+              onRepMin={setRepMin}
+              onRepMax={setRepMax}
+              steps={steps}
+              onSteps={setSteps}
+              mistakes={mistakes}
+              onMistakes={setMistakes}
+              tips={tips}
+              onTips={setTips}
+              onDraft={() => void createDraft()}
+              drafting={drafting}
+              draftError={draftError}
             />
-            <ListEditor
-              title="Частые ошибки"
-              items={mistakes}
-              onChange={setMistakes}
-              placeholder="Рывки корпусом"
-            />
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tips">Совет</Label>
-              <textarea
-                id="tips"
-                value={tips}
-                onChange={(event) => setTips(event.target.value)}
-                rows={3}
-                maxLength={500}
-                className="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-[15px] text-text outline-none focus-visible:border-accent"
-              />
-            </div>
           </>
         ) : null}
 
@@ -374,47 +246,5 @@ export function ExerciseForm({ machines, initial }: Props) {
         )}
       </div>
     </form>
-  )
-}
-
-function ListEditor({
-  title,
-  items,
-  onChange,
-  placeholder,
-}: {
-  title: string
-  items: string[]
-  onChange: (items: string[]) => void
-  placeholder: string
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label>{title}</Label>
-      {items.map((item, index) => (
-        <div key={index} className="flex gap-2">
-          <Input
-            value={item}
-            placeholder={placeholder}
-            onChange={(event) => {
-              const next = [...items]
-              next[index] = event.target.value
-              onChange(next)
-            }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onChange(items.filter((_, position) => position !== index))}
-            aria-label={`Удалить пункт ${index + 1}`}
-          >
-            Удалить
-          </Button>
-        </div>
-      ))}
-      <Button type="button" variant="outline" onClick={() => onChange([...items, ''])}>
-        Добавить
-      </Button>
-    </div>
   )
 }

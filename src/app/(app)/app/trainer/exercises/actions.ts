@@ -6,11 +6,14 @@ import {
   createMachine,
   deleteMachine,
   getExercise,
+  listMachines,
   publishExercise,
   unpublishExercise,
   updateExercise,
   updateMachine,
+  type ExerciseDetail,
   type ExerciseInput,
+  type Machine,
 } from '@/modules/catalog'
 import { requireUser } from '@/modules/auth'
 import { draftExerciseText, type ExerciseDraft } from '@/modules/coach-ai'
@@ -111,6 +114,50 @@ export async function saveExerciseAction(
 
 export type DraftExerciseState = { draft: ExerciseDraft | null; error: string | null }
 
+export type ExerciseLoadState = {
+  exercise: ExerciseDetail | null
+  machines: Pick<Machine, 'id' | 'name' | 'zone'>[]
+  error: string | null
+}
+
+/**
+ * Данные для вкладочного окна правки: упражнение (с черновиками) и список тренажёров.
+ * Грузим по требованию, чтобы дерево не тащило в браузер видео и тексты всех упражнений.
+ */
+export async function loadExerciseAction(id: string): Promise<ExerciseLoadState> {
+  const { actor } = await requireUser()
+
+  try {
+    assertCan(actor, 'catalog.edit')
+  } catch {
+    return { exercise: null, machines: [], error: 'Недостаточно прав' }
+  }
+
+  try {
+    const [exercise, machines] = await Promise.all([
+      getExercise(id, { includeDrafts: true }),
+      listMachines(),
+    ])
+
+    if (!exercise) return { exercise: null, machines: [], error: 'Упражнение не найдено' }
+
+    return {
+      exercise,
+      machines: machines.map((machine) => ({
+        id: machine.id,
+        name: machine.name,
+        zone: machine.zone,
+      })),
+      error: null,
+    }
+  } catch (error) {
+    return {
+      exercise: null,
+      machines: [],
+      error: error instanceof Error ? error.message : 'Не удалось загрузить упражнение',
+    }
+  }
+}
 /** Черновик описания от МаксИИма: заполняет поля, Максим правит (этап 4). */
 export async function draftExerciseAction(input: {
   name: string

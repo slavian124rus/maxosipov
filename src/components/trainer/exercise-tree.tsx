@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { Dumbbell } from 'lucide-react'
 import {
   buildExerciseTree,
@@ -12,6 +11,7 @@ import {
   type MachineBranch,
 } from '@/components/trainer/catalog-tree'
 import { BranchChevron, BranchCount, Highlight, TreeSearchField, TreeTableHead } from '@/components/trainer/tree-ui'
+import { ExerciseEditorDialog } from '@/components/trainer/exercise-editor-dialog'
 import { exercisesLabel } from '@/shared/plural'
 
 export type ExerciseTab = 'published' | 'draft'
@@ -35,6 +35,8 @@ export function ExerciseTree({ items, initialTab }: Props) {
   const [query, setQuery] = useState('')
   const [closedZones, setClosedZones] = useState<ReadonlySet<string>>(() => new Set())
   const [openMachines, setOpenMachines] = useState<ReadonlySet<string>>(() => new Set())
+  /** Упражнение, открытое в окне правки (вкладки вместо мастера по шагам). */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // Вкладку держим в адресе без перехода на сервер: ссылка ?tab=draft продолжает работать,
   // а переключение не сбрасывает введённый поисковый запрос.
@@ -207,6 +209,7 @@ export function ExerciseTree({ items, initialTab }: Props) {
                           query={query}
                           open={machineOpen(machine.key)}
                           onToggle={() => toggleMachine(machine.key)}
+                          onOpenExercise={setEditingId}
                         />
                       ))}
                     </ul>
@@ -234,6 +237,8 @@ export function ExerciseTree({ items, initialTab }: Props) {
           ) : null}
         </div>
       ) : null}
+
+      <ExerciseEditorDialog exerciseId={editingId} onClose={() => setEditingId(null)} />
     </div>
   )
 }
@@ -244,17 +249,19 @@ function MachineNode({
   query,
   open,
   onToggle,
+  onOpenExercise,
 }: {
   machine: MachineBranch
   query: string
   open: boolean
   onToggle: () => void
+  onOpenExercise: (id: string) => void
 }) {
   if (machine.key === NO_MACHINE_KEY) {
     return (
       <li className="flex flex-col gap-1 py-1">
         {machine.exercises.map((item) => (
-          <ExerciseRow key={item.id} item={item} query={query} />
+          <ExerciseRow key={item.id} item={item} query={query} onOpen={onOpenExercise} />
         ))}
       </li>
     )
@@ -291,7 +298,7 @@ function MachineNode({
         <ul className="mt-1 ml-3 flex flex-col gap-1 border-l border-border pl-3 lg:mt-0 lg:gap-0.5">
           {machine.exercises.map((item) => (
             <li key={item.id}>
-              <ExerciseRow item={item} query={query} />
+              <ExerciseRow item={item} query={query} onOpen={onOpenExercise} />
             </li>
           ))}
         </ul>
@@ -300,12 +307,21 @@ function MachineNode({
   )
 }
 
-/** Строка упражнения — ссылка на карточку в кабинете. */
-function ExerciseRow({ item, query }: { item: ExerciseTreeItem; query: string }) {
+/** Строка упражнения: касание открывает окно правки с вкладками. */
+function ExerciseRow({
+  item,
+  query,
+  onOpen,
+}: {
+  item: ExerciseTreeItem
+  query: string
+  onOpen: (id: string) => void
+}) {
   return (
-    <Link
-      href={`/trainer/exercises/${item.id}`}
-      className="flex flex-col gap-0.5 rounded-control border border-border bg-surface-1 px-3 py-2.5 hover:bg-surface-2/40 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_150px] lg:items-center lg:gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border/50 lg:px-3 lg:py-2"
+    <button
+      type="button"
+      onClick={() => onOpen(item.id)}
+      className="flex w-full flex-col gap-0.5 rounded-control border border-border bg-surface-1 px-3 py-2.5 text-left hover:bg-surface-2/40 lg:grid lg:grid-cols-[minmax(0,1fr)_180px_150px] lg:items-center lg:gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border/50 lg:px-3 lg:py-2"
     >
       <span className="truncate text-[15px] text-text">
         <Highlight text={item.name} query={query} />
@@ -318,6 +334,6 @@ function ExerciseRow({ item, query }: { item: ExerciseTreeItem; query: string })
           </span>
         ) : null}
       </span>
-    </Link>
+    </button>
   )
 }

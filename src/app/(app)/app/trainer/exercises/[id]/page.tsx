@@ -2,11 +2,13 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
 import { getExercise, listMachines } from '@/modules/catalog'
-import { ExerciseForm } from '@/components/trainer/exercise-form'
+import { ExerciseEditor } from '@/components/trainer/exercise-editor'
+import { PageHeader, TrainerPage } from '@/components/trainer/page'
 
 // Кабинет зависит от сессии и прав.
 export const instant = false
 
+/** Прямая ссылка на упражнение: та же правка по вкладкам, что и в окне из дерева. */
 export default async function EditExercisePage({ params }: { params: Promise<{ id: string }> }) {
   const { actor } = await requireUser()
   if (!can(actor, 'catalog.edit')) notFound()
@@ -20,13 +22,24 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
   if (!exercise) notFound()
 
   return (
-    <ExerciseForm
-      machines={machines.map((machine) => ({
-        id: machine.id,
-        name: machine.name,
-        zone: machine.zone,
-      }))}
-      initial={exercise}
-    />
+    <TrainerPage>
+      <PageHeader
+        back={{ href: '/trainer/exercises', label: 'Упражнения' }}
+        eyebrow={exercise.status === 'published' ? 'Опубликовано' : 'Черновик'}
+        title={exercise.name}
+        description="Правь нужный раздел и сохраняй — мастер по шагам нужен только при создании"
+      />
+
+      <div className="w-full max-w-[860px]">
+        <ExerciseEditor
+          exercise={exercise}
+          machines={machines.map((machine) => ({
+            id: machine.id,
+            name: machine.name,
+            zone: machine.zone,
+          }))}
+        />
+      </div>
+    </TrainerPage>
   )
 }
