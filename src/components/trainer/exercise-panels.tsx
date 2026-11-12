@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import { ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
@@ -292,7 +301,13 @@ export function TextPanel({
   )
 }
 
-/** Список строк с «Добавить» и «Удалить»: шаги и частые ошибки. */
+/**
+ * Список строк «Как делать» и «Частые ошибки» (DESIGN.md §8.9).
+ *
+ * Пункт открывается в окне с многострочным полем: шаг — это предложение на 140 символов,
+ * в однострочном поле его не видно целиком и неудобно править, особенно на телефоне.
+ * В списке видна первая строка пункта, рядом — «Удалить».
+ */
 export function ListEditor({
   title,
   items,
@@ -304,33 +319,119 @@ export function ListEditor({
   onChange: (items: string[]) => void
   placeholder: string
 }) {
+  const [editing, setEditing] = useState<number | null>(null)
+  const [draft, setDraft] = useState('')
+
+  function open(index: number): void {
+    setDraft(items[index] ?? '')
+    setEditing(index)
+  }
+
+  function save(): void {
+    if (editing === null) return
+
+    const next = [...items]
+    next[editing] = draft.trim()
+    onChange(next)
+    setEditing(null)
+  }
+
+  function add(): void {
+    onChange([...items, ''])
+    // Сразу открываем окно — новый пункт всё равно нужно заполнить.
+    setDraft('')
+    setEditing(items.length)
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <Label>{title}</Label>
+
       {items.map((item, index) => (
-        <div key={index} className="flex gap-2">
-          <Input
-            value={item}
-            placeholder={placeholder}
-            onChange={(event) => {
-              const next = [...items]
-              next[index] = event.target.value
-              onChange(next)
-            }}
-          />
-          <Button
+        <div
+          key={index}
+          className="flex items-stretch gap-1 rounded-control border border-border bg-surface-1"
+        >
+          <button
             type="button"
-            variant="ghost"
+            onClick={() => open(index)}
+            className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left"
+          >
+            <span className="font-display text-[16px] leading-none text-accent">{index + 1}</span>
+            <span
+              className={`min-w-0 flex-1 truncate text-[15px] ${
+                item.trim() ? 'text-text' : 'text-text-muted'
+              }`}
+            >
+              {item.trim() || placeholder}
+            </span>
+            <ChevronRight
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden
+              className="shrink-0 text-text-muted"
+            />
+          </button>
+
+          <button
+            type="button"
             onClick={() => onChange(items.filter((_, position) => position !== index))}
             aria-label={`Удалить пункт ${index + 1}`}
+            className="flex w-11 shrink-0 items-center justify-center text-text-muted hover:text-danger"
           >
-            Удалить
-          </Button>
+            <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+          </button>
         </div>
       ))}
-      <Button type="button" variant="outline" onClick={() => onChange([...items, ''])}>
+
+      <Button type="button" variant="outline" onClick={add} className="w-fit">
+        <Plus size={16} strokeWidth={1.75} aria-hidden />
         Добавить
       </Button>
+
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(next) => {
+          if (!next) setEditing(null)
+        }}
+      >
+        <DialogContent className="grid max-h-[92dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto">
+          <DialogHeader className="pr-8">
+            <DialogTitle>
+              {title}: пункт {(editing ?? 0) + 1}
+            </DialogTitle>
+            <DialogDescription>
+              Видно весь текст целиком. Короткие пункты читаются на телефоне лучше — до 140
+              символов
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-1">
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={5}
+              maxLength={300}
+              autoFocus
+              placeholder={placeholder}
+              aria-label={`Текст пункта ${(editing ?? 0) + 1}`}
+              className="w-full rounded-control border border-border bg-bg px-3 py-2 text-[15px] text-text outline-none focus-visible:border-accent"
+            />
+            <p className="text-right tabular-nums text-[12px] text-text-muted">
+              {draft.trim().length} / 140
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={save}>
+              Готово
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

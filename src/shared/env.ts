@@ -65,6 +65,8 @@ const envSchema = z.object({
   // Распознавание речи
   STT_PROVIDER: z.preprocess(emptyToUndefined, z.enum(['plusvibe', 'yandex']).optional()),
   STT_MODEL: optionalString,
+  /** Свой адрес эндпоинта распознавания: по умолчанию `AI_BASE_URL`. */
+  STT_BASE_URL: optionalUrl,
   YANDEX_SPEECHKIT_KEY: optionalString,
 
   // Push

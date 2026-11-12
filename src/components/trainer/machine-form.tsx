@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
+import { PhotoViewer } from '@/components/ui/photo-viewer'
 import { formatStep, isNoWeight, parseWeightStep } from '@/components/trainer/machine-values'
 import { exercisesLabel } from '@/shared/plural'
 import type { MachineListItem } from '@/modules/catalog'
@@ -62,6 +63,8 @@ export function MachineForm({
   const [photoMediaId, setPhotoMediaId] = useState<string | null>(machine?.photoMediaId ?? null)
   // Пока фото обрабатывается на сервере, показываем локальный файл: миниатюра видна сразу.
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  /** Фото открыто целиком: в форме оно обрезано, а рассмотреть тренажёр нужно. */
+  const [photoOpen, setPhotoOpen] = useState(false)
   const localUrl = useRef<string | null>(null)
 
   function clearLocalPreview(): void {
@@ -210,12 +213,20 @@ export function MachineForm({
         <Label htmlFor="machine-photo">Фото тренажёра</Label>
 
         {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка и локальный файл
-          <img
-            src={preview}
-            alt={`Фото: ${name || 'тренажёр'}`}
-            className="h-40 w-full rounded-card border border-border object-cover"
-          />
+          // Фото в форме обрезано под плитку — касание открывает его целиком.
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(true)}
+            aria-label="Открыть фото тренажёра целиком"
+            className="block w-full"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка и локальный файл */}
+            <img
+              src={preview}
+              alt={`Фото: ${name || 'тренажёр'}`}
+              className="h-40 w-full rounded-card border border-border object-cover"
+            />
+          </button>
         ) : (
           <div className="flex h-40 w-full items-center justify-center rounded-card border border-dashed border-border bg-surface-1 text-[13px] text-text-muted">
             Фото пока нет
@@ -267,6 +278,13 @@ export function MachineForm({
         ) : null}
 
         {upload.error ? <p className="text-[15px] text-danger">{upload.error}</p> : null}
+
+        <PhotoViewer
+          src={preview}
+          alt={`Фото: ${name || 'тренажёр'}`}
+          open={photoOpen}
+          onOpenChange={setPhotoOpen}
+        />
       </div>
 
       {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}

@@ -96,7 +96,18 @@ export function MachinesClient({ machines, counts, exerciseTotals, zones }: Prop
       <Sheet open={open} onOpenChange={(next) => (next ? undefined : close())}>
         <SheetContent
           side="bottom"
-          className="max-h-[92dvh] overflow-y-auto lg:mx-auto lg:w-[640px] lg:max-w-[92vw] lg:rounded-t-sheet lg:border-x"
+          tabIndex={-1}
+          /**
+           * Radix фокусирует первый элемент формы — это поле «Название», и на телефоне
+           * сразу открывалась клавиатура: казалось, что лист открылся в режиме правки имени.
+           * Держим фокус на самом листе, чтобы просто показать карточку тренажёра.
+           */
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            const target = event.currentTarget as HTMLElement | null
+            target?.focus()
+          }}
+          className="max-h-[92dvh] overflow-y-auto outline-none lg:mx-auto lg:w-[640px] lg:max-w-[92vw] lg:rounded-t-sheet lg:border-x"
         >
           <SheetHeader>
             <SheetTitle>{editing ? editing.name : 'Новый тренажёр'}</SheetTitle>

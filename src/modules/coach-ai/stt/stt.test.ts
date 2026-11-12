@@ -10,6 +10,7 @@ const envMock = vi.hoisted(() => ({
     AI_API_KEY: 'test-key' as string | undefined,
     STT_PROVIDER: undefined as 'plusvibe' | 'yandex' | undefined,
     STT_MODEL: undefined as string | undefined,
+    STT_BASE_URL: undefined as string | undefined,
   },
 }))
 
@@ -35,6 +36,7 @@ beforeEach(() => {
   envMock.value.AI_API_KEY = 'test-key'
   envMock.value.STT_PROVIDER = undefined
   envMock.value.STT_MODEL = undefined
+  envMock.value.STT_BASE_URL = undefined
   vi.unstubAllGlobals()
 })
 
@@ -92,10 +94,49 @@ test('без AI_API_KEY — понятная ошибка про ключ, а н
   ).rejects.toThrow('Распознавание речи не настроено: нет AI_API_KEY')
 })
 
-test('ошибка провайдера содержит код и модель', async () => {
-  vi.stubGlobal('fetch', async () => new Response('boom', { status: 404 }))
+test('ошибка провайдера объясняет причину: код, подсказка и ответ', async () => {
+  vi.stubGlobal(
+    'fetch',
+    async () =>
+      new Response('{"error":"model not allowed for this key"}', {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      }),
+  )
+
+  const error = await new PlusvibeSpeechToText()
+    .transcribe({ path: audio, mime: 'audio/webm' })
+    .catch((caught: Error) => caught)
+
+  expect(error).toBeInstanceOf(Error)
+  const message = (error as Error).message
+
+  expect(message).toContain('Распознавание не удалось: 403')
+  // Подсказка про доступ к модели — чтобы не гадать, почему «модель правильная», а отказ есть.
+  expect(message).toContain('нет доступа к модели «whisper-large-v3»')
+  // И сам ответ провайдера: по нему видно настоящую причину.
+  expect(message).toContain('model not allowed for this key')
+})
+
+test('404 — отдельная подсказка про эндпоинт и модель', async () => {
+  vi.stubGlobal('fetch', async () => new Response('Not Found', { status: 404 }))
 
   await expect(
     new PlusvibeSpeechToText().transcribe({ path: audio, mime: 'audio/webm' }),
-  ).rejects.toThrow('Распознавание не удалось: 404 (whisper-large-v3)')
+  ).rejects.toThrow(/404 — такого эндпоинта или модели у провайдера нет/)
+})
+
+test('STT_BASE_URL переопределяет адрес распознавания', async () => {
+  envMock.value.STT_BASE_URL = 'https://stt.example.com/v1'
+  let url = ''
+
+  vi.stubGlobal('fetch', async (input: string) => {
+    url = input
+    return new Response(JSON.stringify({ text: 'ок' }), { status: 200 })
+  })
+
+  await new PlusvibeSpeechToText().transcribe({ path: audio, mime: 'audio/webm' })
+  expect(url).toBe('https://stt.example.com/v1/audio/transcriptions')
+
+  envMock.value.STT_BASE_URL = undefined
 })
