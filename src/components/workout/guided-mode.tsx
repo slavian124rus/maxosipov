@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ExerciseLogger } from './exercise-logger'
 import { FeelingPicker, type Feeling } from './feeling-picker'
 import { RecommendationCard } from './recommendation-card'
+import { HowToButton, HowToDialog } from './how-to'
 import { RestTimer } from './rest-timer'
 import { formatScheme } from '@/shared/scheme'
 import { formatWeight } from '@/modules/progression'
@@ -36,6 +37,8 @@ export function GuidedMode({
 }: Props) {
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'idle' | 'logging' | 'rest'>('idle')
+  /** Открытая карточка «Как делать» — техника, не выходя из пошагового режима. */
+  const [howTo, setHowTo] = useState<WorkoutExercise | null>(null)
 
   const exercise = exercises[index]
   if (!exercise) return <p className="text-[15px] text-text-secondary">Упражнений нет</p>
@@ -75,6 +78,10 @@ export function GuidedMode({
       ) : null}
 
       <h2 className="font-display text-[34px] leading-none">{exercise.name}</h2>
+
+      <div className="flex flex-wrap gap-2">
+        <HowToButton onClick={() => setHowTo(exercise)} />
+      </div>
 
       {exercise.recommendation ? (
         <p className="text-[15px] text-text-secondary">{exercise.recommendation.text}</p>
@@ -153,6 +160,14 @@ export function GuidedMode({
           )}
         </div>
       ) : null}
+
+      <HowToDialog
+        exercise={howTo}
+        open={howTo !== null}
+        onOpenChange={(open) => {
+          if (!open) setHowTo(null)
+        }}
+      />
     </div>
   )
 }

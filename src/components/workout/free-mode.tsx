@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ExerciseLogger } from './exercise-logger'
 import { FeelingPicker, type Feeling } from './feeling-picker'
+import { HowToButton, HowToDialog } from './how-to'
 import { RecommendationCard } from './recommendation-card'
 import { formatScheme } from '@/shared/scheme'
 import { formatWeight } from '@/modules/progression'
@@ -25,6 +26,11 @@ export type WorkoutExercise = {
   startWeightKg: number
   /** План тренера из программы (вес по анкете). `null` — вес не задан. */
   planWeightKg: number | null
+  /** Для окна «Как делать»: slug карточки, шаги, ошибки и совет. */
+  slug: string
+  steps: string[]
+  mistakes: string[]
+  tips: string | null
   history: { date: string; sets: { weightKg: number; reps: number; feeling: Feeling | null }[] }[]
 }
 
@@ -62,6 +68,8 @@ export function FreeMode({
   nextRecommendations,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(exercises[0]?.programExerciseId ?? null)
+  /** Открытая карточка «Как делать»: техника без ухода со страницы тренировки. */
+  const [howTo, setHowTo] = useState<WorkoutExercise | null>(null)
 
   return (
     <div className="flex flex-col gap-3">
@@ -77,11 +85,12 @@ export function FreeMode({
               complete ? 'border-success/40 opacity-80' : 'border-border'
             }`}
           >
-            <button
-              type="button"
-              onClick={() => setActiveId(isActive ? null : exercise.programExerciseId)}
-              className="flex items-center gap-3 text-left"
-            >
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveId(isActive ? null : exercise.programExerciseId)}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
               {exercise.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка
                 <img
@@ -109,21 +118,39 @@ export function FreeMode({
                   </span>
                 ) : null}
               </div>
-            </button>
+              </button>
+
+              {/* Технику можно посмотреть сразу, не раскрывая карточку. */}
+              <HowToButton
+                compact
+                label={`Как делать: ${exercise.name}`}
+                onClick={() => setHowTo(exercise)}
+              />
+            </div>
 
             {isActive && !complete ? (
               <div className="flex flex-col gap-3">
                 {exercise.videoMp4Url ? (
-                  <video
-                    className="aspect-[5/4] w-full rounded-card object-cover"
-                    src={exercise.videoMp4Url}
-                    poster={exercise.posterUrl ?? undefined}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    preload="metadata"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setHowTo(exercise)}
+                    aria-label={`Как делать: ${exercise.name}`}
+                    className="relative block w-full overflow-hidden rounded-card"
+                  >
+                    <video
+                      className="aspect-[5/4] w-full object-cover"
+                      src={exercise.videoMp4Url}
+                      poster={exercise.posterUrl ?? undefined}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      preload="metadata"
+                    />
+                    <span className="absolute right-2 bottom-2 rounded-full bg-black/70 px-3 py-1 text-[12px] text-white">
+                      Как делать
+                    </span>
+                  </button>
                 ) : null}
 
                 {done.length > 0 ? (
@@ -147,9 +174,12 @@ export function FreeMode({
                   onLog={(weightKg, reps) => onLog(exercise, weightKg, reps)}
                 />
 
-                <Button type="button" variant="ghost" onClick={() => setActiveId(null)}>
-                  Свернуть
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <HowToButton onClick={() => setHowTo(exercise)} />
+                  <Button type="button" variant="ghost" onClick={() => setActiveId(null)}>
+                    Свернуть
+                  </Button>
+                </div>
               </div>
             ) : null}
 
@@ -178,6 +208,14 @@ export function FreeMode({
           </div>
         )
       })}
+
+      <HowToDialog
+        exercise={howTo}
+        open={howTo !== null}
+        onOpenChange={(open) => {
+          if (!open) setHowTo(null)
+        }}
+      />
     </div>
   )
 }

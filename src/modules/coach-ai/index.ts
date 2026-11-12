@@ -71,6 +71,15 @@ export type { AudioFile, SpeechToText } from './stt'
 export { draftExerciseText } from './exercise-draft'
 export type { ExerciseDraft, ExerciseDraftInput } from './exercise-draft'
 
+export { reviewExercise, reviewExerciseWithAi, sanitizeExerciseFix } from './exercise-review'
+export type {
+  ExerciseAiReview,
+  ExerciseFix,
+  ExerciseIssue,
+  ExerciseIssueField,
+  ExerciseReviewInput,
+} from './exercise-review'
+
 export { draftProgramTemplate } from './template-draft'
 export type {
   TemplateBrief,

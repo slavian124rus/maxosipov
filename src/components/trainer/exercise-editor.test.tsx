@@ -10,6 +10,9 @@ const server = vi.hoisted(() => ({
   archived: false,
   saveId: null as string | null,
   saveError: null as string | null,
+  reviewIssues: [] as { field: string; text: string; severity: 'error' | 'warning' }[],
+  review: null as null | { summary: string; fix: Record<string, unknown> },
+  reviewError: null as string | null,
 }))
 
 vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
@@ -17,6 +20,11 @@ vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
   unpublishAction: async () => {},
   draftExerciseAction: async () => ({ draft: null, error: null }),
   archiveExerciseAction: async () => ({ error: server.archiveError, archived: server.archived }),
+  reviewExerciseAction: async () => ({
+    error: server.reviewError,
+    issues: server.reviewIssues,
+    review: server.review,
+  }),
 }))
 
 // Уведомления проверяем по вызовам, а не по отрисованному тостеру.
@@ -236,3 +244,63 @@ test('publishChecklist: три условия публикации', () => {
     publishChecklist({ primaryMuscles: 1, steps: 2, hasVideo: true }).every((item) => item.done),
   ).toBe(true)
 })
+
+test('вкладка «МаксИИм»: проверка карточки и применение исправлений', async () => {
+  server.reviewIssues = [
+    { field: 'mistakes', text: 'Нет частых ошибок — это первое, что смотрит клиент', severity: 'warning' },
+  ]
+  server.review = {
+    summary: 'Добавил ошибки и совет',
+    fix: {
+      name: 'Гакк-приседания в машине',
+      repMin: 8,
+      repMax: 10,
+      steps: ['Встань в тренажёр', 'Опустись до прямого угла', 'Выжми'],
+      mistakes: ['Отрыв пяток'],
+      tip: 'Колени по носкам',
+      primary: ['quads'],
+      secondary: ['glutes'],
+    },
+  }
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(tab('МаксИИм'))
+  expect(screen.getByText(/В карточку ничего не попадёт/)).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: /Проверить карточку/ }))
+
+  expect(await screen.findByText('Добавил ошибки и совет')).toBeTruthy()
+  expect(screen.getByText('Нет частых ошибок — это первое, что смотрит клиент')).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Применить исправления' }))
+
+  // После применения форма открывается на «Описании» с новыми значениями.
+  expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe(
+    'Гакк-приседания в машине',
+  )
+  expect(toasts.success).toContain('Поля заполнены')
+
+  fireEvent.click(tab('Публикация'))
+  expect(screen.getByText(/Основные мышцы: Квадрицепсы/)).toBeTruthy()
+})
+
+test('вкладка «МаксИИм»: без модели показывает замечания и честный текст', async () => {
+  server.review = null
+  server.reviewError = 'МаксИИм сейчас недоступен — ниже замечания, которые проверяются без него'
+  server.reviewIssues = [
+    { field: 'steps', text: 'Нет шагов «Как делать»', severity: 'error' },
+  ]
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(tab('МаксИИм'))
+  fireEvent.click(screen.getByRole('button', { name: /Проверить карточку/ }))
+
+  expect(await screen.findByText(/МаксИИм сейчас недоступен/)).toBeTruthy()
+  expect(screen.getByText('Без этого не опубликовать')).toBeTruthy()
+  expect(screen.getByText('Нет шагов «Как делать»')).toBeTruthy()
+  // Кнопки «Применить» нет — применять нечего.
+  expect(screen.queryByRole('button', { name: 'Применить исправления' })).toBeNull()
+})
+

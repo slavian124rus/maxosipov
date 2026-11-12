@@ -16,11 +16,14 @@ import { muscleName, type MuscleCode } from '@/shared/muscles'
 import type { ExerciseDetail } from '@/modules/catalog'
 import {
   draftExerciseAction,
+  reviewExerciseAction,
   saveExerciseAction,
   unpublishAction,
+  type ReviewExerciseState,
   type SaveExerciseState,
 } from '@/app/(app)/app/trainer/exercises/actions'
 import { DeleteExercise } from '@/components/trainer/delete-exercise'
+import { ExerciseAiPanel } from '@/components/trainer/exercise-ai-panel'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 
@@ -29,6 +32,7 @@ const TABS = [
   { id: 'video', label: 'Видео' },
   { id: 'machine', label: 'Тренажёр' },
   { id: 'muscles', label: 'Мышцы' },
+  { id: 'ai', label: 'МаксИИм' },
   { id: 'publish', label: 'Публикация' },
 ] as const
 
@@ -88,6 +92,9 @@ export function ExerciseEditor({
   const [overlayProfile, setOverlayProfile] = useState<string>(exercise.overlayProfile)
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+  /** Результат проверки на вкладке «МаксИИм»: замечания и предложенные исправления. */
+  const [aiReview, setAiReview] = useState<ReviewExerciseState | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
 
   /** Какая кнопка отправляет форму: от неё зависит текст уведомления. */
   const intent = useRef<'save' | 'publish'>('save')
@@ -151,6 +158,50 @@ export function ExerciseEditor({
     }
   }
 
+
+  /**
+   * Проверка карточки на вкладке «МаксИИм»: замечания считаются без ИИ, модель
+   * добавляет резюме и исправленные поля. Ничего не сохраняет.
+   */
+  async function checkWithAi(): Promise<void> {
+    setAiLoading(true)
+
+    try {
+      const result = await reviewExerciseAction({
+        name,
+        machine: machine?.name ?? null,
+        primary: muscles.primary,
+        secondary: muscles.secondary,
+        steps,
+        mistakes,
+        tip: tips.trim() === '' ? null : tips,
+        repMin: Number(repMin) || 0,
+        repMax: Number(repMax) || 0,
+        hasVideo: Boolean(videoMediaId) || exercise.hasVideo,
+        hasPhoto: Boolean(exercise.photoUrl || exercise.thumbUrl),
+      })
+
+      setAiReview(result)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  /** Подставляет предложенные поля в форму: сохранить тренер должен сам. */
+  function applyAiFix(): void {
+    const fix = aiReview?.review?.fix
+    if (!fix) return
+
+    setName(fix.name)
+    setRepMin(String(fix.repMin))
+    setRepMax(String(fix.repMax))
+    setSteps(fix.steps.length > 0 ? fix.steps : [''])
+    setMistakes(fix.mistakes.length > 0 ? fix.mistakes : [''])
+    setTips(fix.tip)
+    setMuscles({ primary: fix.primary as MuscleCode[], secondary: fix.secondary as MuscleCode[] })
+    setTab('text')
+    toast.success('Поля заполнены', { description: 'Проверь и нажми «Сохранить»' })
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -241,6 +292,17 @@ export function ExerciseEditor({
             onDraft={() => void createDraft()}
             drafting={drafting}
             draftError={draftError}
+          />
+        ) : null}
+
+        {tab === 'ai' ? (
+          <ExerciseAiPanel
+            loading={aiLoading}
+            issues={aiReview?.issues ?? []}
+            review={aiReview?.review ?? null}
+            error={aiReview?.error ?? null}
+            onCheck={() => void checkWithAi()}
+            onApply={applyAiFix}
           />
         ) : null}
 

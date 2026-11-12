@@ -17,7 +17,7 @@ import {
   type Machine,
 } from '@/modules/catalog'
 import { requireUser } from '@/modules/auth'
-import { draftExerciseText, type ExerciseDraft } from '@/modules/coach-ai'
+import { draftExerciseText, reviewExercise, reviewExerciseWithAi, type ExerciseAiReview, type ExerciseDraft, type ExerciseIssue } from '@/modules/coach-ai'
 import { parseWeightStep } from '@/components/trainer/machine-values'
 import { setProcessingOptions } from '@/modules/media'
 import { assertCan } from '@/modules/rbac'
@@ -272,6 +272,57 @@ export async function unpublishAction(formData: FormData): Promise<void> {
 
   revalidatePath('/trainer/exercises')
   revalidatePath('/exercises')
+}
+
+export type ReviewExerciseState = {
+  error: string | null
+  /** Детерминированные замечания — есть всегда, даже без ИИ. */
+  issues: ExerciseIssue[]
+  /** Резюме и исправленные поля от МаксИИма; `null` — модель недоступна. */
+  review: ExerciseAiReview | null
+}
+
+/**
+ * Вкладка «МаксИИм» в правке упражнения (DESIGN.md §8.9): проверяет, как заполнена
+ * карточка, и предлагает исправления. Ничего не сохраняет — тренер жмёт «Применить»,
+ * а потом «Сохранить», так что случайная правка не уйдёт в каталог.
+ */
+export async function reviewExerciseAction(input: {
+  name: string
+  machine: string | null
+  primary: string[]
+  secondary: string[]
+  steps: string[]
+  mistakes: string[]
+  tip: string | null
+  repMin: number
+  repMax: number
+  hasVideo: boolean
+  hasPhoto: boolean
+}): Promise<ReviewExerciseState> {
+  const { actor } = await requireUser()
+
+  try {
+    assertCan(actor, 'catalog.edit')
+  } catch {
+    return { error: 'Недостаточно прав', issues: [], review: null }
+  }
+
+  const issues = reviewExercise(input)
+
+  try {
+    const review = await reviewExerciseWithAi(input, { userId: actor.id })
+    return { error: null, issues, review }
+  } catch (error) {
+    // Модель недоступна — замечания всё равно полезны, честно говорим об этом.
+    console.error('[trainer] МаксИИм не проверил упражнение', error)
+
+    return {
+      error: 'МаксИИм сейчас недоступен — ниже замечания, которые проверяются без него',
+      issues,
+      review: null,
+    }
+  }
 }
 
 export type ArchiveExerciseState = { error: string | null; archived: boolean }
