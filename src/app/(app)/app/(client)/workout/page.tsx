@@ -9,6 +9,7 @@ import {
   getHistoryForExercise,
   getLastFinishedDayId,
   getNextWeight,
+  getOngoingSession,
   getRecommendations,
   pickWorkoutDay,
 } from '@/modules/training'
@@ -28,9 +29,14 @@ export default async function WorkoutPage({
   if (!program || program.days.length === 0) redirect('/')
 
   const { exercise: extraExerciseId, day: requestedDayId } = await searchParams
-  const lastDayId = await getLastFinishedDayId(user.id)
-  // День мог быть выбран клиентом на экране «Сегодня» — тогда берём его.
-  const day = pickWorkoutDay(program.days, lastDayId, requestedDayId ?? null) ?? program.days[0]!
+  const [lastDayId, ongoing] = await Promise.all([
+    getLastFinishedDayId(user.id),
+    getOngoingSession(user.id),
+  ])
+  // День мог быть выбран клиентом на экране «Сегодня» или уже начат — тогда продолжаем его.
+  const day =
+    pickWorkoutDay(program.days, lastDayId, requestedDayId ?? ongoing?.dayId ?? null) ??
+    program.days[0]!
 
   const recommendations = await getRecommendations(user.id, day.id)
   const gym = await getGym()

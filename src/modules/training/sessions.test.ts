@@ -16,6 +16,7 @@ import {
   finishSession,
   getExerciseProgress,
   getHistoryForExercise,
+  getOngoingSession,
   getRecommendations,
   getTrainedExercises,
   getWeeklyVolume,
@@ -504,4 +505,42 @@ test('getTrainedExercises: только упражнения из завершё
   expect(list).toHaveLength(1)
   expect(list[0]?.exerciseId).toBe(exerciseId)
   expect(list[0]?.sessions).toBe(1)
+})
+
+test('getOngoingSession: незавершённая тренировка видна, завершённая — нет', async () => {
+  const now = new Date('2026-11-07T12:00:00Z')
+
+  // Ничего не начато.
+  expect(await getOngoingSession(clientId, now)).toBeNull()
+
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 'ongoing-1',
+    startedAt: new Date('2026-11-07T11:30:00Z'),
+  })
+
+  const ongoing = await getOngoingSession(clientId, now)
+  expect(ongoing).toMatchObject({ dayId })
+
+  // Завершили — экран «Сегодня» больше не предлагает «Продолжить».
+  await finishSession(
+    clientId,
+    'ongoing-1',
+    { finishedAt: new Date('2026-11-07T11:55:00Z') },
+    { enqueue: async () => {} },
+  )
+  expect(await getOngoingSession(clientId, now)).toBeNull()
+})
+
+test('getOngoingSession: брошенная тренировка старше 12 часов не считается', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 'ongoing-old',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  expect(await getOngoingSession(clientId, new Date('2026-11-07T09:30:00Z'))).not.toBeNull()
+  expect(await getOngoingSession(clientId, new Date('2026-11-07T22:00:00Z'))).toBeNull()
 })

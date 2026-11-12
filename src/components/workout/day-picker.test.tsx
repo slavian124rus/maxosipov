@@ -67,12 +67,27 @@ test('каждый день ведёт на тренировку с этим д�
   ])
 })
 
-test('предупреждаем, что начатая тренировка завершится', () => {
+test('когда ничего не начато — подсказка про порядок, без предупреждения', () => {
   render(<DayPicker days={DAYS} recommendedId="day-1" />)
 
   fireEvent.click(screen.getByRole('button', { name: /Сменить день/ }))
 
-  expect(screen.getByText(/она завершится при выборе другого дня/)).toBeTruthy()
+  expect(screen.getByText(/следующий день отмечен/)).toBeTruthy()
+  expect(screen.queryByText(/начатая тренировка завершится/)).toBeNull()
+})
+
+test('идёт тренировка — предупреждаем, что смена дня её завершит', () => {
+  render(<DayPicker days={DAYS} recommendedId="day-2" ongoing />)
+
+  fireEvent.click(screen.getByRole('button', { name: /Сменить день/ }))
+
+  const box = screen.getByRole('dialog')
+  expect(box.textContent).toContain(
+    'Если выбрать другой день, начатая тренировка завершится — записанные подходы останутся в истории.',
+  )
+  // Начатый день помечен «идёт сейчас», а не «рекомендуем».
+  expect(box.textContent).toContain('идёт сейчас')
+  expect(box.textContent).not.toContain('рекомендуем')
 })
 
 test('один день в программе — подпись в единственном числе', () => {

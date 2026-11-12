@@ -441,6 +441,45 @@ export async function getLastFinishedDayId(userId: string): Promise<string | nul
   return row?.dayId ?? null
 }
 
+/** Незавершённая тренировка старше этого срока считается брошенной (как в офлайн-очереди). */
+export const ONGOING_SESSION_MS = 12 * 60 * 60 * 1000
+
+export type OngoingSession = { sessionId: string; dayId: string | null; startedAt: Date }
+
+/**
+ * Начатая, но не завершённая тренировка (DESIGN.md §8.1).
+ *
+ * Нужна экрану «Сегодня»: пока тренировка идёт, предлагать «Начать тренировку» нельзя —
+ * клиент нажмёт её, и `startOrResume` закроет текущую сессию. Сервер знает о старте
+ * (строка в `workout_sessions` без `finished_at`), поэтому подсказка «Продолжить»
+ * строится здесь, а не только в браузере.
+ */
+export async function getOngoingSession(
+  userId: string,
+  now: Date = new Date(),
+): Promise<OngoingSession | null> {
+  const since = new Date(now.getTime() - ONGOING_SESSION_MS)
+
+  const [row] = await db
+    .select({
+      sessionId: workoutSessions.id,
+      dayId: workoutSessions.programDayId,
+      startedAt: workoutSessions.startedAt,
+    })
+    .from(workoutSessions)
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.finishedAt),
+        gte(workoutSessions.startedAt, since),
+      ),
+    )
+    .orderBy(desc(workoutSessions.startedAt))
+    .limit(1)
+
+  return row ?? null
+}
+
 /** Серия недели: 7 флагов Пн–Вс, заполненные — дни с завершённой тренировкой. */
 export async function getWeekWorkoutDays(
   userId: string,

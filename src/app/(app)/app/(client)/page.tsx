@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { PushOptIn } from '@/components/app/push-opt-in'
 import { requireClientPage } from '@/components/app/require-client-page'
-import { DayPicker } from '@/components/workout/day-picker'
-import { ResumeHint } from '@/components/workout/resume-hint'
+import { TodayWorkoutCard } from '@/components/workout/today-workout-card'
 import { getAccessForUser } from '@/modules/access'
 import { getGym } from '@/modules/gym'
 import {
   getActiveProgram,
   getLastFinishedDayId,
+  getOngoingSession,
   getWeekWorkoutDays,
   listSessions,
   listTemplates,
@@ -37,17 +37,17 @@ export default async function TodayPage() {
 
   const gym = await getGym()
 
-  const [program, access, streak, lastDayId, templates, sessions] = await Promise.all([
+  const [program, access, streak, lastDayId, ongoing, templates, sessions] = await Promise.all([
     getActiveProgram(user.id),
     getAccessForUser(user.id),
     getWeekWorkoutDays(user.id, new Date(), gym.timezone),
     getLastFinishedDayId(user.id),
+    getOngoingSession(user.id),
     listTemplates(),
     listSessions(user.id, 1),
   ])
 
   const days = program?.days ?? []
-  // Рекомендация — следующий день по порядку; клиент может выбрать другой на месте.
   const nextDay = pickWorkoutDay(days, lastDayId)
 
   return (
@@ -76,30 +76,15 @@ export default async function TodayPage() {
       ) : null}
 
       {nextDay ? (
-        <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
-          <p className="text-[13px] text-text-muted">Сегодня</p>
-          <p className="text-[17px]">{nextDay.name}</p>
-          <p className="text-[15px] text-text-secondary">
-            Упражнений: {nextDay.exercises.length}
-          </p>
-          <Link
-            href={`/workout?day=${nextDay.id}`}
-            className="flex h-12 items-center justify-center rounded-control bg-accent text-[15px] text-white"
-          >
-            Начать тренировку
-          </Link>
-          <ResumeHint days={days.map((day) => ({ id: day.id, name: day.name }))} />
-          {days.length > 1 ? (
-            <DayPicker
-              days={days.map((day) => ({
-                id: day.id,
-                name: day.name,
-                exercises: day.exercises.length,
-              }))}
-              recommendedId={nextDay.id}
-            />
-          ) : null}
-        </section>
+        <TodayWorkoutCard
+          days={days.map((day) => ({
+            id: day.id,
+            name: day.name,
+            exercises: day.exercises.length,
+          }))}
+          recommendedId={pickWorkoutDay(days, lastDayId)?.id ?? nextDay.id}
+          ongoingDayId={ongoing?.dayId ?? null}
+        />
       ) : (
         <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
           <p className="text-[15px] text-text-secondary">Максим скоро подберёт тебе программу</p>

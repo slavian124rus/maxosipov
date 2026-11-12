@@ -21,7 +21,16 @@ export type DayOption = { id: string; name: string; exercises: number }
  * день ног — выбирает другой день своей программы. Обычно идём по порядку, поэтому
  * рекомендованный день отмечен, а не навязан.
  */
-export function DayPicker({ days, recommendedId }: { days: DayOption[]; recommendedId: string }) {
+export function DayPicker({
+  days,
+  recommendedId,
+  ongoing = false,
+}: {
+  days: DayOption[]
+  recommendedId: string
+  /** Идёт начатая тренировка: предупреждаем, что смена дня её завершит. */
+  ongoing?: boolean
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -56,7 +65,7 @@ export function DayPicker({ days, recommendedId }: { days: DayOption[]; recommen
               </span>
               {day.id === recommendedId ? (
                 <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-text-secondary">
-                  рекомендуем
+                  {ongoing ? 'идёт сейчас' : 'рекомендуем'}
                 </span>
               ) : null}
             </Link>
@@ -64,8 +73,9 @@ export function DayPicker({ days, recommendedId }: { days: DayOption[]; recommen
         </div>
 
         <p className="text-[13px] text-text-muted">
-          Если тренировка уже начата, она завершится при выборе другого дня — записанные подходы
-          останутся в истории.
+          {ongoing
+            ? 'Если выбрать другой день, начатая тренировка завершится — записанные подходы останутся в истории.'
+            : 'Обычно идём по порядку: следующий день отмечен, но можно взять любой.'}
         </p>
       </DialogContent>
     </Dialog>
