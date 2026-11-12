@@ -6,6 +6,7 @@ import { ProgramEditor, type CatalogItem } from '@/components/trainer/program-ed
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
 import { TemplateAssistant } from '@/components/trainer/templates/template-assistant'
 import { DeleteTemplateButton } from '@/components/trainer/templates/delete-template-button'
+import { TemplateMetaEditor } from '@/components/trainer/templates/template-meta-editor'
 import { TemplateCreatedNotice } from '@/components/trainer/templates/template-created-notice'
 import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import { assertProgramAccess } from '../access'
@@ -66,7 +67,18 @@ export default async function ProgramPage({
         eyebrow={clientId === null ? 'Шаблон' : 'Программа клиента'}
         title={title}
         actions={
-          isTemplate ? <DeleteTemplateButton templateId={program.id} title={title} /> : null
+          isTemplate ? (
+            <>
+              <TemplateMetaEditor
+                templateId={program.id}
+                name={program.name}
+                audience={program.audience ?? null}
+                goal={program.goal ?? null}
+                number={program.templateNumber ?? null}
+              />
+              <DeleteTemplateButton templateId={program.id} title={title} />
+            </>
+          ) : null
         }
       />
 
