@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getOfflineDb } from '@/lib/offline/db'
 import { useActiveSession } from '@/lib/offline/use-active-session'
+import { useOnline } from '@/lib/use-online'
 import { useProgramVersion } from '@/lib/use-program-version'
 import { recommend, recommendationText, type ProgressionRules } from '@/modules/progression'
 import type { VoiceRow } from '@/modules/coach-ai'
@@ -40,6 +41,7 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
   const [storageFailed, setStorageFailed] = useState(false)
   const [nextRecommendations, setNextRecommendations] = useState<Record<string, NextRecommendation>>({})
   const programUpdated = useProgramVersion(programId)
+  const online = useOnline()
 
   useEffect(() => {
     if (startedRef.current) return
@@ -93,13 +95,21 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
     const list = loggedRef.current[key] ?? []
     const next = [...list, { index: list.length + 1, weightKg, reps }]
     loggedRef.current = { ...loggedRef.current, [key]: next }
+    // Подход показываем сразу: запись в IndexedDB идёт следом и почти всегда успевает.
+    // Раньше строка появлялась только после ответа хранилища — казалось, что нажатие «не сработало».
+    setLogged(loggedRef.current)
 
     void session
       .logSet({ exerciseId: exercise.exerciseId, setIndex: next.length, weightKg, reps })
-      .then(() => setLogged(loggedRef.current))
+      .then(() => {
+        setStorageFailed(false)
+        setLogged(loggedRef.current)
+      })
       .catch((error: unknown) => {
         console.error('[offline] подход не сохранён', error)
+        // Не сохранился — убираем строку из списка, чтобы не было «фантомного» подхода.
         loggedRef.current = { ...loggedRef.current, [key]: list }
+        setLogged(loggedRef.current)
         setStorageFailed(true)
       })
   }
@@ -218,8 +228,14 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
       <header className="flex items-center justify-between gap-2">
         <h1 className="text-[22px] font-semibold">Тренировка · {dayName}</h1>
         <div className="flex items-center gap-2">
-          {session.pending > 0 ? (
-            <span className="text-[13px] text-warning">Не отправлено: {session.pending}</span>
+          {!online ? (
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-warning">
+              Офлайн · запишем позже
+            </span>
+          ) : session.pending > 0 ? (
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-text-secondary">
+              Сохраняем…
+            </span>
           ) : null}
           {session.session ? (
             <VoiceLog
@@ -234,7 +250,7 @@ export function WorkoutClient({ programId, programDayId, dayName, mode, exercise
 
       {storageFailed ? (
         <p className="rounded-card border border-warning/40 px-3 py-2 text-[13px] text-warning">
-          Не удалось открыть память устройства: подходы не сохранятся без сети. Обнови страницу.
+          Подход не сохранился на устройстве — нажми ещё раз. Если не помогает, обнови страницу.
         </p>
       ) : null}
 

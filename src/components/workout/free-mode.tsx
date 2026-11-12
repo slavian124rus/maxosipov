@@ -23,6 +23,8 @@ export type WorkoutExercise = {
   videoWebmUrl: string | null
   recommendation: { action: string; weightKg: number | null; text: string } | null
   startWeightKg: number
+  /** План тренера из программы (вес по анкете). `null` — вес не задан. */
+  planWeightKg: number | null
   history: { date: string; sets: { weightKg: number; reps: number; feeling: Feeling | null }[] }[]
 }
 
@@ -99,6 +101,7 @@ export function FreeMode({
                 </span>
                 <span className="text-[13px] text-text-muted">
                   {formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}
+                  {exercise.planWeightKg ? ` · план ${formatWeight(exercise.planWeightKg)}` : ''}
                 </span>
                 {exercise.recommendation ? (
                   <span className="truncate text-[13px] text-text-secondary">

@@ -86,3 +86,10 @@ export type {
   TemplateAiReview,
   TemplateIssue,
 } from './template-review'
+
+export { sanitizeWeightSuggestions, suggestStartWeights } from './start-weights'
+export type {
+  WeightExerciseInput,
+  WeightSuggestion,
+  WeightSuggestions,
+} from './start-weights'

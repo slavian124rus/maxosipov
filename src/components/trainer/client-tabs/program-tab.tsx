@@ -1,7 +1,9 @@
 import type { ClientCard } from '@/modules/trainer'
+import { programWeightStats } from '@/modules/training'
 import type { CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { ProgramEditor } from '@/components/trainer/program-editor/program-editor'
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
+import { ProgramActions, type ProgramTemplateOption } from './program-actions'
 
 const ACTOR: Record<string, string> = {
   trainer: 'Максим',
@@ -9,27 +11,55 @@ const ACTOR: Record<string, string> = {
   ai_proposal_accepted: 'МаксИИм',
 }
 
-/** Вкладка «Программа»: редактор и история изменений с откатом ИИ. */
-export function ProgramTab({ card, catalog }: { card: ClientCard; catalog: CatalogItem[] }) {
-  if (!card.program) {
-    return <p className="text-[15px] text-text-secondary">Активной программы нет</p>
-  }
+/**
+ * Вкладка «Программа»: выдача и удаление программы, подбор весов по анкете,
+ * редактор дней и история изменений с откатом ИИ.
+ */
+export function ProgramTab({
+  card,
+  catalog,
+  templates,
+}: {
+  card: ClientCard
+  catalog: CatalogItem[]
+  templates: ProgramTemplateOption[]
+}) {
+  const weights = card.program ? programWeightStats(card.program) : null
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-[17px] font-semibold">{card.program.name}</h2>
-
       {card.permissions.editProgram ? (
-        <ProgramEditor program={card.program} catalog={catalog} clientId={card.id} />
-      ) : (
-        <div className="flex flex-col gap-1">
-          {card.program.days.map((day) => (
-            <div key={day.id} className="rounded-card border border-border bg-surface-1 px-3 py-2">
-              <p className="text-[15px] text-text">{day.name}</p>
-              <p className="text-[13px] text-text-muted">Упражнений: {day.exercises.length}</p>
+        <ProgramActions
+          clientId={card.id}
+          templates={templates}
+          program={card.program ? { id: card.program.id, name: card.program.name } : null}
+        />
+      ) : null}
+
+      {!card.program ? null : (
+        <>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-[17px] font-semibold">{card.program.name}</h2>
+            <p className="text-[13px] text-text-muted">
+              {weights && weights.withWeight > 0
+                ? `Веса заданы: ${weights.withWeight} из ${weights.total} упражнений`
+                : 'Веса не заданы — подставим по анкете или подбери их с МаксИИмом'}
+            </p>
+          </div>
+
+          {card.permissions.editProgram ? (
+            <ProgramEditor program={card.program} catalog={catalog} clientId={card.id} />
+          ) : (
+            <div className="flex flex-col gap-1">
+              {card.program.days.map((day) => (
+                <div key={day.id} className="rounded-card border border-border bg-surface-1 px-3 py-2">
+                  <p className="text-[15px] text-text">{day.name}</p>
+                  <p className="text-[13px] text-text-muted">Упражнений: {day.exercises.length}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       <section className="flex flex-col gap-2">

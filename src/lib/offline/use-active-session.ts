@@ -29,6 +29,8 @@ export function useActiveSession() {
   const [session, setSession] = useState<ActiveSessionRecord | null>(null)
   const [pending, setPending] = useState(0)
   const sessionRef = useRef<ActiveSessionRecord | null>(null)
+  /** Старт ещё выполняется: подход, записанный в этот момент, должен его дождаться. */
+  const startingRef = useRef<Promise<ActiveSessionRecord> | null>(null)
 
   const refreshPending = useCallback(async () => {
     setPending(await pendingCount())
@@ -48,47 +50,61 @@ export function useActiveSession() {
    */
   const startOrResume = useCallback(
     async (input: StartInput): Promise<ActiveSessionRecord> => {
-      const db = await getOfflineDb()
-      const existing = await findActiveSession()
+      const promise = (async (): Promise<ActiveSessionRecord> => {
+        const db = await getOfflineDb()
+        const existing = await findActiveSession()
 
-      if (existing) {
-        const fresh = Date.now() - new Date(existing.startedAt).getTime() < STALE_SESSION_MS
+        if (existing) {
+          const fresh = Date.now() - new Date(existing.startedAt).getTime() < STALE_SESSION_MS
 
-        if (fresh && existing.programDayId === input.programDayId) {
-          sessionRef.current = existing
-          setSession(existing)
-          void refreshPending()
-          return existing
+          if (fresh && existing.programDayId === input.programDayId) {
+            sessionRef.current = existing
+            setSession(existing)
+            void refreshPending()
+            return existing
+          }
+
+          // брошенная или от другого дня: закрываем (уйдёт на сервер как завершённая)
+          await db.activeSession.update(existing.clientUuid, {
+            finishRequestedAt: new Date().toISOString(),
+          })
         }
 
-        // брошенная или от другого дня: закрываем (уйдёт на сервер как завершённая)
-        await db.activeSession.update(existing.clientUuid, {
-          finishRequestedAt: new Date().toISOString(),
-        })
+        const record: ActiveSessionRecord = {
+          clientUuid: crypto.randomUUID(),
+          programDayId: input.programDayId,
+          mode: input.mode,
+          startedAt: new Date().toISOString(),
+          programSnapshot: input.programSnapshot,
+          startSynced: false,
+        }
+
+        await db.activeSession.put(record)
+        sessionRef.current = record
+        setSession(record)
+        void flush()
+
+        return record
+      })()
+
+      startingRef.current = promise
+      try {
+        return await promise
+      } finally {
+        startingRef.current = null
       }
-
-      const record: ActiveSessionRecord = {
-        clientUuid: crypto.randomUUID(),
-        programDayId: input.programDayId,
-        mode: input.mode,
-        startedAt: new Date().toISOString(),
-        programSnapshot: input.programSnapshot,
-        startSynced: false,
-      }
-
-      await db.activeSession.put(record)
-      sessionRef.current = record
-      setSession(record)
-      void flush()
-
-      return record
     },
     [flush, refreshPending],
   )
 
   const logSet = useCallback(
     async (input: LogInput): Promise<void> => {
-      const active = sessionRef.current
+      // Первый подход могли нажать раньше, чем закончился старт тренировки:
+      // ждём его, иначе подход молча терялся и клиент нажимал кнопку повторно.
+      const active =
+        sessionRef.current ??
+        (startingRef.current ? await startingRef.current.catch(() => null) : null)
+
       if (!active) throw new Error('Тренировка не начата')
 
       await enqueueSet({

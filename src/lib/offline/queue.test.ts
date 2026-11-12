@@ -199,3 +199,81 @@ test('ощущение, выбранное во время отправки, н�
   expect(result.sent).toBe(1)
   expect(await pendingCount()).toBe(1) // изменённый подход ещё надо отправить
 })
+
+
+test('подход, записанный во время отправки, досылается тем же flushAll', async () => {
+  const db = await getOfflineDb()
+  const startedAt = '2026-11-10T10:00:00.000Z'
+
+  // Тренировка уже начата, первый подход ждёт отправки.
+  await db.activeSession.put({
+    clientUuid: 'session-1',
+    programDayId: null,
+    mode: 'free',
+    startedAt,
+    programSnapshot: null,
+    startSynced: true,
+  })
+  await enqueueSet(set(1))
+
+  const sent: string[] = []
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+
+  const fetchFn = (async (_url: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as {
+      items?: { clientUuid: string }[]
+    }
+    const ids = (body.items ?? []).map((item) => item.clientUuid)
+    sent.push(...ids)
+
+    // Первый запрос «висит», пока клиент записывает второй подход.
+    if (sent.length === 1) await gate
+
+    return new Response(JSON.stringify({ accepted: ids, rejected: [] }))
+  }) as typeof fetch
+
+  const first = flushAll(fetchFn)
+
+  // Клиент нажал «Записать подход», пока первая отправка ещё в пути.
+  await enqueueSet(set(2))
+  const second = flushAll(fetchFn)
+  release()
+
+  await Promise.all([first, second])
+
+  expect(sent).toEqual(expect.arrayContaining(['set-1', 'set-2']))
+  expect(await pendingCount()).toBe(0)
+})
+
+test('подход не теряется, если новый flushAll пришёл в конце прохода', async () => {
+  const db = await getOfflineDb()
+  await db.activeSession.put({
+    clientUuid: 'session-1',
+    programDayId: null,
+    mode: 'free',
+    startedAt: '2026-11-10T10:00:00.000Z',
+    programSnapshot: null,
+    startSynced: true,
+  })
+
+  // Очередь пуста: проход завершается, не отправив ничего.
+  const first = flushAll(async () => new Response('{}'))
+  await enqueueSet(set(1))
+  const second = flushAll(async (_url, init) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as { items: { clientUuid: string }[] }
+    return new Response(JSON.stringify({ accepted: body.items.map((item) => item.clientUuid) }))
+  })
+
+  await Promise.all([first, second])
+
+  // Первый проход мог не увидеть подход — второй обязан его отправить.
+  await flushAll(async (_url, init) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as { items: { clientUuid: string }[] }
+    return new Response(JSON.stringify({ accepted: body.items.map((item) => item.clientUuid) }))
+  })
+
+  expect(await pendingCount()).toBe(0)
+})

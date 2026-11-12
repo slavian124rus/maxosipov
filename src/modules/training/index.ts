@@ -26,6 +26,17 @@ export {
 export type { ChangeActorKind, ProgramChangeView } from './programs'
 
 export {
+  applyProgramWeights,
+  estimateWeightsForClient,
+  fillProgramWeightsFromProfile,
+  loadWeightHints,
+  programExerciseHints,
+  programWeightStats,
+  toStartWeightProfile,
+} from './weights'
+export type { ProgramExerciseHint, WeightHint } from './weights'
+
+export {
   allocateTemplateNumber,
   archiveTemplate,
   AUDIENCE_LABELS,

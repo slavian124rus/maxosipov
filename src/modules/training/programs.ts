@@ -13,6 +13,7 @@ import {
   type ProgramPatch,
   type ProgramTree,
 } from './patch'
+import { estimateWeightsForClient } from './weights'
 import {
   programChanges,
   programDays,
@@ -250,7 +251,13 @@ export async function applyProgramPatchAs(
   return next
 }
 
-/** Копирует шаблон клиенту: прежняя активная программа уходит в архив. */
+/**
+ * Копирует шаблон клиенту: прежняя активная программа уходит в архив.
+ *
+ * Веса: если у упражнения шаблона вес уже задан — берём его; если нет, подставляем
+ * стартовый вес по анкете клиента (`estimateWeightsForClient`). Так у каждого своя
+ * программа со своими весами, а не пустые поля «сколько делать?».
+ */
 export async function copyTemplateToClient(
   actor: Actor,
   templateId: string,
@@ -258,6 +265,7 @@ export async function copyTemplateToClient(
   gymId: string,
   /** Внешняя транзакция: так `assignTemplate` выдаёт шаблон нескольким клиентам «всё или ничего». */
   outerTx?: Tx,
+  options: { weights?: Record<string, number> } = {},
 ): Promise<ProgramTree> {
   if (actor.id !== clientId) {
     const [client] = await db.select().from(users).where(eq(users.id, clientId)).limit(1)
@@ -272,6 +280,14 @@ export async function copyTemplateToClient(
 
   const template = await getProgramTree(templateId)
   if (!template || template.ownerId !== null) throw new Error('Шаблон не найден')
+
+  // Стартовые веса по анкете считаем до транзакции: лишние запросы внутри неё не нужны.
+  const weights =
+    options.weights ??
+    (await estimateWeightsForClient(
+      clientId,
+      template.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
+    ))
 
   const inTransaction = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
     outerTx ? fn(outerTx) : db.transaction(fn)
@@ -322,7 +338,8 @@ export async function copyTemplateToClient(
         repMin: item.repMin,
         repMax: item.repMax,
         restSec: item.restSec,
-        targetWeightKg: item.targetWeightKg,
+        // Вес из шаблона (если тренер его задал) важнее расчётного по анкете.
+        targetWeightKg: item.targetWeightKg ?? weights[item.exerciseId] ?? null,
         note: item.note,
       }))
 

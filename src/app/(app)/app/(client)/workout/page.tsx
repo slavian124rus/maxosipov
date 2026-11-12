@@ -41,6 +41,8 @@ export default async function WorkoutPage({
     repMin: item.repMin,
     repMax: item.repMax,
     restSec: item.restSec,
+    // Вес из программы клиента: его подставили по анкете при выдаче шаблона.
+    targetWeightKg: item.targetWeightKg,
   }))
 
   // «В тренировку» с карточки упражнения: добавляем его в конец дня, если его там нет.
@@ -52,6 +54,7 @@ export default async function WorkoutPage({
       repMin: 10,
       repMax: 12,
       restSec: 90,
+      targetWeightKg: null,
     })
   }
 
@@ -84,7 +87,10 @@ export default async function WorkoutPage({
               text: recommendation.text,
             }
           : null,
-        startWeightKg: nextWeight ?? recommendation?.weightKg ?? 0,
+        // Порядок важен: «на следующий раз» → рекомендация по истории → вес из программы.
+        // Последний — план тренера из анкеты: без него на первом подходе был бы 0 кг.
+        startWeightKg: nextWeight ?? recommendation?.weightKg ?? entry.targetWeightKg ?? 0,
+        planWeightKg: entry.targetWeightKg ?? null,
         history: history.map((session) => ({ date: session.date.toISOString(), sets: session.sets })),
       }
     }),

@@ -79,6 +79,8 @@ export async function findActiveSession(): Promise<ActiveSessionRecord | null> {
 }
 
 let running: Promise<void> | null = null
+/** Пока идёт отправка, могли добавить новый подход — тогда нужен ещё один проход. */
+let rerunRequested = false
 
 async function post(fetchFn: typeof fetch, url: string, body: unknown): Promise<boolean> {
   try {
@@ -140,11 +142,27 @@ async function runFlushAll(fetchFn: typeof fetch): Promise<void> {
 
 /**
  * Досылает всё, что накопилось: старт → подходы → завершение.
- * Безопасно вызывать из нескольких мест: параллельные вызовы сливаются в один.
+ *
+ * Безопасно вызывать из нескольких мест: параллельные вызовы сливаются в один проход.
+ * Если во время прохода появился новый подход (клиент нажал «Записать подход», пока
+ * шла отправка), запускается ещё один проход — иначе первый подход «терялся» и висел
+ * в очереди до следующей фоновой синхронизации.
  */
 export function flushAll(fetchFn: typeof fetch = fetch): Promise<void> {
-  running ??= runFlushAll(fetchFn).finally(() => {
+  if (running) {
+    rerunRequested = true
+    return running
+  }
+
+  running = (async () => {
+    do {
+      rerunRequested = false
+      await runFlushAll(fetchFn)
+    } while (rerunRequested)
+  })().finally(() => {
     running = null
+    rerunRequested = false
   })
+
   return running
 }

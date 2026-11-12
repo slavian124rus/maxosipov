@@ -50,7 +50,10 @@ export function GuidedMode({
         <span>
           {index + 1} из {exercises.length}
         </span>
-        <span>{formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}</span>
+        <span>
+          {formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}
+          {exercise.planWeightKg ? ` · план ${formatWeight(exercise.planWeightKg)}` : ''}
+        </span>
       </div>
 
       {exercise.videoMp4Url ? (

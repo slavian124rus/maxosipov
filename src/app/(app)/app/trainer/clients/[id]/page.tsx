@@ -4,6 +4,7 @@ import { requireUser } from '@/modules/auth'
 import { listExercises } from '@/modules/catalog'
 import { formatContact } from '@/modules/auth'
 import { getClientCard } from '@/modules/trainer'
+import { listTemplateItems } from '@/modules/training'
 import { isNotFoundError } from '@/shared/errors'
 import { dayKey } from '@/shared/dates'
 import type { CatalogItem } from '@/components/trainer/program-editor/program-editor'
@@ -70,6 +71,16 @@ export default async function ClientCardPage({
           machineName: item.machineName,
           zone: item.machineZone,
           primary: item.primaryMuscles,
+        }))
+      : []
+
+  // Шаблоны для выдачи: показываем на вкладке «Программа», когда клиенту можно её менять.
+  const templates =
+    activeTab === 'program' && card.permissions.editProgram
+      ? (await listTemplateItems()).map((item) => ({
+          id: item.id,
+          title: item.title,
+          subtitle: item.subtitle,
         }))
       : []
 
@@ -177,7 +188,9 @@ export default async function ClientCardPage({
 
         <div className="min-w-0">
           {activeTab === 'profile' ? <ProfileTab card={card} /> : null}
-          {activeTab === 'program' ? <ProgramTab card={card} catalog={catalog} /> : null}
+          {activeTab === 'program' ? (
+            <ProgramTab card={card} catalog={catalog} templates={templates} />
+          ) : null}
           {activeTab === 'history' ? <HistoryTab card={card} /> : null}
           {activeTab === 'progress' ? <ProgressTab card={card} today={today} /> : null}
           {activeTab === 'notes' ? <NotesTab card={card} /> : null}
