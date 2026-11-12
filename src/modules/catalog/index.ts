@@ -24,6 +24,7 @@ export {
   archiveExercise,
   createExercise,
   createMachine,
+  deleteMachine,
   getExercise,
   listExercises,
   listMachines,

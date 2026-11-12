@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import {
   createExercise,
   createMachine,
+  deleteMachine,
   getExercise,
   publishExercise,
   unpublishExercise,
@@ -179,6 +180,34 @@ export async function saveMachineAction(
       id: null,
     }
   }
+}
+
+/** Удаляет тренажёр, занесённый по ошибке (вместе с фото). */
+export async function deleteMachineAction(
+  _prev: MachineState,
+  formData: FormData,
+): Promise<MachineState> {
+  const { actor } = await requireUser()
+  const id = text(formData.get('id'))
+
+  if (!id) return { error: 'Не выбран тренажёр', ok: false, id: null }
+
+  try {
+    await deleteMachine(actor, id)
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Тренажёр не удалён',
+      ok: false,
+      id: null,
+    }
+  }
+
+  revalidatePath('/trainer/machines')
+  revalidatePath('/trainer/exercises')
+  // Упражнения без тренажёра показываются в каталоге клиента по фото тренажёра.
+  revalidatePath('/exercises')
+
+  return { error: null, ok: true, id }
 }
 
 export async function unpublishAction(formData: FormData): Promise<void> {

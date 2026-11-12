@@ -1,8 +1,12 @@
+import { rm } from 'node:fs/promises'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getGym } from '@/modules/gym'
 import {
   MUSCLE_OVERLAY_QUEUE,
+  mediaDir,
+  mediaRoot,
+  safeJoin,
   signMediaPath,
   VIDEO_URL_TTL_SEC,
   type Media,
@@ -209,6 +213,49 @@ export async function updateMachine(
 
   if (!row) throw new Error('Тренажёр не найден')
   return row
+}
+
+/**
+ * Удаляет тренажёр, занесённый по ошибке, вместе с его фото.
+ *
+ * Только если к нему не привязано ни одного упражнения — у упражнений есть история
+ * подходов, и её мы не теряем (CLAUDE.md, правило 6). Если упражнения есть, сначала
+ * переносим их на другой тренажёр, иначе тренер получает понятную ошибку.
+ */
+export async function deleteMachine(actor: Actor, id: string): Promise<void> {
+  assertCan(actor, 'catalog.edit')
+
+  const [machine] = await db.select().from(machines).where(eq(machines.id, id)).limit(1)
+  if (!machine) throw new Error('Тренажёр не найден')
+
+  // Считаем все упражнения, включая архивные: у них тоже есть история.
+  const [used] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(exercises)
+    .where(eq(exercises.machineId, id))
+
+  const count = used?.count ?? 0
+  if (count > 0) {
+    throw new Error(
+      `К тренажёру привязаны упражнения: ${count}. Сначала перенеси их на другой тренажёр`,
+    )
+  }
+
+  await db.delete(machines).where(eq(machines.id, id))
+
+  if (!machine.photoMediaId) return
+
+  const [photo] = await db.select().from(media).where(eq(media.id, machine.photoMediaId)).limit(1)
+  if (!photo) return
+
+  await db.delete(media).where(eq(media.id, photo.id))
+
+  try {
+    await rm(safeJoin(mediaRoot(), mediaDir(photo)), { recursive: true, force: true })
+  } catch (error) {
+    // Файлы могли уже уйти ночной уборкой — запись в базе важнее.
+    console.error('[catalog] не удалось удалить файлы фото тренажёра', error)
+  }
 }
 
 /**

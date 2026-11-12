@@ -4,10 +4,22 @@ import { useActionState, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
 import { formatStep } from '@/components/trainer/machine-values'
 import type { MachineListItem } from '@/modules/catalog'
-import { saveMachineAction, type MachineState } from '@/app/(app)/app/trainer/exercises/actions'
+import {
+  deleteMachineAction,
+  saveMachineAction,
+  type MachineState,
+} from '@/app/(app)/app/trainer/exercises/actions'
 
 const INITIAL: MachineState = { error: null, ok: false, id: null }
 
@@ -21,14 +33,24 @@ export type MachineFormProps = {
   machine?: MachineListItem | null
   /** Зоны, которые уже есть в зале: подсказки-чипы, но вписать новую тоже можно. */
   zones: string[]
+  /** Сколько упражнений привязано к тренажёру: с ними удалить нельзя. */
+  exerciseCount?: number
   onSaved?: () => void
+  /** Тренажёр удалён — лист можно закрыть. */
+  onDeleted?: () => void
 }
 
 /**
  * Форма тренажёра (DESIGN.md §8.9): название, зона, шаг веса и фото.
  * Одна и та же форма создаёт новый тренажёр и правит существующий.
  */
-export function MachineForm({ machine = null, zones, onSaved }: MachineFormProps) {
+export function MachineForm({
+  machine = null,
+  zones,
+  exerciseCount = 0,
+  onSaved,
+  onDeleted,
+}: MachineFormProps) {
   const [state, formAction, pending] = useActionState(saveMachineAction, INITIAL)
   const upload = useChunkedUpload()
 
@@ -224,7 +246,93 @@ export function MachineForm({ machine = null, zones, onSaved }: MachineFormProps
       <Button type="submit" disabled={pending || upload.uploading}>
         {pending ? 'Сохраняем…' : machine ? 'Сохранить' : 'Добавить тренажёр'}
       </Button>
+
+      {machine ? (
+        <DeleteMachine
+          machineId={machine.id}
+          name={machine.name}
+          exerciseCount={exerciseCount}
+          onDeleted={onDeleted}
+        />
+      ) : null}
     </form>
+  )
+}
+
+/**
+ * Удаление тренажёра, занесённого по ошибке. Удаляем только без упражнений:
+ * у упражнений есть история подходов (CLAUDE.md, правило 6), поэтому сначала
+ * их переносят на другой тренажёр — до тех пор кнопка неактивна и объясняет почему.
+ */
+function DeleteMachine({
+  machineId,
+  name,
+  exerciseCount,
+  onDeleted,
+}: {
+  machineId: string
+  name: string
+  exerciseCount: number
+  onDeleted?: () => void
+}) {
+  const [state, formAction, pending] = useActionState(deleteMachineAction, INITIAL)
+  const [confirming, setConfirming] = useState(false)
+  const blocked = exerciseCount > 0
+
+  // Удаление прошло — лист с формой закрываем, дерево уже обновилось с сервера.
+  useEffect(() => {
+    if (state.ok) onDeleted?.()
+  }, [state.ok, state.id, onDeleted])
+
+  return (
+    <div className="mt-1 flex flex-col gap-2 rounded-card border border-danger/30 px-4 py-4">
+      <p className="text-[15px] text-text">Удалить тренажёр</p>
+
+      <p className="text-[13px] text-text-muted">
+        {blocked
+          ? `К тренажёру привязаны упражнения: ${exerciseCount}. Сначала перенеси их на другой тренажёр — тогда удаление станет доступно.`
+          : 'Если занёс по ошибке — удали. Фото тоже удалится, вернуть нельзя.'}
+      </p>
+
+      {state.error ? (
+        <p role="alert" className="text-[13px] text-danger">
+          {state.error}
+        </p>
+      ) : null}
+
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={blocked}
+          onClick={() => setConfirming(true)}
+          className="w-fit"
+        >
+          Удалить
+        </Button>
+
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить «{name}»?</DialogTitle>
+            <DialogDescription>
+              Тренажёр и его фото исчезнут из каталога. Это необратимо.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form action={formAction}>
+            <input type="hidden" name="id" value={machineId} />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
+                Отмена
+              </Button>
+              <Button type="submit" variant="destructive" disabled={pending}>
+                {pending ? 'Удаляем…' : 'Удалить'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
 

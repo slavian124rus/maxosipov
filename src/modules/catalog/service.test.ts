@@ -7,8 +7,10 @@ import { media } from '@/modules/media'
 import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
 import {
+  archiveExercise,
   createExercise,
   createMachine,
+  deleteMachine,
   getExercise,
   listExercises,
   listMachinesWithPhotos,
@@ -693,3 +695,59 @@ test('черновик правится без проверок публикац
   const updated = await updateExercise(actor, exercise.id, { ...baseInput, steps: [] })
   expect(updated.status).toBe('draft')
 })
+
+test('тренажёр без упражнений удаляется вместе с фото', async () => {
+  const machineId = await createMachineWithPhoto('Опечатка', {})
+  const [before] = await db.select().from(machines).where(eq(machines.id, machineId))
+  const photoId = before!.photoMediaId!
+
+  await deleteMachine(actor, machineId)
+
+  const rows = await db.select().from(machines).where(eq(machines.id, machineId))
+  expect(rows).toHaveLength(0)
+
+  // Фото тренажёра не остаётся сиротой ни в таблице медиа, ни на диске.
+  const photos = await db.select().from(media).where(eq(media.id, photoId))
+  expect(photos).toHaveLength(0)
+})
+
+test('тренажёр с упражнениями не удаляется: сначала перенос упражнений', async () => {
+  const machineId = await createMachineWithPhoto('Гакк-машина', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+
+  await expect(deleteMachine(actor, machineId)).rejects.toThrow(
+    'К тренажёру привязаны упражнения: 1. Сначала перенеси их на другой тренажёр',
+  )
+
+  const rows = await db.select().from(machines).where(eq(machines.id, machineId))
+  expect(rows).toHaveLength(1)
+
+  // Перенесли упражнение на свободные веса — тренажёр удаляется.
+  await updateExercise(actor, exercise.id, { ...baseInput, machineId: null })
+  await deleteMachine(actor, machineId)
+  expect(await db.select().from(machines).where(eq(machines.id, machineId))).toHaveLength(0)
+})
+
+test('архивное упражнение тоже держит тренажёр: история не теряется', async () => {
+  const machineId = await createMachineWithPhoto('Скамья', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+  await archiveExercise(actor, exercise.id)
+
+  await expect(deleteMachine(actor, machineId)).rejects.toThrow(/привязаны упражнения/)
+})
+
+test('удалять тренажёр может только тот, у кого есть catalog.edit', async () => {
+  const machineId = await createMachineWithPhoto('Бабочка', {})
+
+  await expect(deleteMachine(client, machineId)).rejects.toBeInstanceOf(ForbiddenError)
+
+  const rows = await db.select().from(machines).where(eq(machines.id, machineId))
+  expect(rows).toHaveLength(1)
+})
+
+test('удаление несуществующего тренажёра — понятная ошибка', async () => {
+  await expect(
+    deleteMachine(actor, '00000000-0000-4000-8000-000000000000'),
+  ).rejects.toThrow('Тренажёр не найден')
+})
+

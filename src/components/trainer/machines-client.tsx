@@ -99,7 +99,14 @@ export function MachinesClient({ machines, counts }: Props) {
           </SheetHeader>
 
           <div className="px-4 pb-6">
-            <MachineForm key={editing?.id ?? 'new'} machine={editing} zones={zones} onSaved={close} />
+            <MachineForm
+              key={editing?.id ?? 'new'}
+              machine={editing}
+              zones={zones}
+              exerciseCount={editing ? (counts[editing.id] ?? 0) : 0}
+              onSaved={close}
+              onDeleted={close}
+            />
           </div>
         </SheetContent>
       </Sheet>
