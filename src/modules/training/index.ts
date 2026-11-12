@@ -36,6 +36,9 @@ export {
 } from './weights'
 export type { ProgramExerciseHint, WeightHint } from './weights'
 
+export { pickWorkoutDay } from './day-choice'
+export type { DayChoice } from './day-choice'
+
 export {
   allocateTemplateNumber,
   archiveTemplate,

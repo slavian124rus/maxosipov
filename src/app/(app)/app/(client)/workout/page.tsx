@@ -10,6 +10,7 @@ import {
   getLastFinishedDayId,
   getNextWeight,
   getRecommendations,
+  pickWorkoutDay,
 } from '@/modules/training'
 
 // Экран зависит от сессии, подписки и программы.
@@ -18,7 +19,7 @@ export const instant = false
 export default async function WorkoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ exercise?: string }>
+  searchParams: Promise<{ exercise?: string; day?: string }>
 }) {
   const { user } = await requireClientPage('/workout')
   await assertClientAccess(user.id)
@@ -26,11 +27,11 @@ export default async function WorkoutPage({
   const program = await getActiveProgram(user.id)
   if (!program || program.days.length === 0) redirect('/')
 
+  const { exercise: extraExerciseId, day: requestedDayId } = await searchParams
   const lastDayId = await getLastFinishedDayId(user.id)
-  const lastIndex = program.days.findIndex((day) => day.id === lastDayId)
-  const day = program.days[(lastIndex + 1) % program.days.length] ?? program.days[0]!
+  // День мог быть выбран клиентом на экране «Сегодня» — тогда берём его.
+  const day = pickWorkoutDay(program.days, lastDayId, requestedDayId ?? null) ?? program.days[0]!
 
-  const { exercise: extraExerciseId } = await searchParams
   const recommendations = await getRecommendations(user.id, day.id)
   const gym = await getGym()
 

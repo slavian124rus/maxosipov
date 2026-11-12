@@ -5,7 +5,7 @@ import { getOfflineDb, type ActiveSessionRecord, type OfflineFeeling } from './d
 import { enqueueSet, findActiveSession, flushAll, pendingCount } from './queue'
 
 /** Незавершённая тренировка старше этого срока считается брошенной. */
-const STALE_SESSION_MS = 12 * 60 * 60 * 1000
+export const STALE_SESSION_MS = 12 * 60 * 60 * 1000
 
 export type StartInput = {
   programDayId: string | null

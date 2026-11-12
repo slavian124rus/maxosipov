@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { PushOptIn } from '@/components/app/push-opt-in'
 import { requireClientPage } from '@/components/app/require-client-page'
+import { DayPicker } from '@/components/workout/day-picker'
+import { ResumeHint } from '@/components/workout/resume-hint'
 import { getAccessForUser } from '@/modules/access'
 import { getGym } from '@/modules/gym'
 import {
@@ -9,6 +11,7 @@ import {
   getWeekWorkoutDays,
   listSessions,
   listTemplates,
+  pickWorkoutDay,
 } from '@/modules/training'
 import { adminUrl } from '@/shared/app-url'
 import { env } from '@/shared/env'
@@ -44,8 +47,8 @@ export default async function TodayPage() {
   ])
 
   const days = program?.days ?? []
-  const lastIndex = days.findIndex((day) => day.id === lastDayId)
-  const nextDay = days.length > 0 ? days[(lastIndex + 1) % days.length] : null
+  // Рекомендация — следующий день по порядку; клиент может выбрать другой на месте.
+  const nextDay = pickWorkoutDay(days, lastDayId)
 
   return (
     <main className="flex flex-col gap-5 px-4 py-6">
@@ -80,11 +83,22 @@ export default async function TodayPage() {
             Упражнений: {nextDay.exercises.length}
           </p>
           <Link
-            href="/workout"
+            href={`/workout?day=${nextDay.id}`}
             className="flex h-12 items-center justify-center rounded-control bg-accent text-[15px] text-white"
           >
             Начать тренировку
           </Link>
+          <ResumeHint days={days.map((day) => ({ id: day.id, name: day.name }))} />
+          {days.length > 1 ? (
+            <DayPicker
+              days={days.map((day) => ({
+                id: day.id,
+                name: day.name,
+                exercises: day.exercises.length,
+              }))}
+              recommendedId={nextDay.id}
+            />
+          ) : null}
         </section>
       ) : (
         <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
