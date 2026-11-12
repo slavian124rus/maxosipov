@@ -16,6 +16,7 @@
  * - кадры, где люди или отражения в зеркалах не убираются кропом.
  */
 import type { MuscleCode } from '@/modules/catalog'
+import { COMMON_EXERCISES, COMMON_MACHINES } from './extra-common'
 import { EXTRA_EXERCISES, EXTRA_MACHINES } from './extra'
 
 /** Кадр в пикселях исходника 960×1280. `null` — берём кадр целиком. */
@@ -766,5 +767,13 @@ const BASE_EXERCISES: CatalogExercise[] = [
 ]
 
 /** Фото-каталог зала плюс свободные веса и растяжка (`extra.ts`). */
-export const KOLIZEY_MACHINES: CatalogMachine[] = [...BASE_MACHINES, ...EXTRA_MACHINES]
-export const KOLIZEY_EXERCISES: CatalogExercise[] = [...BASE_EXERCISES, ...EXTRA_EXERCISES]
+export const KOLIZEY_MACHINES: CatalogMachine[] = [
+  ...BASE_MACHINES,
+  ...EXTRA_MACHINES,
+  ...COMMON_MACHINES,
+]
+export const KOLIZEY_EXERCISES: CatalogExercise[] = [
+  ...BASE_EXERCISES,
+  ...EXTRA_EXERCISES,
+  ...COMMON_EXERCISES,
+]
