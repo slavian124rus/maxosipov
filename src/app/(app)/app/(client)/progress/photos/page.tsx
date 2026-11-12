@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { ClientBackLink } from '@/components/app/back-link'
 import { requireClientPage } from '@/components/app/require-client-page'
 import { PhotoCompare } from '@/components/progress/photo-compare'
 import { PhotosClient } from '@/components/progress/photos-client'
@@ -17,9 +17,7 @@ export default async function ProgressPhotosPage() {
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
-      <Link href="/progress" className="text-[15px] text-text-muted">
-        Назад
-      </Link>
+      <ClientBackLink href="/progress" label="К прогрессу" />
       <h1 className="text-[22px] font-semibold">Фото прогресса</h1>
 
       <PhotosClient photos={photos} canWrite={access.hasAccess} />

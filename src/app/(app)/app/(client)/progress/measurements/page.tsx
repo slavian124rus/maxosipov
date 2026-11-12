@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { ClientBackLink } from '@/components/app/back-link'
 import { requireClientPage } from '@/components/app/require-client-page'
 import { MeasurementForm } from '@/components/progress/measurement-form'
 import { getAccessForUser } from '@/modules/access'
@@ -19,9 +19,7 @@ export default async function MeasurementsPage() {
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
-      <Link href="/progress" className="text-[15px] text-text-muted">
-        Назад
-      </Link>
+      <ClientBackLink href="/progress" label="К прогрессу" />
       <h1 className="text-[22px] font-semibold">Замеры</h1>
 
       {access.hasAccess ? <MeasurementForm today={dayKey(new Date(), gym.timezone)} /> : null}

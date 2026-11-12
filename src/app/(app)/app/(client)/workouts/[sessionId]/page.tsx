@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ClientBackLink } from '@/components/app/back-link'
 import { requireClientPage } from '@/components/app/require-client-page'
 import { getGym } from '@/modules/gym'
 import { formatWeight } from '@/modules/progression'
@@ -33,9 +33,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
 
   return (
     <main className="flex flex-col gap-4 px-4 py-6">
-      <Link href="/workouts" className="text-[15px] text-text-muted">
-        Назад
-      </Link>
+      <ClientBackLink href="/workouts" label="К тренировкам" />
 
       <h1 className="text-[22px] font-semibold">
         {formatLongDate(detail.startedAt, gym.timezone)}
