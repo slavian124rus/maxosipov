@@ -51,11 +51,29 @@ function fillOf(path: SVGPathElement): string {
   return path.style.fill.toLowerCase()
 }
 
-/** Рендер + ждём, пока SVG фигуры загрузится. */
+/**
+ * Рендер + ждём, пока SVG фигуры загрузится и мышцы получат цвет.
+ *
+ * Ждать только появления `<svg>` нельзя: разметка приходит из `setState` в промисе,
+ * а цвета мышц ставит `useEffect`, который выполняется после коммита. На медленной
+ * машине (CI) `waitFor` успевал увидеть `<svg>` до эффекта, и проверки падали на пустом
+ * `style.fill` — тест был флаком. Ждём именно готовую раскраску.
+ */
 async function rendered(props: Partial<Parameters<typeof MuscleFigure>[0]> = {}) {
   const view = render(<MuscleFigure primary={[]} secondary={[]} {...props} />)
 
-  await waitFor(() => expect(view.container.querySelector('svg')).not.toBeNull())
+  await waitFor(
+    () => {
+      const svg = view.container.querySelector('svg')
+      expect(svg).not.toBeNull()
+
+      const painted = svg!.querySelector<SVGPathElement>('[data-muscle]:not([data-muscle-hit])')
+      expect(painted?.style.fill).toBeTruthy()
+    },
+    // Запас на медленный CI: ожидание короткое по сути, но не должно зависеть от загрузки машины.
+    { timeout: 3000 },
+  )
+
   return view
 }
 
