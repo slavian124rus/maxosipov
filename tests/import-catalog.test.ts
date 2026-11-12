@@ -159,8 +159,11 @@ test('каждое фото тренажёра — одна строка machine
   }
 
   const rows = await db.select().from(machines)
+  const withPhoto = new Set(KOLIZEY_MACHINES.filter((machine) => machine.photo).map((machine) => machine.name))
   for (const row of rows) {
-    expect(row.photoMediaId).not.toBeNull()
+    // У универсальных тренажёров (свободные веса, растяжка) фото добавляет тренер в кабинете.
+    if (withPhoto.has(row.name)) expect(row.photoMediaId).not.toBeNull()
+    else expect(row.photoMediaId).toBeNull()
   }
 })
 

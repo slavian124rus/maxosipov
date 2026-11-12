@@ -16,6 +16,7 @@
  * - кадры, где люди или отражения в зеркалах не убираются кропом.
  */
 import type { MuscleCode } from '@/modules/catalog'
+import { EXTRA_EXERCISES, EXTRA_MACHINES } from './extra'
 
 /** Кадр в пикселях исходника 960×1280. `null` — берём кадр целиком. */
 export type CatalogPhotoCrop = {
@@ -64,7 +65,7 @@ export type CatalogExercise = {
   reviewNote?: string
 }
 
-export const KOLIZEY_MACHINES: CatalogMachine[] = [
+const BASE_MACHINES: CatalogMachine[] = [
   {
     slug: 'zhim-nogami-45',
     name: 'Жим ногами 45°',
@@ -226,7 +227,7 @@ export const KOLIZEY_MACHINES: CatalogMachine[] = [
   },
 ]
 
-export const KOLIZEY_EXERCISES: CatalogExercise[] = [
+const BASE_EXERCISES: CatalogExercise[] = [
   {
     slug: 'zhim-nogami-v-platforme',
     name: 'Жим ногами в платформе',
@@ -764,4 +765,6 @@ export const KOLIZEY_EXERCISES: CatalogExercise[] = [
   },
 ]
 
-
+/** Фото-каталог зала плюс свободные веса и растяжка (`extra.ts`). */
+export const KOLIZEY_MACHINES: CatalogMachine[] = [...BASE_MACHINES, ...EXTRA_MACHINES]
+export const KOLIZEY_EXERCISES: CatalogExercise[] = [...BASE_EXERCISES, ...EXTRA_EXERCISES]
