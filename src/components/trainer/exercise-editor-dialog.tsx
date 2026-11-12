@@ -34,12 +34,23 @@ export function ExerciseEditorDialog({
     router.refresh()
   }
 
+  function afterDelete(): void {
+    // Упражнение ушло в архив: обновляем дерево и закрываем окно.
+    router.refresh()
+    onClose()
+  }
+
   return (
     <Dialog open={exerciseId !== null} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent className="max-h-[92dvh] w-full overflow-y-auto p-0 sm:max-w-[860px]">
         {exerciseId ? (
           // Ключ по id: при открытии другого упражнения состояние формы сбрасывается само.
-          <ExerciseLoader key={exerciseId} exerciseId={exerciseId} onSaved={afterSave} />
+          <ExerciseLoader
+            key={exerciseId}
+            exerciseId={exerciseId}
+            onSaved={afterSave}
+            onDeleted={afterDelete}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
@@ -50,9 +61,11 @@ export function ExerciseEditorDialog({
 function ExerciseLoader({
   exerciseId,
   onSaved,
+  onDeleted,
 }: {
   exerciseId: string
   onSaved: () => void
+  onDeleted: () => void
 }) {
   const [data, setData] = useState<ExerciseLoadState | null>(null)
 
@@ -91,7 +104,12 @@ function ExerciseLoader({
         ) : data.error || !data.exercise ? (
           <p className="text-[15px] text-danger">{data.error ?? 'Упражнение не найдено'}</p>
         ) : (
-          <ExerciseEditor exercise={data.exercise} machines={data.machines} onSaved={onSaved} />
+          <ExerciseEditor
+            exercise={data.exercise}
+            machines={data.machines}
+            onSaved={onSaved}
+            onDeleted={onDeleted}
+          />
         )}
       </div>
     </>

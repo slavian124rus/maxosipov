@@ -5,14 +5,47 @@ import type { ExerciseDetail } from '@/modules/catalog'
 import { ExerciseEditor, publishChecklist } from './exercise-editor'
 
 // Серверные действия и фигуру мышц в jsdom не рендерим — подменяем заглушками.
+const server = vi.hoisted(() => ({
+  archiveError: null as string | null,
+  archived: false,
+  saveId: null as string | null,
+  saveError: null as string | null,
+}))
+
 vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
-  saveExerciseAction: async () => ({ error: null, id: null }),
+  saveExerciseAction: async () => ({ error: server.saveError, id: server.saveId }),
   unpublishAction: async () => {},
   draftExerciseAction: async () => ({ draft: null, error: null }),
+  archiveExerciseAction: async () => ({ error: server.archiveError, archived: server.archived }),
+}))
+
+// Уведомления проверяем по вызовам, а не по отрисованному тостеру.
+const toasts = vi.hoisted(() => ({ success: [] as string[], error: [] as string[] }))
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: (title: string) => toasts.success.push(title),
+    error: (title: string) => toasts.error.push(title),
+  },
 }))
 
 vi.mock('@/components/muscle-figure/muscle-figure', () => ({
   MuscleFigure: () => <div data-testid="figure" />,
+}))
+
+// Диалоги Radix в jsdom портируют содержимое в body — подменяем простым условием по `open`.
+const dialog = vi.hoisted(() => ({ open: false }))
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ open, children }: { open?: boolean; children: React.ReactNode }) => {
+    dialog.open = Boolean(open)
+    return <div>{children}</div>
+  },
+  DialogContent: ({ children }: { children: React.ReactNode }) =>
+    dialog.open ? <div role="dialog">{children}</div> : null,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
 }))
 
 const MACHINES = [
@@ -48,7 +81,16 @@ const EXERCISE: ExerciseDetail = {
   weightStepKg: 5,
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  toasts.success = []
+  toasts.error = []
+  server.archived = false
+  server.archiveError = null
+  server.saveId = null
+  server.saveError = null
+  dialog.open = false
+})
 
 /** Вкладка окна правки. */
 function tab(label: string): HTMLElement {
@@ -111,6 +153,76 @@ test('у опубликованного упражнения есть «Верн
   fireEvent.click(tab('Публикация'))
   expect(screen.getByText(/опубликовано, клиенты видят/)).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Вернуть в черновики' })).toBeTruthy()
+})
+
+test('блок удаления упражнения: подтверждение и понятный текст про историю', async () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  expect(screen.getByText('Удалить упражнение')).toBeTruthy()
+  expect(screen.getByText(/история подходов клиентов останется/)).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+  expect(await screen.findByText('Удалить «Гакк-приседания»?')).toBeTruthy()
+  expect(screen.getByText(/подходы и веса останутся в истории клиентов/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Отмена' })).toBeTruthy()
+})
+
+test('удаление: успех — уведомление и закрытие окна', async () => {
+  server.archived = true
+  const onDeleted = vi.fn()
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} onDeleted={onDeleted} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+  await screen.findByText('Удалить «Гакк-приседания»?')
+  fireEvent.click(screen.getAllByRole('button', { name: 'Удалить' })[1]!)
+
+  await vi.waitFor(() => expect(toasts.success).toContain('Упражнение удалено'))
+  expect(onDeleted).toHaveBeenCalled()
+})
+
+test('удаление: ошибка сервера показывается уведомлением', async () => {
+  server.archiveError = 'Недостаточно прав'
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+  await screen.findByText('Удалить «Гакк-приседания»?')
+  fireEvent.click(screen.getAllByRole('button', { name: 'Удалить' })[1]!)
+
+  await vi.waitFor(() => expect(toasts.error).toContain('Недостаточно прав'))
+})
+
+test('сохранение: вместо строчки «Сохранено» — всплывающий алерт', async () => {
+  server.saveId = 'ex-1'
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  await vi.waitFor(() => expect(toasts.success).toContain('Сохранено'))
+  // Строчки под формой больше нет — только уведомление.
+  expect(screen.queryByText('Сохранено')).toBeNull()
+})
+
+test('публикация: алерт «Опубликовано»', async () => {
+  server.saveId = 'ex-1'
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Опубликовать' }))
+
+  await vi.waitFor(() => expect(toasts.success).toContain('Опубликовано'))
+})
+
+test('ошибка сохранения приходит уведомлением', async () => {
+  server.saveError = 'Название слишком короткое'
+
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  await vi.waitFor(() => expect(toasts.error).toContain('Название слишком короткое'))
 })
 
 test('publishChecklist: три условия публикации', () => {

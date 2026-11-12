@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import type { MuscleState } from '@/components/muscle-figure/state'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
@@ -19,6 +20,7 @@ import {
   unpublishAction,
   type SaveExerciseState,
 } from '@/app/(app)/app/trainer/exercises/actions'
+import { DeleteExercise } from '@/components/trainer/delete-exercise'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 
@@ -53,10 +55,13 @@ export function ExerciseEditor({
   exercise,
   machines,
   onSaved,
+  onDeleted,
 }: {
   exercise: ExerciseDetail
   machines: MachineChoice[]
   onSaved?: () => void
+  /** Упражнение удалено: окно можно закрыть, дерево обновится. */
+  onDeleted?: () => void
 }) {
   const [state, formAction, pending] = useActionState(saveExerciseAction, INITIAL)
   const upload = useChunkedUpload()
@@ -83,6 +88,26 @@ export function ExerciseEditor({
   const [overlayProfile, setOverlayProfile] = useState<string>(exercise.overlayProfile)
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+
+  /** Какая кнопка отправляет форму: от неё зависит текст уведомления. */
+  const intent = useRef<'save' | 'publish'>('save')
+
+  // Сохранение удалось — показываем всплывающий алерт вместо строчки под формой.
+  useEffect(() => {
+    if (!state.id) return
+
+    if (intent.current === 'publish') {
+      toast.success('Опубликовано', { description: `${name} — клиенты увидят упражнение` })
+    } else {
+      toast.success('Сохранено', { description: name })
+    }
+    // Название в подписи не должно перезапускать эффект — он срабатывает на новый результат.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error)
+  }, [state])
 
   const machine = machines.find((item) => item.id === machineId) ?? null
   const checklist = publishChecklist({
@@ -250,11 +275,19 @@ export function ExerciseEditor({
       </div>
 
       {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
-      {state.id ? <p className="text-[15px] text-success">Сохранено</p> : null}
       {state.notice ? <p className="text-[15px] text-text-secondary">{state.notice}</p> : null}
 
-      <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-bg/95 pt-3">
-        <Button type="submit" name="publish" value="0" disabled={pending || upload.uploading}>
+      {/* Футер прозрачный, как сам лист: фон окна просвечивает, ничего не «темнеет» полосой. */}
+      <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border/60 bg-transparent pt-3">
+        <Button
+          type="submit"
+          name="publish"
+          value="0"
+          disabled={pending || upload.uploading}
+          onClick={() => {
+            intent.current = 'save'
+          }}
+        >
           {pending ? 'Сохраняем…' : 'Сохранить'}
         </Button>
         <Button
@@ -263,6 +296,9 @@ export function ExerciseEditor({
           value="1"
           variant="secondary"
           disabled={pending || upload.uploading}
+          onClick={() => {
+            intent.current = 'publish'
+          }}
         >
           Опубликовать
         </Button>
@@ -277,6 +313,8 @@ export function ExerciseEditor({
           </Button>
         ) : null}
       </div>
+
+      <DeleteExercise exerciseId={exercise.id} name={name} onDeleted={onDeleted} />
     </form>
   )
 }

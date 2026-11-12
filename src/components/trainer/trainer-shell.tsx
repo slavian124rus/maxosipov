@@ -7,6 +7,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { TrainerNav } from '@/components/trainer/bottom-nav'
 import { NAV_ICONS } from '@/components/trainer/nav-icons'
 import { isNavActive, type TrainerNavItem } from '@/components/trainer/nav-items'
+import { Toaster } from '@/components/ui/sonner'
 
 type Props = {
   items: TrainerNavItem[]
@@ -88,6 +89,9 @@ export function TrainerShell({ items, gymName, user, clientAppUrl, children }: P
         <div className="flex flex-1 flex-col">{children}</div>
         <TrainerNav items={items} />
       </div>
+
+      {/* Всплывающие уведомления кабинета: «Сохранено», «Опубликовано», «Удалено» (DESIGN.md §9.3). */}
+      <Toaster position="bottom-center" theme="dark" />
     </div>
   )
 }

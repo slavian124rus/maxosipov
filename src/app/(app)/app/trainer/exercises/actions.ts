@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  archiveExercise,
   createExercise,
   createMachine,
   deleteMachine,
@@ -270,4 +271,35 @@ export async function unpublishAction(formData: FormData): Promise<void> {
 
   revalidatePath('/trainer/exercises')
   revalidatePath('/exercises')
+}
+
+export type ArchiveExerciseState = { error: string | null; archived: boolean }
+
+/**
+ * Убирает упражнение из каталога в архив (CLAUDE.md, правило 6): история подходов остаётся,
+ * вернуть можно только запросом в БД — поэтому в интерфейсе это «удалить».
+ */
+export async function archiveExerciseAction(
+  _prev: ArchiveExerciseState,
+  formData: FormData,
+): Promise<ArchiveExerciseState> {
+  const { actor } = await requireUser()
+  const id = text(formData.get('id'))
+
+  if (!id) return { error: 'Не выбрано упражнение', archived: false }
+
+  try {
+    await archiveExercise(actor, id)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    return {
+      error: /[а-яё]/i.test(message) ? message : 'Не удалось удалить упражнение',
+      archived: false,
+    }
+  }
+
+  revalidatePath('/trainer/exercises')
+  revalidatePath('/exercises')
+
+  return { error: null, archived: true }
 }
