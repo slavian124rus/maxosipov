@@ -1,7 +1,6 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,21 +69,14 @@ export function CreateTemplateDialog({
   open: boolean
   onOpenChange: (value: boolean) => void
 }) {
-  const router = useRouter()
   const [state, formAction, pending] = useActionState(createTemplateAction, INITIAL)
   const [name, setName] = useState('')
   const [audience, setAudience] = useState<(typeof AUDIENCES)[number]>('any')
   const [goal, setGoal] = useState<(typeof GOALS)[number]>('fat_loss')
   const [days, setDays] = useState<(typeof DAY_CHOICES)[number]>('3')
 
-  useEffect(() => {
-    if (!state.id) return
-
-    toast.success('Шаблон создан', { description: 'Добавь упражнения в дни' })
-    onOpenChange(false)
-    router.push(`/trainer/programs/${state.id}`)
-  }, [state.id, onOpenChange, router])
-
+  // Успех не обрабатываем: сервер сам уводит на созданный шаблон (redirect),
+  // а сообщение показывает страница шаблона по `?created=1`.
   useEffect(() => {
     if (state.error) toast.error(state.error)
   }, [state.error])

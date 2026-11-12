@@ -1,15 +1,14 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { listExercises } from '@/modules/catalog'
-import { can } from '@/modules/rbac'
-import { getClientCard } from '@/modules/trainer'
 import { getProgramTree, listProgramChanges, templateTitle } from '@/modules/training'
 import { ProgramEditor, type CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
 import { TemplateAssistant } from '@/components/trainer/templates/template-assistant'
 import { DeleteTemplateButton } from '@/components/trainer/templates/delete-template-button'
+import { TemplateCreatedNotice } from '@/components/trainer/templates/template-created-notice'
 import { PageHeader, TrainerPage } from '@/components/trainer/page'
-import { isNotFoundError } from '@/shared/errors'
+import { assertProgramAccess } from '../access'
 
 // Экран зависит от сессии и прав.
 export const instant = false
@@ -20,26 +19,23 @@ const ACTOR_LABELS: Record<string, string> = {
   ai_proposal_accepted: 'МаксИИм (принято клиентом)',
 }
 
-export default async function ProgramPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProgramPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ created?: string }>
+}) {
   const { actor } = await requireUser()
   const { id } = await params
+  const { created } = await searchParams
 
   const program = await getProgramTree(id)
   if (!program) notFound()
 
-  const clientId = program.ownerId
+  await assertProgramAccess(actor, program)
 
-  if (clientId === null) {
-    if (!can(actor, 'clients.edit_programs')) notFound()
-  } else {
-    try {
-      const card = await getClientCard(actor, clientId)
-      if (!card.permissions.editProgram) notFound()
-    } catch (error) {
-      if (isNotFoundError(error)) notFound()
-      throw error
-    }
-  }
+  const clientId = program.ownerId
 
   const catalog: CatalogItem[] = (await listExercises({ status: 'published' })).map((item) => ({
     id: item.id,
@@ -73,6 +69,8 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
           isTemplate ? <DeleteTemplateButton templateId={program.id} title={title} /> : null
         }
       />
+
+      {created === '1' && isTemplate ? <TemplateCreatedNotice /> : null}
 
       {isTemplate ? (
         <TemplateAssistant

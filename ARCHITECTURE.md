@@ -310,8 +310,13 @@ users.assign_roles          roles.manage                 analytics.view
 | `propose_program_change(patch)` | изменение текущей программы | создаёт `ai_proposals` (pending) |
 
 `ProgramPatch` — Zod-схема операций: `add_exercise`, `remove_exercise`, `replace_exercise`, `set_sets_reps`,
-`set_target_weight`, `reorder`, `add_day`, `rename_day`. Каждый `exerciseId` проверяется на существование
+`set_target_weight`, `set_note`, `reorder`, `add_day`, `rename_day`. Каждый `exerciseId` проверяется на существование
 в каталоге и статус `published`. Невалидный патч отклоняется до показа клиенту.
+Правка одного упражнения в кабинете идёт отдельной страницей `/trainer/programs/<id>/exercises/<itemId>`
+(файл `programs/[id]/exercises/[itemId]/page.tsx` + `program-editor/program-exercise.tsx`): «Сохранить»
+собирает один патч только из изменённых полей. Права на страницу те же, что на программу —
+`programs/access.ts::assertProgramAccess` (шаблон → `clients.edit_programs`, программа клиента → право
+из `getClientCard`).
 
 **Применение предложения:** клиент видит «что изменится» (дифф) → «Принять» / «Не надо».
 - Программа клиента (`author_kind` ≠ `trainer`) — применяется сразу после принятия.

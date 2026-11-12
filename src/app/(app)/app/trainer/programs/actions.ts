@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { listExercises } from '@/modules/catalog'
 import {
@@ -98,6 +99,14 @@ export async function saveAsTemplateAction(input: {
 /** Новый шаблон из модального окна: имя, для кого, цель и сколько дней сразу. */
 export type CreateTemplateState = { error: string | null; id: string | null }
 
+/**
+ * Новый шаблон из модального окна: имя, для кого, цель и сколько дней сразу.
+ *
+ * Переход на созданный шаблон делает сервер (`redirect`), а не окно: иначе после
+ * возврата назад окно восстанавливалось с прежним состоянием действия и снова
+ * показывало «Шаблон создан» и уводило на шаблон. Сообщение показывает
+ * `TemplateCreatedNotice` по `?created=1` — один раз.
+ */
 export async function createTemplateAction(
   _prev: CreateTemplateState,
   formData: FormData,
@@ -108,19 +117,21 @@ export async function createTemplateAction(
   const goalRaw = String(formData.get('goal') ?? '')
   const daysRaw = Number(String(formData.get('days') ?? '0'))
 
+  let id: string
+
   try {
-    const id = await createTemplate(actor, {
+    id = await createTemplate(actor, {
       name: String(formData.get('name') ?? ''),
       audience: audienceRaw ? (audienceRaw as ProgramAudience) : null,
       goal: goalRaw ? (goalRaw as ProgramGoal) : null,
       days: Number.isFinite(daysRaw) ? daysRaw : 0,
     })
-
-    revalidatePath('/trainer/programs')
-    return { error: null, id }
   } catch (error) {
     return { error: message(error, 'Шаблон не создан'), id: null }
   }
+
+  revalidatePath('/trainer/programs')
+  redirect(`/trainer/programs/${id}?created=1`)
 }
 
 /** Правка названия, аудитории и цели шаблона из карточки. */

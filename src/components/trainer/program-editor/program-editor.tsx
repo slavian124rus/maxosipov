@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   closestCenter,
@@ -17,11 +18,13 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { formatScheme } from '@/shared/scheme'
 import type { ProgramPatch, ProgramTree, ProgramTreeDay } from '@/modules/training'
 import { patchProgramAction, saveAsTemplateAction } from '@/app/(app)/app/trainer/programs/actions'
-import { AddExercise, NoteInput, ReplaceList, SchemeSteppers, WeightInput } from './editor-scheme'
+import { AddExercise } from './editor-scheme'
 
 export type CatalogItem = {
   id: string
@@ -38,36 +41,29 @@ type Props = {
   clientId?: string | null
 }
 
-type Panel = { kind: 'scheme' | 'replace' | 'weight' | 'note'; exerciseId: string } | null
-
-/** Карточка упражнения с ручкой перетаскивания (DESIGN.md §8.9). */
+/**
+ * Строка упражнения в дне. Вся карточка — ссылка на страницу упражнения
+ * (`/trainer/programs/<id>/exercises/<itemId>`): там правятся подходы, вес и заметка.
+ * Ручка слева остаётся только для перетаскивания.
+ */
 function SortableExercise({
   id,
+  href,
   name,
   machineName,
   scheme,
   note,
   targetWeightKg,
-  onScheme,
-  onReplace,
-  onWeight,
-  onNote,
-  onRemove,
 }: {
   id: string
+  href: string
   name: string
   machineName: string | null
   scheme: string
   note: string | null
   targetWeightKg: number | null
-  onScheme: () => void
-  onReplace: () => void
-  onWeight: () => void
-  onNote: () => void
-  onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
-  const [menu, setMenu] = useState(false)
 
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -79,68 +75,48 @@ function SortableExercise({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3"
+      className="flex items-stretch gap-1 rounded-card border border-border bg-surface-1 pr-2"
     >
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label={`Перетащить ${name}`}
-          className="flex h-11 w-8 items-center justify-center text-text-muted"
-          {...attributes}
-          {...listeners}
-        >
-          ⋮⋮
-        </button>
-
-        <div className="flex flex-1 flex-col">
-          <p className="text-[15px] text-text">{name}</p>
-          <p className="text-[13px] text-text-muted">
-            {machineName ?? 'Свободные веса'}
-            {targetWeightKg !== null ? ` · ${targetWeightKg} кг` : ''}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onScheme}
-          className="rounded-control bg-surface-2 px-3 py-2 text-[13px] text-text"
-        >
-          {scheme}
-        </button>
-      </div>
-
-      {note ? <p className="text-[13px] text-text-secondary">{note}</p> : null}
-
-      <button type="button" className="self-start text-[13px] text-accent" onClick={() => setMenu(!menu)}>
-        {menu ? 'Скрыть' : 'Изменить'}
+      <button
+        type="button"
+        aria-label={`Перетащить ${name}`}
+        className="flex w-9 shrink-0 items-center justify-center text-text-muted"
+        {...attributes}
+        {...listeners}
+      >
+        ⋮⋮
       </button>
 
-      {menu ? (
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={onReplace}>
-            Заменить
-          </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={onWeight}>
-            Целевой вес
-          </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={onNote}>
-            Заметка
-          </Button>
-          <Button type="button" size="sm" variant="destructive" onClick={onRemove}>
-            Удалить
-          </Button>
-        </div>
-      ) : null}
+      <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1 py-2.5">
+        <span className="text-[15px] text-text">{name}</span>
+        <span className="text-[13px] text-text-muted">
+          {machineName ?? 'Свободные веса'}
+          {targetWeightKg !== null ? ` · ${targetWeightKg} кг` : ''}
+        </span>
+        {note ? <span className="text-[13px] text-text-secondary">{note}</span> : null}
+        <span className="mt-0.5 w-fit rounded-control bg-surface-2 px-2.5 py-1 text-[13px] text-text">
+          {scheme}
+        </span>
+      </Link>
+
+      <span aria-hidden className="flex items-center pl-1 text-text-muted">
+        ›
+      </span>
     </div>
   )
 }
 
-/** Редактор программы: дни вкладками, перетаскивание, степперы, замена, шаблон. */
+/**
+ * Редактор программы: дни чипами (имя дня правится на месте), упражнения
+ * списком с перетаскиванием, добавление из каталога. Правка упражнения —
+ * на отдельной странице (DESIGN.md §8.9).
+ */
 export function ProgramEditor({ program, catalog, clientId = null }: Props) {
   const router = useRouter()
   const [days, setDays] = useState<ProgramTreeDay[]>(program.days)
   const [activeDayId, setActiveDayId] = useState<string | null>(program.days[0]?.id ?? null)
-  const [panel, setPanel] = useState<Panel>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [draftName, setDraftName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -160,7 +136,6 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
   )
 
   const day = days.find((item) => item.id === activeDayId) ?? days[0] ?? null
-  const current = panel && day ? day.exercises.find((item) => item.id === panel.exerciseId) : undefined
 
   function run(patch: ProgramPatch): void {
     setError(null)
@@ -194,6 +169,26 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
     run({ ops: [{ op: 'reorder', dayId: day.id, orderedIds: ordered }] })
   }
 
+  function startRename(): void {
+    if (!day) return
+    setDraftName(day.name)
+    setRenaming(true)
+  }
+
+  function saveDayName(): void {
+    if (!day) return
+
+    const name = draftName.trim()
+    if (name.length === 0) return
+    if (name === day.name) {
+      setRenaming(false)
+      return
+    }
+
+    setRenaming(false)
+    run({ ops: [{ op: 'rename_day', dayId: day.id, name }] })
+  }
+
   function saveTemplate(): void {
     const name = window.prompt('Название шаблона', program.name)
     if (!name) return
@@ -221,6 +216,7 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
     )
   }
 
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -228,7 +224,10 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
           <button
             key={item.id}
             type="button"
-            onClick={() => setActiveDayId(item.id)}
+            onClick={() => {
+              setRenaming(false)
+              setActiveDayId(item.id)
+            }}
             className={`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${
               item.id === day.id
                 ? 'border-accent bg-surface-2 text-text'
@@ -248,12 +247,56 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
         </button>
       </div>
 
+      {renaming ? (
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            saveDayName()
+          }}
+        >
+          <Input
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            aria-label="Название дня"
+            maxLength={80}
+            autoFocus
+            className="h-11 min-w-[180px] flex-1"
+          />
+          <Button type="submit" disabled={pending || draftName.trim().length === 0} className="h-11">
+            Сохранить
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11"
+            onClick={() => setRenaming(false)}
+          >
+            Отмена
+          </Button>
+        </form>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="min-w-0 truncate text-[17px] font-semibold">{day.name}</h2>
+          <Button type="button" variant="ghost" size="sm" onClick={startRename}>
+            <Pencil size={15} strokeWidth={1.75} aria-hidden />
+            Переименовать день
+          </Button>
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext
           items={day.exercises.map((item) => item.id)}
           strategy={verticalListSortingStrategy}
         >
           <div className="flex flex-col gap-2">
+            {day.exercises.length === 0 ? (
+              <p className="text-[15px] text-text-secondary">
+                В этом дне пока нет упражнений — добавь ниже
+              </p>
+            ) : null}
+
             {day.exercises.map((item) => {
               const info = catalog.find((entry) => entry.id === item.exerciseId)
 
@@ -261,18 +304,12 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
                 <SortableExercise
                   key={item.id}
                   id={item.id}
+                  href={`/trainer/programs/${program.id}/exercises/${item.id}`}
                   name={info?.name ?? 'Упражнение'}
                   machineName={info?.machineName ?? null}
                   scheme={formatScheme(item.sets, item.repMin, item.repMax)}
                   note={item.note}
                   targetWeightKg={item.targetWeightKg}
-                  onScheme={() => setPanel({ kind: 'scheme', exerciseId: item.id })}
-                  onReplace={() => setPanel({ kind: 'replace', exerciseId: item.id })}
-                  onWeight={() => setPanel({ kind: 'weight', exerciseId: item.id })}
-                  onNote={() => setPanel({ kind: 'note', exerciseId: item.id })}
-                  onRemove={() =>
-                    run({ ops: [{ op: 'remove_exercise', programExerciseId: item.id }] })
-                  }
                 />
               )
             })}
@@ -299,78 +336,13 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
         }
       />
 
-      {panel && current ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-[480px] flex-col gap-3 rounded-t-sheet border-t border-border bg-surface-1 px-4 py-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[17px] font-semibold">
-              {panel.kind === 'scheme'
-                ? 'Схема'
-                : panel.kind === 'replace'
-                  ? 'Заменить упражнение'
-                  : panel.kind === 'weight'
-                    ? 'Целевой вес'
-                    : 'Заметка'}
-            </p>
-            <button
-              type="button"
-              className="text-[15px] text-text-secondary"
-              onClick={() => setPanel(null)}
-            >
-              Закрыть
-            </button>
-          </div>
-
-          {panel.kind === 'scheme' ? (
-            <SchemeSteppers
-              sets={current.sets}
-              repMin={current.repMin}
-              repMax={current.repMax}
-              restSec={current.restSec}
-              onChange={(values) => {
-                setPanel(null)
-                run({ ops: [{ op: 'set_sets_reps', programExerciseId: current.id, ...values }] })
-              }}
-            />
-          ) : null}
-
-          {panel.kind === 'replace' ? (
-            <ReplaceList
-              catalog={catalog}
-              currentExerciseId={current.exerciseId}
-              onPick={(exerciseId) => {
-                setPanel(null)
-                run({ ops: [{ op: 'replace_exercise', programExerciseId: current.id, exerciseId }] })
-              }}
-            />
-          ) : null}
-
-          {panel.kind === 'weight' ? (
-            <WeightInput
-              value={current.targetWeightKg}
-              onSave={(weightKg) => {
-                setPanel(null)
-                run({ ops: [{ op: 'set_target_weight', programExerciseId: current.id, weightKg }] })
-              }}
-            />
-          ) : null}
-
-          {panel.kind === 'note' ? (
-            <NoteInput
-              value={current.note}
-              onSave={(note) => {
-                setPanel(null)
-                run({ ops: [{ op: 'set_note', programExerciseId: current.id, note }] })
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
       {error ? <p className="text-[13px] text-danger">{error}</p> : null}
 
-      <Button type="button" variant="outline" onClick={saveTemplate} disabled={pending}>
-        Сохранить как шаблон
-      </Button>
+      {clientId ? (
+        <Button type="button" variant="outline" onClick={saveTemplate} disabled={pending}>
+          Сохранить как шаблон
+        </Button>
+      ) : null}
     </div>
   )
 }

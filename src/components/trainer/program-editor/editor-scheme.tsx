@@ -6,9 +6,8 @@ import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalo
 import { exercisesLabel } from '@/shared/plural'
 import type { CatalogItem } from './program-editor'
 
-type Scheme = { sets: number; repMin: number; repMax: number; restSec: number }
-
-function Stepper({
+/** Шаг «− значение +»: один тап — одно изменение (DESIGN.md §8.9). */
+export function Stepper({
   label,
   value,
   min,
@@ -47,59 +46,6 @@ function Stepper({
           +
         </button>
       </div>
-    </div>
-  )
-}
-
-/** Три степпера и «Отдых» — тап по схеме открывает лист (DESIGN.md §8.9). */
-export function SchemeSteppers({
-  sets,
-  repMin,
-  repMax,
-  restSec,
-  onChange,
-}: Scheme & { onChange: (values: Scheme) => void }) {
-  const [draft, setDraft] = useState<Scheme>({ sets, repMin, repMax, restSec })
-  const update = (patch: Partial<Scheme>): void => setDraft((current) => ({ ...current, ...patch }))
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Stepper
-        label="Подходы"
-        value={draft.sets}
-        min={1}
-        max={10}
-        step={1}
-        onChange={(value) => update({ sets: value })}
-      />
-      <Stepper
-        label="Повторения от"
-        value={draft.repMin}
-        min={1}
-        max={50}
-        step={1}
-        onChange={(value) => update({ repMin: value, repMax: Math.max(value, draft.repMax) })}
-      />
-      <Stepper
-        label="Повторения до"
-        value={draft.repMax}
-        min={1}
-        max={50}
-        step={1}
-        onChange={(value) => update({ repMax: value, repMin: Math.min(value, draft.repMin) })}
-      />
-      <Stepper
-        label="Отдых, с"
-        value={draft.restSec}
-        min={30}
-        max={300}
-        step={15}
-        onChange={(value) => update({ restSec: value })}
-      />
-
-      <Button type="button" onClick={() => onChange(draft)}>
-        Готово
-      </Button>
     </div>
   )
 }
@@ -268,64 +214,3 @@ export function ReplaceList({
 
   return <CatalogPicker catalog={sorted} onPick={onPick} disabledId={currentExerciseId} />
 }
-
-
-export function WeightInput({
-  value,
-  onSave,
-}: {
-  value: number | null
-  onSave: (weightKg: number | null) => void
-}) {
-  const [draft, setDraft] = useState(value === null ? '' : String(value))
-
-  return (
-    <div className="flex flex-col gap-3">
-      <input
-        inputMode="decimal"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        placeholder="Например, 32,5"
-        aria-label="Целевой вес"
-        className="h-12 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
-      />
-      <Button
-        type="button"
-        onClick={() => {
-          const parsed = Number(draft.replace(',', '.'))
-          onSave(draft.trim() === '' || !Number.isFinite(parsed) ? null : parsed)
-        }}
-      >
-        Сохранить
-      </Button>
-    </div>
-  )
-}
-
-export function NoteInput({
-  value,
-  onSave,
-}: {
-  value: string | null
-  onSave: (note: string | null) => void
-}) {
-  const [draft, setDraft] = useState(value ?? '')
-
-  return (
-    <div className="flex flex-col gap-3">
-      <textarea
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        rows={3}
-        maxLength={200}
-        placeholder="Например: следи за спиной"
-        aria-label="Заметка к упражнению"
-        className="rounded-control border border-border bg-bg px-3 py-2 text-[15px] text-text"
-      />
-      <Button type="button" onClick={() => onSave(draft.trim() === '' ? null : draft.trim())}>
-        Сохранить
-      </Button>
-    </div>
-  )
-}
-
