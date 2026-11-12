@@ -163,9 +163,26 @@ test('у опубликованного упражнения есть «Верн
   expect(screen.getByRole('button', { name: 'Вернуть в черновики' })).toBeTruthy()
 })
 
+test('удаление живёт только на вкладке «Публикация»', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  // На «Описании» блока удаления нет — раньше он висел под каждым табом.
+  expect(screen.queryByText('Удалить упражнение')).toBeNull()
+
+  fireEvent.click(tab('Видео'))
+  expect(screen.queryByText('Удалить упражнение')).toBeNull()
+
+  fireEvent.click(tab('Мышцы'))
+  expect(screen.queryByText('Удалить упражнение')).toBeNull()
+
+  fireEvent.click(tab('Публикация'))
+  expect(screen.getByText('Удалить упражнение')).toBeTruthy()
+})
+
 test('блок удаления упражнения: подтверждение и понятный текст про историю', async () => {
   render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
 
+  fireEvent.click(tab('Публикация'))
   expect(screen.getByText('Удалить упражнение')).toBeTruthy()
   expect(screen.getByText(/история подходов клиентов останется/)).toBeTruthy()
 
@@ -181,6 +198,7 @@ test('удаление: успех — уведомление и закрыти�
 
   render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} onDeleted={onDeleted} />)
 
+  fireEvent.click(tab('Публикация'))
   fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
   await screen.findByText('Удалить «Гакк-приседания»?')
   fireEvent.click(screen.getAllByRole('button', { name: 'Удалить' })[1]!)
@@ -194,6 +212,7 @@ test('удаление: ошибка сервера показывается у�
 
   render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
 
+  fireEvent.click(tab('Публикация'))
   fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
   await screen.findByText('Удалить «Гакк-приседания»?')
   fireEvent.click(screen.getAllByRole('button', { name: 'Удалить' })[1]!)

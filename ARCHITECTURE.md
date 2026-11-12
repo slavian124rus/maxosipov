@@ -373,7 +373,10 @@ users.assign_roles          roles.manage                 analytics.view
 
 ### 9.7 Голосовой ввод в конце тренировки
 1. Запись в браузере (MediaRecorder, до 2 минут) → загрузка на сервер.
-2. `SpeechToText` (plusvibeapi Whisper-класса или Yandex SpeechKit) → текст.
+2. `SpeechToText` → текст. По умолчанию plusvibe: `POST {AI_BASE_URL}/audio/transcriptions`
+   с моделью `whisper-large-v3` на ключе и адресе МаксИИма (`AI_API_KEY`, `AI_BASE_URL` =
+   `https://plusvibeapi.ru/v1`), поэтому отдельные `STT_PROVIDER`/`STT_MODEL` не нужны.
+   Yandex SpeechKit включается явно (`STT_PROVIDER=yandex`) и требует `YANDEX_SPEECHKIT_KEY`.
 3. `AI_MODEL_FAST` со structured output → массив `{exerciseId, sets:[{weight, reps, feeling}]}` + флаги боли.
    Упражнения сопоставляются только с упражнениями текущей тренировки/программы.
 4. Клиент видит таблицу «Проверь» и правит → сохранить. Без подтверждения ничего не записывается.

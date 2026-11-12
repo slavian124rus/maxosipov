@@ -146,10 +146,12 @@ export function missingAiEnv(
   if (!data.AI_MODEL_MAIN) missing.push('AI_MODEL_MAIN')
   if (!data.AI_MODEL_FAST) missing.push('AI_MODEL_FAST')
   if (!data.AI_MODEL_FALLBACK) missing.push('AI_MODEL_FALLBACK')
-  if (!data.STT_PROVIDER) missing.push('STT_PROVIDER')
-  else if (data.STT_PROVIDER === 'plusvibe' && !data.STT_MODEL) missing.push('STT_MODEL')
-  else if (data.STT_PROVIDER === 'yandex' && !data.YANDEX_SPEECHKIT_KEY)
+  // Распознавание речи по умолчанию идёт через plusvibe на том же ключе и адресе,
+  // что и МаксИИм (`whisper-large-v3`), поэтому отдельные STT-переменные не обязательны.
+  // Свой ключ нужен только если явно выбран Yandex.
+  if (data.STT_PROVIDER === 'yandex' && !data.YANDEX_SPEECHKIT_KEY) {
     missing.push('YANDEX_SPEECHKIT_KEY')
+  }
   return missing
 }
 

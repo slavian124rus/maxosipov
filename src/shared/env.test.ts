@@ -46,12 +46,13 @@ test('smsaero без SMS_AERO_LOGIN — ошибка, с ключом и лог�
 
 test('missingAiEnv: перечисляет незаполненные переменные МаксИИма', async () => {
   const { missingAiEnv } = await import('./env')
+  // Распознавание речи по умолчанию работает на ключе МаксИИма, поэтому STT-переменные
+  // в списке не обязательны.
   expect(missingAiEnv({})).toEqual([
     'AI_API_KEY',
     'AI_MODEL_MAIN',
     'AI_MODEL_FAST',
     'AI_MODEL_FALLBACK',
-    'STT_PROVIDER',
   ])
   expect(
     missingAiEnv({
@@ -62,6 +63,16 @@ test('missingAiEnv: перечисляет незаполненные перем
       STT_PROVIDER: 'yandex',
     }),
   ).toEqual(['YANDEX_SPEECHKIT_KEY'])
+  // plusvibe — провайдер по умолчанию, отдельная модель не требуется.
+  expect(
+    missingAiEnv({
+      AI_API_KEY: 'k',
+      AI_MODEL_MAIN: 'a',
+      AI_MODEL_FAST: 'b',
+      AI_MODEL_FALLBACK: 'c',
+      STT_PROVIDER: 'plusvibe',
+    }),
+  ).toEqual([])
 })
 
 test('EMAIL_PROVIDER по умолчанию console', () => {

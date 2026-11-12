@@ -307,31 +307,36 @@ export function ExerciseEditor({
         ) : null}
 
         {tab === 'publish' ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-[15px] text-text-secondary">
-              Сейчас:{' '}
-              <span className={published ? 'text-success' : 'text-warning'}>
-                {published ? 'опубликовано, клиенты видят' : 'черновик, клиенты не видят'}
-              </span>
-            </p>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
+              <p className="text-[15px] text-text-secondary">
+                Сейчас:{' '}
+                <span className={published ? 'text-success' : 'text-warning'}>
+                  {published ? 'опубликовано, клиенты видят' : 'черновик, клиенты не видят'}
+                </span>
+              </p>
 
-            <ul className="flex flex-col gap-1.5">
-              {checklist.map((item) => (
-                <li key={item.label} className="flex items-start gap-2 text-[15px]">
-                  <span className={item.done ? 'text-success' : 'text-text-muted'}>
-                    {item.done ? '✓' : '•'}
-                  </span>
-                  <span className={item.done ? 'text-text-secondary' : 'text-text-muted'}>
-                    {item.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              <ul className="flex flex-col gap-1.5">
+                {checklist.map((item) => (
+                  <li key={item.label} className="flex items-start gap-2 text-[15px]">
+                    <span className={item.done ? 'text-success' : 'text-text-muted'}>
+                      {item.done ? '✓' : '•'}
+                    </span>
+                    <span className={item.done ? 'text-text-secondary' : 'text-text-muted'}>
+                      {item.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-            <p className="text-[13px] text-text-muted">
-              Основные мышцы: {muscles.primary.map(muscleName).join(', ') || 'не отмечены'} ·
-              тренажёр: {machine?.name ?? 'без тренажёра'} · {repMin}–{repMax} раз
-            </p>
+              <p className="text-[13px] text-text-muted">
+                Основные мышцы: {muscles.primary.map(muscleName).join(', ') || 'не отмечены'} ·
+                тренажёр: {machine?.name ?? 'без тренажёра'} · {repMin}–{repMax} раз
+              </p>
+            </div>
+
+            {/* Удаление живёт на «Публикации»: это действие про судьбу карточки, а не про её поля. */}
+            <DeleteExercise exerciseId={exercise.id} name={name} onDeleted={onDeleted} />
           </div>
         ) : null}
       </div>
@@ -375,8 +380,6 @@ export function ExerciseEditor({
           </Button>
         ) : null}
       </div>
-
-      <DeleteExercise exerciseId={exercise.id} name={name} onDeleted={onDeleted} />
     </form>
   )
 }

@@ -7,14 +7,20 @@
 ## Переменные окружения
 
 ```
-STT_PROVIDER=plusvibe | yandex
-STT_MODEL=<модель распознавания у plusvibeapi>   # нужен только для plusvibe
-YANDEX_SPEECHKIT_KEY=<API-ключ>                  # нужен только для yandex
+STT_PROVIDER=plusvibe | yandex          # по умолчанию plusvibe
+STT_MODEL=whisper-large-v3              # по умолчанию whisper-large-v3
+YANDEX_SPEECHKIT_KEY=<API-ключ>         # нужен только для yandex
 ```
 
-Переменные не обязательны на уровне `shared/env.ts` (иначе не собирается `pnpm build` без ключей),
-но в production воркер при старте печатает в лог, чего не хватает (`missingAiEnv`). Без настройки
-кнопка вернёт «Распознавание речи не настроено».
+**Распознавание работает из коробки**: провайдер по умолчанию — `plusvibe`, модель —
+`whisper-large-v3`, а ключ и адрес берутся из `AI_API_KEY` и `AI_BASE_URL`
+(`https://plusvibeapi.ru/v1`) — те же, что у МаксИИма. Отдельные `STT_PROVIDER`/`STT_MODEL`
+нужны, только чтобы сменить провайдера или модель. Без `AI_API_KEY` кнопка вернёт
+«Распознавание речи не настроено: нет AI_API_KEY».
+
+Переменные не обязательны на уровне `shared/env.ts` (иначе не собирается `pnpm build` без ключей).
+В production воркер при старте печатает в лог, чего не хватает (`missingAiEnv`); для STT
+он просит только `YANDEX_SPEECHKIT_KEY`, если выбран Yandex.
 
 ## plusvibe (OpenAI-совместимый)
 
