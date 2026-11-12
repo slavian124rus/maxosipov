@@ -70,3 +70,19 @@ export type { AudioFile, SpeechToText } from './stt'
 
 export { draftExerciseText } from './exercise-draft'
 export type { ExerciseDraft, ExerciseDraftInput } from './exercise-draft'
+
+export { draftProgramTemplate } from './template-draft'
+export type {
+  TemplateBrief,
+  TemplateCatalogItem,
+  TemplateDraft,
+  TemplateDraftDay,
+  TemplateDraftExercise,
+} from './template-draft'
+
+export { reviewTemplate, reviewTemplateWithAi } from './template-review'
+export type {
+  ReviewDay,
+  TemplateAiReview,
+  TemplateIssue,
+} from './template-review'

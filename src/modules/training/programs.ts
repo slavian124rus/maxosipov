@@ -76,6 +76,9 @@ export async function getProgramTree(programId: string, executor: Executor = db)
     authorKind: program.authorKind,
     name: program.name,
     status: program.status,
+    audience: program.audience,
+    goal: program.goal,
+    templateNumber: program.templateNumber,
     days: days.map((day) => ({
       id: day.id,
       order: day.order,
@@ -403,26 +406,6 @@ export async function getProgramAuthorKinds(
     .where(inArray(programs.id, programIds))
 
   return new Map(rows.map((row) => [row.id, row.authorKind]))
-}
-
-export async function createTemplate(actor: Actor, name: string, gymId: string): Promise<string> {
-  assertCan(actor, 'clients.edit_programs')
-
-  const [row] = await db
-    .insert(programs)
-    .values({ gymId, ownerId: null, authorId: actor.id, authorKind: 'trainer', name })
-    .returning({ id: programs.id })
-
-  if (!row) throw new Error('Шаблон не создан')
-  return row.id
-}
-
-export async function listTemplates(): Promise<{ id: string; name: string }[]> {
-  return db
-    .select({ id: programs.id, name: programs.name })
-    .from(programs)
-    .where(and(isNull(programs.ownerId), eq(programs.status, 'active')))
-    .orderBy(asc(programs.name))
 }
 
 export async function archiveProgram(actor: Actor, programId: string): Promise<void> {

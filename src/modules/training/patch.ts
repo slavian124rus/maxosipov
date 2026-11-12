@@ -26,6 +26,10 @@ export type ProgramTree = {
   authorKind: 'trainer' | 'client' | 'client_ai'
   name: string
   status: 'active' | 'archived'
+  /** Только у шаблонов: для кого, цель и номер в зале. */
+  audience?: 'any' | 'male' | 'female' | null
+  goal?: 'strength' | 'mass' | 'fat_loss' | 'health' | null
+  templateNumber?: number | null
   days: ProgramTreeDay[]
 }
 

@@ -68,6 +68,7 @@ export default async function ClientCardPage({
           id: item.id,
           name: item.name,
           machineName: item.machineName,
+          zone: item.machineZone,
           primary: item.primaryMuscles,
         }))
       : []

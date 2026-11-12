@@ -3,9 +3,11 @@ import { requireUser } from '@/modules/auth'
 import { listExercises } from '@/modules/catalog'
 import { can } from '@/modules/rbac'
 import { getClientCard } from '@/modules/trainer'
-import { getProgramTree, listProgramChanges } from '@/modules/training'
+import { getProgramTree, listProgramChanges, templateTitle } from '@/modules/training'
 import { ProgramEditor, type CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
+import { TemplateAssistant } from '@/components/trainer/templates/template-assistant'
+import { DeleteTemplateButton } from '@/components/trainer/templates/delete-template-button'
 import { PageHeader, TrainerPage } from '@/components/trainer/page'
 import { isNotFoundError } from '@/shared/errors'
 
@@ -43,10 +45,19 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
     id: item.id,
     name: item.name,
     machineName: item.machineName,
+    zone: item.machineZone,
     primary: item.primaryMuscles,
   }))
 
   const changes = await listProgramChanges(program.id, 15)
+  const isTemplate = clientId === null
+  const title = isTemplate
+    ? templateTitle({
+        name: program.name,
+        audience: program.audience ?? null,
+        number: program.templateNumber ?? null,
+      })
+    : program.name
 
   return (
     <TrainerPage>
@@ -57,8 +68,22 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
           label: clientId === null ? 'Программы' : 'К клиенту',
         }}
         eyebrow={clientId === null ? 'Шаблон' : 'Программа клиента'}
-        title={program.name}
+        title={title}
+        actions={
+          isTemplate ? <DeleteTemplateButton templateId={program.id} title={title} /> : null
+        }
       />
+
+      {isTemplate ? (
+        <TemplateAssistant
+          templateId={program.id}
+          templateTitle={title}
+          catalog={catalog.map((item) => ({ id: item.id, name: item.name }))}
+          defaultGoal={program.goal ?? null}
+          defaultAudience={program.audience ?? null}
+          hasDays={program.days.length > 0}
+        />
+      ) : null}
 
       <ProgramEditor program={program} catalog={catalog} clientId={clientId} />
 

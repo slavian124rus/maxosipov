@@ -27,6 +27,8 @@ export type CatalogItem = {
   id: string
   name: string
   machineName: string | null
+  /** Зона тренажёра — по ней в редакторе фильтруются упражнения. */
+  zone: string | null
   primary: string[]
 }
 

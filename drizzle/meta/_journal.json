@@ -169,6 +169,13 @@
       "when": 1794456925134,
       "tag": "0023_tired_tyger_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794458605359,
+      "tag": "0024_free_spectrum",
+      "breakpoints": true
     }
   ]
 }

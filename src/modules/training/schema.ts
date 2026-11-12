@@ -21,6 +21,10 @@ export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
 export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'reverted'
 export type ProposalKind = 'patch' | 'new_program'
 
+import type { ProgramAudience, ProgramGoal } from '@/shared/program-labels'
+
+export type { ProgramAudience, ProgramGoal }
+
 /** Программа клиента или шаблон (`owner_id = null`). */
 export const programs = pgTable(
   'programs',
@@ -31,7 +35,10 @@ export const programs = pgTable(
     authorId: uuid('author_id').notNull(),
     authorKind: text('author_kind').$type<AuthorKind>().notNull().default('trainer'),
     name: text('name').notNull(),
-    goal: text('goal'),
+    goal: text('goal').$type<ProgramGoal>(),
+    /** Только у шаблонов: для кого он и его номер в зале («Шаблон №3»). */
+    audience: text('audience').$type<ProgramAudience>(),
+    templateNumber: integer('template_number'),
     status: text('status').$type<ProgramStatus>().notNull().default('active'),
     sourceTemplateId: uuid('source_template_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -42,6 +49,10 @@ export const programs = pgTable(
     uniqueIndex('programs_one_active_per_owner')
       .on(table.ownerId)
       .where(sql`${table.status} = 'active' AND ${table.ownerId} IS NOT NULL`),
+    // Номера шаблонов не повторяются в зале (F14: параллельное создание даст 23505).
+    uniqueIndex('programs_template_number_unique')
+      .on(table.gymId, table.templateNumber)
+      .where(sql`${table.ownerId} IS NULL AND ${table.templateNumber} IS NOT NULL`),
   ],
 )
 

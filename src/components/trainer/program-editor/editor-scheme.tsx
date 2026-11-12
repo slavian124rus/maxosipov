@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalog-tree'
+import { exercisesLabel } from '@/shared/plural'
 import type { CatalogItem } from './program-editor'
 
 type Scheme = { sets: number; repMin: number; repMax: number; restSec: number }
@@ -62,10 +64,38 @@ export function SchemeSteppers({
 
   return (
     <div className="flex flex-col gap-3">
-      <Stepper label="Подходы" value={draft.sets} min={1} max={10} step={1} onChange={(value) => update({ sets: value })} />
-      <Stepper label="Повторения от" value={draft.repMin} min={1} max={50} step={1} onChange={(value) => update({ repMin: value, repMax: Math.max(value, draft.repMax) })} />
-      <Stepper label="Повторения до" value={draft.repMax} min={1} max={50} step={1} onChange={(value) => update({ repMax: value, repMin: Math.min(value, draft.repMin) })} />
-      <Stepper label="Отдых, с" value={draft.restSec} min={30} max={300} step={15} onChange={(value) => update({ restSec: value })} />
+      <Stepper
+        label="Подходы"
+        value={draft.sets}
+        min={1}
+        max={10}
+        step={1}
+        onChange={(value) => update({ sets: value })}
+      />
+      <Stepper
+        label="Повторения от"
+        value={draft.repMin}
+        min={1}
+        max={50}
+        step={1}
+        onChange={(value) => update({ repMin: value, repMax: Math.max(value, draft.repMax) })}
+      />
+      <Stepper
+        label="Повторения до"
+        value={draft.repMax}
+        min={1}
+        max={50}
+        step={1}
+        onChange={(value) => update({ repMax: value, repMin: Math.min(value, draft.repMin) })}
+      />
+      <Stepper
+        label="Отдых, с"
+        value={draft.restSec}
+        min={30}
+        max={300}
+        step={15}
+        onChange={(value) => update({ restSec: value })}
+      />
 
       <Button type="button" onClick={() => onChange(draft)}>
         Готово
@@ -74,44 +104,101 @@ export function SchemeSteppers({
   )
 }
 
-/** Добавление упражнения из каталога зала. */
-export function AddExercise({
+/** Каталог с поиском и чипами зон — общий для «добавить» и «заменить». */
+function CatalogPicker({
   catalog,
-  onAdd,
+  onPick,
+  disabledId,
+  emptyHint = 'Ничего не нашлось',
 }: {
   catalog: CatalogItem[]
-  onAdd: (exerciseId: string) => void
+  onPick: (exerciseId: string) => void
+  disabledId?: string
+  emptyHint?: string
 }) {
-  const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [zone, setZone] = useState<string | null>(null)
 
-  const found = catalog.filter((item) => item.name.toLowerCase().includes(query.trim().toLowerCase()))
+  const zones = useMemo(() => {
+    const unique = new Set<string>()
+    for (const item of catalog) if (item.zone) unique.add(item.zone)
+    return [...unique].sort((a, b) => a.localeCompare(b, 'ru'))
+  }, [catalog])
+
+  const groups = useMemo(() => {
+    const needle = normalizeQuery(query)
+    const visible = catalog.filter((item) => {
+      if (zone && item.zone !== zone) return false
+      if (!needle) return true
+      return (
+        normalizeQuery(item.name).includes(needle) ||
+        normalizeQuery(item.machineName ?? '').includes(needle) ||
+        normalizeQuery(item.zone ?? '').includes(needle)
+      )
+    })
+
+    return groupMachinesByZone(visible)
+  }, [catalog, query, zone])
+
+  const total = groups.reduce((sum, group) => sum + group.machines.length, 0)
 
   return (
-    <div className="flex flex-col gap-2">
-      <Button type="button" variant="secondary" onClick={() => setOpen((value) => !value)}>
-        {open ? 'Скрыть каталог' : 'Добавить упражнение'}
-      </Button>
+    <div className="flex min-w-0 flex-col gap-2">
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Поиск: упражнение, тренажёр или зона"
+        aria-label="Поиск упражнения"
+        className="h-11 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+      />
 
-      {open ? (
-        <div className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Поиск упражнения"
-            aria-label="Поиск упражнения в каталоге"
-            className="h-11 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
-          />
-          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-            {found.map((item) => (
+      {zones.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <button
+            type="button"
+            onClick={() => setZone(null)}
+            aria-pressed={zone === null}
+            className={`min-h-10 shrink-0 rounded-full border px-3 text-[13px] ${
+              zone === null
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
+          >
+            Все зоны
+          </button>
+          {zones.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setZone(item === zone ? null : item)}
+              aria-pressed={zone === item}
+              className={`min-h-10 shrink-0 rounded-full border px-3 text-[13px] ${
+                zone === item
+                  ? 'border-accent bg-surface-2 text-text'
+                  : 'border-border bg-surface-1 text-text-secondary'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <p className="tabular-nums text-[13px] text-text-muted">
+        {total > 0 ? exercisesLabel(total) : emptyHint}
+      </p>
+
+      <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+        {groups.map((group) => (
+          <div key={group.key} className="flex flex-col gap-1">
+            <p className="text-[13px] text-text-muted">{group.title}</p>
+            {group.machines.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => {
-                  setOpen(false)
-                  onAdd(item.id)
-                }}
-                className="min-h-11 rounded-control px-2 text-left text-[15px] text-text hover:bg-surface-2"
+                disabled={item.id === disabledId}
+                onClick={() => onPick(item.id)}
+                className="min-h-11 rounded-control px-2 text-left text-[15px] text-text hover:bg-surface-2 disabled:opacity-40"
               >
                 {item.name}
                 <span className="block text-[13px] text-text-muted">
@@ -120,13 +207,44 @@ export function AddExercise({
               </button>
             ))}
           </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Добавление упражнения из каталога зала: поиск и фильтр по зонам. */
+export function AddExercise({
+  catalog,
+  onAdd,
+}: {
+  catalog: CatalogItem[]
+  onAdd: (exerciseId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Button type="button" variant="secondary" onClick={() => setOpen((value) => !value)}>
+        {open ? 'Скрыть каталог' : 'Добавить упражнение'}
+      </Button>
+
+      {open ? (
+        <div className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-surface-1 px-3 py-3">
+          <CatalogPicker
+            catalog={catalog}
+            onPick={(exerciseId) => {
+              setOpen(false)
+              onAdd(exerciseId)
+            }}
+          />
         </div>
       ) : null}
     </div>
   )
 }
 
-/** Список каталога для замены: сверху — та же мышца и тот же тренажёр. */
+/** Список каталога для замены: сверху — та же мышца и тот же тренажёр, с зонами. */
 export function ReplaceList({
   catalog,
   currentExerciseId,
@@ -148,23 +266,9 @@ export function ReplaceList({
     return score(b) - score(a)
   })
 
-  return (
-    <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
-      {sorted.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          disabled={item.id === currentExerciseId}
-          onClick={() => onPick(item.id)}
-          className="min-h-11 rounded-control px-2 text-left text-[15px] text-text hover:bg-surface-2 disabled:opacity-40"
-        >
-          {item.name}
-          <span className="block text-[13px] text-text-muted">{item.machineName ?? 'Свободные веса'}</span>
-        </button>
-      ))}
-    </div>
-  )
+  return <CatalogPicker catalog={sorted} onPick={onPick} disabledId={currentExerciseId} />
 }
+
 
 export function WeightInput({
   value,
@@ -183,7 +287,7 @@ export function WeightInput({
         onChange={(event) => setDraft(event.target.value)}
         placeholder="Например, 32,5"
         aria-label="Целевой вес"
-        className="h-12 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+        className="h-12 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
       />
       <Button
         type="button"
@@ -224,3 +328,4 @@ export function NoteInput({
     </div>
   )
 }
+

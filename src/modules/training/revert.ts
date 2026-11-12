@@ -11,6 +11,7 @@ import {
   isUniqueViolation,
 } from './programs'
 import { aiProposals, programChanges, programDays, programExercises, programs } from './schema'
+import { allocateTemplateNumber } from './templates'
 
 /** Ошибка отката: программа уже ушла дальше, автоматически вернуть нельзя. */
 export const REVERT_CONFLICT = 'После этого программу уже меняли — поправь вручную'
@@ -182,9 +183,18 @@ export async function saveAsTemplate(
   if (title.length < 2 || title.length > 80) throw new Error('Название шаблона — от 2 до 80 символов')
 
   return db.transaction(async (tx) => {
+    const number = await allocateTemplateNumber(actor.gymId)
+
     const [created] = await tx
       .insert(programs)
-      .values({ gymId: actor.gymId, ownerId: null, authorId: actor.id, authorKind: 'trainer', name: title })
+      .values({
+        gymId: actor.gymId,
+        ownerId: null,
+        authorId: actor.id,
+        authorKind: 'trainer',
+        name: title,
+        templateNumber: number,
+      })
       .returning({ id: programs.id })
 
     if (!created) throw new Error('Шаблон не создан')

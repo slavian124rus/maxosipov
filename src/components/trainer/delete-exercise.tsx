@@ -45,8 +45,8 @@ export function DeleteExercise({
   }, [state])
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-card border border-danger/30 px-4 py-3">
-      <div className="flex min-w-0 flex-col">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger/30 px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col">
         <p className="text-[15px] text-text">Удалить упражнение</p>
         <p className="text-[13px] text-text-muted">
           Из каталога пропадёт, история подходов клиентов останется

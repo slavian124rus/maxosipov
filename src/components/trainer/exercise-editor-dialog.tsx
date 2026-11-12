@@ -42,7 +42,7 @@ export function ExerciseEditorDialog({
 
   return (
     <Dialog open={exerciseId !== null} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="max-h-[92dvh] w-full overflow-y-auto p-0 sm:max-w-[860px]">
+      <DialogContent className="grid max-h-[92dvh] w-full grid-cols-[minmax(0,1fr)] overflow-y-auto p-0 sm:max-w-[860px]">
         {exerciseId ? (
           // Ключ по id: при открытии другого упражнения состояние формы сбрасывается само.
           <ExerciseLoader
@@ -89,8 +89,8 @@ function ExerciseLoader({
 
   return (
     <>
-      <DialogHeader className="border-b border-border px-5 py-4">
-        <DialogTitle className="text-[17px]">
+      <DialogHeader className="border-b border-border px-4 py-4 lg:px-5">
+        <DialogTitle className="pr-8 text-[17px] leading-tight">
           {data?.exercise ? data.exercise.name : 'Упражнение'}
         </DialogTitle>
         <DialogDescription>
@@ -98,7 +98,7 @@ function ExerciseLoader({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="px-5 pt-4 pb-5">
+      <div className="min-w-0 px-4 pt-4 pb-5 lg:px-5">
         {data === null ? (
           <p className="text-[15px] text-text-secondary">Загружаем…</p>
         ) : data.error || !data.exercise ? (

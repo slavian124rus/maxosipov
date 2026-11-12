@@ -179,7 +179,7 @@ export function ExerciseEditor({
       <div
         role="tablist"
         aria-label="Разделы упражнения"
-        className="flex gap-2 overflow-x-auto pb-1"
+        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
       >
         {TABS.map((item) => (
           <button

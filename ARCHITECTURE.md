@@ -137,9 +137,9 @@
 | `access` | Пробный период, подписки, статусы, проверка доступа к платным функциям | `hasAccess(userId)`, `grant(...)`, `freeze(...)` |
 | `catalog` | Мышцы, тренажёры, упражнения | `listExercises(filter)`, `getExercise(id)` |
 | `media` | Загрузка, обработка видео, подписанные ссылки | `createUpload()`, `getPlaybackUrl()` |
-| `training` | Программы, дни, шаблоны, выполненные тренировки, подходы, история изменений | `startSession()`, `logSet()`, `applyProposal()` |
+| `training` | Программы, дни, шаблоны (номер, аудитория, помощник МаксИИма), выполненные тренировки, подходы, история изменений | `startSession()`, `logSet()`, `applyProposal()` |
 | `progression` | Детерминированные рекомендации веса | `recommend(exerciseHistory, rules)` |
-| `coach-ai` | МаксИИм: контекст, чат, инструменты, предложения, итоги, голос, лимиты, флаги | `chat()`, `summarizeSession()`, `parseVoiceLog()` |
+| `coach-ai` | МаксИИм: контекст, чат, инструменты, предложения, итоги, голос, лимиты, флаги, помощник шаблонов | `chat()`, `summarizeSession()`, `parseVoiceLog()` |
 | `body` | Замеры тела, фото «до/после» | `addMeasurement()`, `addPhoto()` |
 | `trainer` | Экраны и сценарии кабинета: лента «Сегодня», карточка клиента | агрегирует другие модули |
 | `notifications` | Web Push, события и шаблоны уведомлений | `notify(userId, event)` |
@@ -191,7 +191,15 @@
 - `media`: kind (`exercise_video` | `photo` | `progress_photo` | `machine_photo`), original_path, processed_paths (json: mp4, webm, poster, muscles_mp4?, photo, thumb), status (`uploaded` | `processing` | `ready` | `failed`), error, owner_id. `machine_photo` — фото тренажёра из `machines.photo_media_id`: оно заменяет видео в карточке упражнения, пока ролик не снят. `kind` — обычный `text` без CHECK-ограничения, поэтому новый вид файла миграции не требует.
 
 **Тренировки**
-- `programs`: gym_id, owner_id (null = шаблон), author_id, author_kind (`trainer` | `client` | `client_ai`), name, goal, status (`active` | `archived`), source_template_id.
+- `programs`: gym_id, owner_id (null = шаблон), author_id, author_kind (`trainer` | `client` | `client_ai`), name, goal (`strength` | `mass` | `fat_loss` | `health`), status (`active` | `archived`), source_template_id.
+  Только у шаблонов: `audience` (`any` | `male` | `female`) и `template_number` — номер в зале,
+  уникальный по `(gym_id, template_number)` частичным индексом; выдаётся по порядку в `createTemplate`
+  (параллельное создание ловится по 23505 и повторяется).
+  Модуль `training/templates.ts`: `listTemplateItems` (название «Похудение для женщин №3», подпись,
+  счётчики дней и упражнений одним запросом), `createTemplate`, `updateTemplateMeta`, `archiveTemplate`
+  (удаление = архив), `replaceTemplateDays` (МаксИИм заменяет дни целиком в одной транзакции).
+  Подписи и типы шаблонов — в `shared/program-labels.ts`, чтобы их могли импортировать клиентские
+  компоненты (из `modules/training` тянется БД и `next/headers`).
 - `program_days`: program_id, order, name (например «День A — спина и бицепс»).
 - `program_exercises`: day_id, order, exercise_id, sets, rep_min, rep_max, rest_sec, target_weight_kg (nullable), note.
 - `workout_sessions`: user_id, program_day_id (nullable — свободная тренировка), mode (`free` | `guided`), started_at, finished_at, comment, ai_summary.
@@ -305,6 +313,21 @@ users.assign_roles          roles.manage                 analytics.view
 - Программа клиента (`author_kind` ≠ `trainer`) — применяется сразу после принятия.
 - Программа Максима — тоже применяется после принятия клиентом, но помечается
   (`program_changes.actor_kind = ai_proposal_accepted`), попадает в ленту Максима «Сегодня»; Максим может откатить (`reverted`).
+
+### 9.3.1 Помощник шаблонов (`coach-ai/template-draft.ts`, `template-review.ts`)
+Отдельный сценарий для кабинета тренера — не чат и не `ai_proposals`: тренер сам нажимает «Применить».
+- `draftProgramTemplate(brief, catalog)` — бриф (цель, аудитория, уровень, дней в неделю, пожелания) →
+  `generateObject` со схемой дней. В промпт уходит только каталог зала (`id | название | зона | тренажёр | мышцы`).
+  Ответ чистится: неизвестные `exerciseId` и повторы отбрасываются, подходы/повторения/отдых зажимаются в норму,
+  дни обрезаются до `daysPerWeek`. Пустой результат — понятная ошибка, а не пустой шаблон.
+- `reviewTemplate(days, catalog)` — **чистая** функция без ИИ: повторы в дне, `repMin > repMax`, подходы вне 2–6,
+  отдых < 30 с, больше 8 упражнений, все упражнения на одну мышцу, нет упражнений на крупные мышцы.
+  Её покрывают unit-тесты, поэтому замечания одинаковы без модели.
+- `reviewTemplateWithAi(days, catalog)` — короткий разбор словами (модель `fast`); недоступность модели
+  не ломает экран: показываются только детерминированные замечания.
+- `replaceTemplateDays()` пишет дни целиком в одной транзакции и кладёт дифф в `program_changes`,
+  так что правка ИИ видна в истории шаблона.
+- Расход токенов пишется в `ai_usage` с `countsTowardLimit = false`: это работа тренера, а не клиента.
 
 ### 9.4 Какие данные уходят провайдеру ИИ
 Только то, что в §9.2, **без** телефона, ФИО, фото, ссылок на аккаунты. Клиент обозначается как «клиент».

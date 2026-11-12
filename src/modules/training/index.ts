@@ -18,14 +18,33 @@ export {
   applyProgramPatchAs,
   archiveProgram,
   copyTemplateToClient,
-  createTemplate,
   getActiveProgram,
   getProgramAuthorKinds,
   getProgramTree,
   listProgramChanges,
-  listTemplates,
 } from './programs'
 export type { ChangeActorKind, ProgramChangeView } from './programs'
+
+export {
+  allocateTemplateNumber,
+  archiveTemplate,
+  AUDIENCE_LABELS,
+  createTemplate,
+  GOAL_LABELS,
+  listTemplateItems,
+  listTemplates,
+  replaceTemplateDays,
+  templateMeta,
+  templateTitle,
+  updateTemplateMeta,
+} from './templates'
+export type {
+  CreateTemplateInput,
+  ProgramAudience,
+  ProgramGoal,
+  TemplateDayInput,
+  TemplateListItem,
+} from './templates'
 
 export {
   finishSession,
