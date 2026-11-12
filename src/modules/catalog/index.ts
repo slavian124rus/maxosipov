@@ -22,6 +22,7 @@ export type { ExerciseInput, MachineInput } from './validation'
 
 export {
   archiveExercise,
+  countMachineExercises,
   createExercise,
   createMachine,
   deleteMachine,
@@ -39,6 +40,7 @@ export type {
   ExerciseFilter,
   ExerciseListItem,
   GetExerciseOptions,
+  MachineExerciseCount,
   MachineListItem,
 } from './service'
 

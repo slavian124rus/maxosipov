@@ -5,9 +5,16 @@ import type { MachineListItem } from '@/modules/catalog'
 import { MachineForm } from './machine-form'
 
 // Серверные действия в jsdom не выполняются — подменяем их заглушками.
+// `deleteError` позволяет проверить отказ сервера (например, упражнения привязали в другой вкладке).
+const server = vi.hoisted(() => ({ deleteError: null as string | null }))
+
 vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
   saveMachineAction: async () => ({ error: null, ok: false, id: null }),
-  deleteMachineAction: async () => ({ error: null, ok: false, id: null }),
+  deleteMachineAction: async () => ({
+    error: server.deleteError,
+    ok: false,
+    id: null,
+  }),
 }))
 
 // Диалог подтверждения: содержимое видно только когда он открыт (как у Radix).
@@ -73,6 +80,40 @@ test('тренажёр с упражнениями удалить нельзя: 
 
   const button = screen.getByRole('button', { name: 'Удалить' })
   expect(button.hasAttribute('disabled')).toBe(true)
-  expect(screen.getByText(/привязаны упражнения: 3/)).toBeTruthy()
-  expect(screen.getByText(/перенеси их на другой тренажёр/)).toBeTruthy()
+
+  // Предупреждение — с правильным склонением и подсказкой, что делать.
+  expect(screen.getByText('К тренажёру привязано 3 упражнения — удалить нельзя.')).toBeTruthy()
+  expect(screen.getByText(/выбери им другой тренажёр/)).toBeTruthy()
+  // Диалог подтверждения в этом случае не открывается.
+  expect(screen.queryByText('Удалить «Гакк-машина»?')).toBeNull()
 })
+
+test('одно упражнение — «1 упражнение», а не «1 упражнений»', () => {
+  render(<MachineForm machine={MACHINE} zones={['Ноги']} exerciseCount={1} />)
+
+  expect(screen.getByText('К тренажёру привязано 1 упражнение — удалить нельзя.')).toBeTruthy()
+})
+
+test('сервер отказал в удалении: причина видна прямо в модальном окне', async () => {
+  server.deleteError = 'К тренажёру привязаны упражнения: 2. Сначала перенеси их на другой тренажёр'
+
+  render(<MachineForm machine={MACHINE} zones={['Ноги']} exerciseCount={0} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+  await waitFor(() => expect(screen.getByText('Удалить «Гакк-машина»?')).toBeTruthy())
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Удалить' })[1]!)
+
+  // Окно не закрылось, заголовок сменился, причина и что делать — внутри окна.
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain('К тренажёру привязаны упражнения: 2')
+  expect(alert.textContent).toContain('выбери им другой тренажёр')
+  expect(screen.getByText('Удалить не получилось')).toBeTruthy()
+  expect(screen.getByText('Тренажёр остался в каталоге — ниже причина.')).toBeTruthy()
+  // Вместо «Отмена/Удалить» — одна кнопка «Понятно».
+  expect(screen.getByRole('button', { name: 'Понятно' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Отмена' })).toBeNull()
+
+  server.deleteError = null
+})
+

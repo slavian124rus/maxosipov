@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getGym } from '@/modules/gym'
 import {
@@ -213,6 +213,35 @@ export async function updateMachine(
 
   if (!row) throw new Error('Тренажёр не найден')
   return row
+}
+
+/** Сколько упражнений привязано к каждому тренажёру: всего и из них опубликованных. */
+export type MachineExerciseCount = { total: number; published: number }
+
+/**
+ * Счётчики упражнений по тренажёрам. `total` включает черновики и архивные —
+ * именно он решает, можно ли удалить тренажёр (`deleteMachine`). `published` —
+ * для подписи «N в каталоге» в дереве.
+ */
+export async function countMachineExercises(): Promise<Record<string, MachineExerciseCount>> {
+  const rows = await db
+    .select({
+      machineId: exercises.machineId,
+      total: sql<number>`count(*)::int`,
+      published: sql<number>`count(*) filter (where ${exercises.status} = 'published' and ${exercises.archivedAt} is null)::int`,
+    })
+    .from(exercises)
+    .where(isNotNull(exercises.machineId))
+    .groupBy(exercises.machineId)
+
+  const result: Record<string, MachineExerciseCount> = {}
+
+  for (const row of rows) {
+    if (!row.machineId) continue
+    result[row.machineId] = { total: row.total, published: row.published }
+  }
+
+  return result
 }
 
 /**

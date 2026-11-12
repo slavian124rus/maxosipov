@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
 import { formatStep } from '@/components/trainer/machine-values'
+import { exercisesLabel } from '@/shared/plural'
 import type { MachineListItem } from '@/modules/catalog'
 import {
   deleteMachineAction,
@@ -284,21 +285,33 @@ function DeleteMachine({
     if (state.ok) onDeleted?.()
   }, [state.ok, state.id, onDeleted])
 
+  // Сервер отказал (например, упражнение добавили в другой вкладке) — окно остаётся открытым,
+  // а текст ошибки показываем прямо в нём: так понятно, почему ничего не удалилось.
+  // Ошибку показываем только пока окно открыто, чтобы после «Понятно» оно открывалось чистым.
+  const failed = confirming && state.error !== null
+
   return (
     <div className="mt-1 flex flex-col gap-2 rounded-card border border-danger/30 px-4 py-4">
       <p className="text-[15px] text-text">Удалить тренажёр</p>
 
-      <p className="text-[13px] text-text-muted">
-        {blocked
-          ? `К тренажёру привязаны упражнения: ${exerciseCount}. Сначала перенеси их на другой тренажёр — тогда удаление станет доступно.`
-          : 'Если занёс по ошибке — удали. Фото тоже удалится, вернуть нельзя.'}
-      </p>
-
-      {state.error ? (
-        <p role="alert" className="text-[13px] text-danger">
-          {state.error}
+      {blocked ? (
+        <div
+          role="alert"
+          className="flex flex-col gap-1 rounded-control border border-warning/40 bg-surface-2 px-3 py-2.5"
+        >
+          <p className="text-[13px] text-warning">
+            К тренажёру привязано {exercisesLabel(exerciseCount)} — удалить нельзя.
+          </p>
+          <p className="text-[13px] text-text-secondary">
+            Сначала открой эти упражнения в «Упражнениях» и выбери им другой тренажёр (или
+            «Без тренажёра»), тогда удаление станет доступно.
+          </p>
+        </div>
+      ) : (
+        <p className="text-[13px] text-text-muted">
+          Если занёс по ошибке — удали. Фото тоже удалится, вернуть нельзя.
         </p>
-      ) : null}
+      )}
 
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <Button
@@ -313,21 +326,46 @@ function DeleteMachine({
 
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Удалить «{name}»?</DialogTitle>
+            <DialogTitle>
+              {failed ? 'Удалить не получилось' : `Удалить «${name}»?`}
+            </DialogTitle>
             <DialogDescription>
-              Тренажёр и его фото исчезнут из каталога. Это необратимо.
+              {failed
+                ? 'Тренажёр остался в каталоге — ниже причина.'
+                : 'Тренажёр и его фото исчезнут из каталога. Это необратимо.'}
             </DialogDescription>
           </DialogHeader>
+
+          {failed ? (
+            <div
+              role="alert"
+              className="flex flex-col gap-2 rounded-control border border-danger/40 bg-surface-2 px-3 py-2.5"
+            >
+              <p className="text-[13px] text-danger">{state.error}</p>
+              <p className="text-[13px] text-text-secondary">
+                Открой эти упражнения в «Упражнениях» и выбери им другой тренажёр — после этого
+                удаление сработает.
+              </p>
+            </div>
+          ) : null}
 
           <form action={formAction}>
             <input type="hidden" name="id" value={machineId} />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
-                Отмена
-              </Button>
-              <Button type="submit" variant="destructive" disabled={pending}>
-                {pending ? 'Удаляем…' : 'Удалить'}
-              </Button>
+              {failed ? (
+                <Button type="button" onClick={() => setConfirming(false)}>
+                  Понятно
+                </Button>
+              ) : (
+                <>
+                  <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
+                    Отмена
+                  </Button>
+                  <Button type="submit" variant="destructive" disabled={pending}>
+                    {pending ? 'Удаляем…' : 'Удалить'}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>

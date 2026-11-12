@@ -15,15 +15,17 @@ import type { MachineListItem } from '@/modules/catalog'
 
 type Props = {
   machines: MachineListItem[]
-  /** Опубликованных упражнений на каждом тренажёре. */
+  /** Опубликованных упражнений на каждом тренажёре — подпись «N в каталоге». */
   counts: Record<string, number>
+  /** Все упражнения (с черновиками и архивными) — по ним решается, можно ли удалить. */
+  exerciseTotals: Record<string, number>
 }
 
 /**
  * Экран «Тренажёры» (DESIGN.md §8.9): дерево зона → тренажёр и лист снизу,
  * в котором тренажёр создаётся или правится (название, зона, шаг веса, фото).
  */
-export function MachinesClient({ machines, counts }: Props) {
+export function MachinesClient({ machines, counts, exerciseTotals }: Props) {
   const [editing, setEditing] = useState<MachineListItem | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -103,7 +105,7 @@ export function MachinesClient({ machines, counts }: Props) {
               key={editing?.id ?? 'new'}
               machine={editing}
               zones={zones}
-              exerciseCount={editing ? (counts[editing.id] ?? 0) : 0}
+              exerciseCount={editing ? (exerciseTotals[editing.id] ?? 0) : 0}
               onSaved={close}
               onDeleted={close}
             />

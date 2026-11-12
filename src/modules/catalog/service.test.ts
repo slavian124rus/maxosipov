@@ -8,6 +8,7 @@ import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { closeDb, prepareTestDb, resetDb } from '../../../tests/db'
 import {
   archiveExercise,
+  countMachineExercises,
   createExercise,
   createMachine,
   deleteMachine,
@@ -745,9 +746,44 @@ test('удалять тренажёр может только тот, у ког�
   expect(rows).toHaveLength(1)
 })
 
+test('счётчик упражнений: total включает черновики, published — только опубликованные', async () => {
+  const machineId = await createMachineWithPhoto('Бабочка', {})
+
+  const draft = await createExercise(actor, { ...baseInput, name: 'Сведение рук', machineId })
+  await createExercise(actor, { ...baseInput, name: 'Разведение рук', machineId, videoMediaId: readyVideoId })
+  await publishExercise(
+    actor,
+    (await listExercises({ status: 'all' })).find((item) => item.name === 'Разведение рук')!.id,
+  )
+
+  const counts = await countMachineExercises()
+  // Тренажёр с черновиком нельзя удалить, хотя в каталоге упражнение ещё не видно.
+  expect(counts[machineId]).toEqual({ total: 2, published: 1 })
+
+  // После публикации черновика оба счётчика совпадают.
+  await publishExercise(actor, draft.id)
+  expect((await countMachineExercises())[machineId]).toEqual({ total: 2, published: 2 })
+})
+
+test('счётчик упражнений: архивное упражнение остаётся в total и мешает удалению', async () => {
+  const machineId = await createMachineWithPhoto('Скамья', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId })
+  await archiveExercise(actor, exercise.id)
+
+  expect((await countMachineExercises())[machineId]).toEqual({ total: 1, published: 0 })
+  await expect(deleteMachine(actor, machineId)).rejects.toThrow(/привязаны упражнения/)
+})
+
+test('счётчик упражнений: у свободных весов тренажёра нет', async () => {
+  await createExercise(actor, { ...baseInput, machineId: null })
+
+  expect(await countMachineExercises()).toEqual({})
+})
+
 test('удаление несуществующего тренажёра — понятная ошибка', async () => {
   await expect(
     deleteMachine(actor, '00000000-0000-4000-8000-000000000000'),
   ).rejects.toThrow('Тренажёр не найден')
 })
+
 

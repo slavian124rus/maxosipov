@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
-import { listExercises, listMachinesWithPhotos } from '@/modules/catalog'
+import { countMachineExercises, listMachinesWithPhotos } from '@/modules/catalog'
 import { MachinesClient } from '@/components/trainer/machines-client'
 import { TrainerPage } from '@/components/trainer/page'
 
@@ -12,21 +12,22 @@ export default async function TrainerMachinesPage() {
   const { actor } = await requireUser()
   if (!can(actor, 'catalog.edit')) notFound()
 
-  const [machines, exercises] = await Promise.all([
+  const [machines, counts] = await Promise.all([
     listMachinesWithPhotos(),
-    listExercises({ status: 'published' }),
+    countMachineExercises(),
   ])
 
-  // Сколько опубликованных упражнений на каждом тренажёре.
-  const counts: Record<string, number> = {}
-  for (const exercise of exercises) {
-    if (!exercise.machineId) continue
-    counts[exercise.machineId] = (counts[exercise.machineId] ?? 0) + 1
+  // `published` — подпись «N в каталоге», `total` (с черновиками) — можно ли удалить.
+  const published: Record<string, number> = {}
+  const total: Record<string, number> = {}
+  for (const [machineId, count] of Object.entries(counts)) {
+    published[machineId] = count.published
+    total[machineId] = count.total
   }
 
   return (
     <TrainerPage>
-      <MachinesClient machines={machines} counts={counts} />
+      <MachinesClient machines={machines} counts={published} exerciseTotals={total} />
     </TrainerPage>
   )
 }
