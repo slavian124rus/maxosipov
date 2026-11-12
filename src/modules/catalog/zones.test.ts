@@ -142,6 +142,18 @@ test('тренажёр с весом 0 (кардио) сохраняется', a
   expect((await listZones()).map((zone) => zone.name)).toEqual(['Кардио'])
 })
 
+test('зона, вписанная у тренажёра раньше справочника, появляется в настройках сама', async () => {
+  // Тренажёр с зоной «Спина» есть, а записи в machine_zones нет — как на проде,
+  // где миграцию применили, но сид с бэкфиллом не прогоняли.
+  await db.insert(machines).values({ gymId, name: 'Рычажная тяга', zone: 'Спина' })
+
+  expect(await listZones()).toEqual([expect.objectContaining({ name: 'Спина', machineCount: 1 })])
+
+  // Зона дорегистрирована — её можно переименовать и удалить как обычную.
+  const [row] = await db.select().from(machineZones).where(eq(machineZones.name, 'Спина'))
+  expect(row?.gymId).toBe(gymId)
+})
+
 test('зоны меняет только тот, у кого есть catalog.edit', async () => {
   const zone = await createZone(actor, 'Кардио')
 

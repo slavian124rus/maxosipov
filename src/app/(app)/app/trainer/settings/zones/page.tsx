@@ -17,7 +17,7 @@ export default async function ZonesSettingsPage() {
   return (
     <SettingsPage
       title="Зоны тренажёров"
-      description="Кардио, ноги, спина… По зонам строится дерево в «Упражнениях» и «Тренажёрах»"
+      description="Зоны берутся из тренажёров и строят дерево в «Упражнениях» и «Тренажёрах»"
     >
       <ZonesManager zones={zones.map((zone) => ({ id: zone.id, name: zone.name, machineCount: zone.machineCount }))} />
     </SettingsPage>

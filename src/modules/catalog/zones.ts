@@ -7,8 +7,31 @@ import { machineZones, machines, type MachineZone } from './schema'
 /** Зона со счётчиком тренажёров — для настроек. */
 export type MachineZoneItem = MachineZone & { machineCount: number }
 
-/** Зоны зала по порядку, затем по алфавиту. */
+/**
+ * Дорегистрирует в справочнике зоны, которые уже стоят у тренажёров.
+ *
+ * Справочник производный от данных: зону могли вписать в карточку тренажёра до
+ * появления таблицы `machine_zones` (или миграцию применили без `db:seed`), и тогда
+ * настройки зон показывали пустой список, хотя в дереве зоны есть. Один
+ * `INSERT … ON CONFLICT DO NOTHING` — дёшево и повторять можно сколько угодно.
+ */
+export async function syncMachineZones(): Promise<void> {
+  await db.execute(sql`
+    insert into ${machineZones} ("gym_id", "name")
+    select distinct m."gym_id", btrim(m."zone")
+    from ${machines} m
+    where m."zone" is not null and btrim(m."zone") <> ''
+    on conflict ("gym_id", "name") do nothing
+  `)
+}
+
+/**
+ * Зоны зала по порядку, затем по алфавиту. Перед чтением подтягиваем зоны из
+ * тренажёров, чтобы список в настройках совпадал с деревом (см. `syncMachineZones`).
+ */
 export async function listZones(): Promise<MachineZoneItem[]> {
+  await syncMachineZones()
+
   const rows = await db
     .select({
       zone: machineZones,

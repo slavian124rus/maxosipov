@@ -53,6 +53,7 @@ export {
   listZoneNames,
   listZones,
   renameZone,
+  syncMachineZones,
 } from './zones'
 export type { MachineZoneItem } from './zones'
 
