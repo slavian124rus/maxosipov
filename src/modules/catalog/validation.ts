@@ -33,10 +33,17 @@ export const exerciseInputSchema = z
 export type ExerciseInput = z.infer<typeof exerciseInputSchema>
 
 export const machineInputSchema = z.object({
-  name: z.string().trim().min(2, 'Название слишком короткое').max(120),
-  zone: z.string().trim().max(60).nullable(),
-  weightStepKg: z.number().min(0.5).max(50),
-  photoMediaId: z.string().uuid().nullable(),
+  name: z.string().trim().min(2, 'Название слишком короткое').max(120, 'Название слишком длинное'),
+  zone: z.string().trim().max(60, 'Зона — до 60 символов').nullable(),
+  /**
+   * Шаг веса. `0` — «без веса»: кардио и тренажёры, где вес не задаётся
+   * (прогрессия такие машины пропускает: `recommend` при `stepKg <= 0` не советует вес).
+   */
+  weightStepKg: z
+    .number()
+    .min(0, 'Шаг веса — от 0 до 50 кг. Для кардио выбери «Без веса»')
+    .max(50, 'Шаг веса — не больше 50 кг'),
+  photoMediaId: z.string().uuid('Фото не найдено').nullable(),
 })
 
 export type MachineInput = z.infer<typeof machineInputSchema>

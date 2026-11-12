@@ -16,7 +16,9 @@ export function weightLabel(value: number): string {
 
 /** Подпись под названием тренажёра: шаг веса, число упражнений и состояние фото. */
 export function machineMeta(machine: MachineTreeItem): string {
-  const parts = [`шаг ${weightLabel(machine.weightStepKg)}`]
+  const parts = [
+    machine.weightStepKg > 0 ? `шаг ${weightLabel(machine.weightStepKg)}` : 'без веса',
+  ]
 
   parts.push(
     machine.exerciseCount > 0

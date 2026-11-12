@@ -90,7 +90,10 @@ test('раздел «Ещё»: пустые группы не показываю
   const groups = settingsGroups(settingsNavItems(actor(['catalog.edit'])))
 
   expect(groups.map((group) => group.title)).toEqual(['Зал'])
-  expect(groups[0]?.items.map((item) => item.href)).toEqual(['/trainer/machines'])
+  expect(groups[0]?.items.map((item) => item.href)).toEqual([
+    '/trainer/machines',
+    '/trainer/settings/zones',
+  ])
 })
 
 test('у каждого пункта меню есть иконка и подпись для ПК', () => {

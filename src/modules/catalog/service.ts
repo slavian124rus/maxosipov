@@ -18,6 +18,7 @@ import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
 import { media } from '@/shared/db/schema'
 import { exercises, machines, type Exercise, type Machine, type OverlayProfile } from './schema'
+import { ensureZone } from './zones'
 import type { MuscleCode } from './muscles'
 import { slugify } from './slug'
 import {
@@ -174,6 +175,8 @@ export async function createMachine(actor: Actor, input: MachineInput): Promise<
   const data = machineInputSchema.parse(input)
   await assertMachinePhoto(data.photoMediaId)
   const gym = await getGym()
+  // Свободно вписанная зона попадает в справочник, чтобы её было видно в настройках.
+  if (data.zone) await ensureZone(data.zone)
 
   const [row] = await db
     .insert(machines)
@@ -198,6 +201,7 @@ export async function updateMachine(
   assertCan(actor, 'catalog.edit')
   const data = machineInputSchema.parse(input)
   await assertMachinePhoto(data.photoMediaId)
+  if (data.zone) await ensureZone(data.zone)
 
   const [row] = await db
     .update(machines)

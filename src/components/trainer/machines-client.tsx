@@ -19,13 +19,15 @@ type Props = {
   counts: Record<string, number>
   /** Все упражнения (с черновиками и архивными) — по ним решается, можно ли удалить. */
   exerciseTotals: Record<string, number>
+  /** Справочник зон из настроек — подсказки в форме тренажёра. */
+  zones: string[]
 }
 
 /**
  * Экран «Тренажёры» (DESIGN.md §8.9): дерево зона → тренажёр и лист снизу,
  * в котором тренажёр создаётся или правится (название, зона, шаг веса, фото).
  */
-export function MachinesClient({ machines, counts, exerciseTotals }: Props) {
+export function MachinesClient({ machines, counts, exerciseTotals, zones }: Props) {
   const [editing, setEditing] = useState<MachineListItem | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -43,15 +45,20 @@ export function MachinesClient({ machines, counts, exerciseTotals }: Props) {
     [machines, counts],
   )
 
-  /** Зоны зала — подсказки в форме, чтобы не плодить «Спина» и «спина». */
-  const zones = useMemo(() => {
-    const unique = new Set<string>()
+  /**
+   * Зоны для подсказок: справочник из настроек плюс те, что уже стоят у тренажёров
+   * (на случай, если зону вписали раньше). Дубликаты и пустые убираем.
+   */
+  const zoneChoices = useMemo(() => {
+    const unique = new Set<string>(zones)
+
     for (const machine of machines) {
       const zone = machine.zone?.trim()
       if (zone) unique.add(zone)
     }
+
     return [...unique].sort((a, b) => a.localeCompare(b, 'ru'))
-  }, [machines])
+  }, [machines, zones])
 
   const open = creating || editing !== null
 
@@ -104,7 +111,7 @@ export function MachinesClient({ machines, counts, exerciseTotals }: Props) {
             <MachineForm
               key={editing?.id ?? 'new'}
               machine={editing}
-              zones={zones}
+              zones={zoneChoices}
               exerciseCount={editing ? (exerciseTotals[editing.id] ?? 0) : 0}
               onSaved={close}
               onDeleted={close}

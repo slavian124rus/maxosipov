@@ -30,6 +30,28 @@ export const machines = pgTable('machines', {
 export type Machine = typeof machines.$inferSelect
 export type NewMachine = typeof machines.$inferInsert
 
+/**
+ * Зоны тренажёров — справочник зала (Кардио, Ноги, Спина…). Тренер ведёт его
+ * в настройках: переименование обновляет `machines.zone`, поэтому группировка
+ * дерева не ломается.
+ */
+export const machineZones = pgTable(
+  'machine_zones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gymId: uuid('gym_id').notNull(),
+    name: text('name').notNull(),
+    /** Порядок в списках; при равенстве — по алфавиту. */
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('machine_zones_gym_name_unique').on(table.gymId, table.name)],
+)
+
+export type MachineZone = typeof machineZones.$inferSelect
+export type NewMachineZone = typeof machineZones.$inferInsert
+
 /** Упражнение каталога. Публикуется только с готовым видео, мышцами и шагами. */
 export const exercises = pgTable(
   'exercises',

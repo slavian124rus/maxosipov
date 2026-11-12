@@ -5,7 +5,7 @@ import path from 'node:path'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { addDays, addMonthsClamped, subscriptions, type SubscriptionStatus } from '@/modules/access'
 import { users, type NewUser } from '@/modules/auth'
-import { MUSCLES, exercises, machines, muscles, svgLayerId, type MuscleCode } from '@/modules/catalog'
+import { MUSCLES, exercises, machines, machineZones, muscles, svgLayerId, type MuscleCode } from '@/modules/catalog'
 import { bodyMeasurements } from '@/modules/body'
 import { dayKey } from '@/shared/dates'
 import { gyms, type GymBrand, type GymSettings } from '@/modules/gym'
@@ -514,7 +514,31 @@ export async function runSeed(options: SeedOptions): Promise<SeedResult> {
     createdUsers = 2 + DEV_CLIENT_PHONES.length
   }
 
+  // Зоны тренажёров — из уже заведённых тренажёров (идемпотентно).
+  await ensureZonesFromMachines(gymId)
+
   return { gymId, roles: roleIds.size, users: createdUsers }
+}
+/**
+ * Зоны тренажёров в справочник: берём те, что уже стоят у тренажёров (идемпотентно).
+ * Нужно и на свежей базе, и после появления `machine_zones` на действующей.
+ */
+async function ensureZonesFromMachines(gymId: string): Promise<void> {
+  const rows = await db
+    .selectDistinct({ zone: machines.zone })
+    .from(machines)
+    .where(and(eq(machines.gymId, gymId), isNull(machines.archivedAt)))
+
+  const names = rows
+    .map((row) => row.zone?.trim())
+    .filter((name): name is string => Boolean(name))
+
+  if (names.length === 0) return
+
+  await db
+    .insert(machineZones)
+    .values(names.map((name) => ({ gymId, name })))
+    .onConflictDoNothing({ target: [machineZones.gymId, machineZones.name] })
 }
 
 async function main(): Promise<void> {

@@ -182,7 +182,11 @@
 
 **Каталог**
 - `muscles`: code (например `chest`, `lats`), name_ru, view (`front` | `back`), svg_layer_id. Фиксированный справочник (DESIGN.md §6.3), заполняется сидом.
-- `machines`: gym_id, name, photo_media_id, zone, weight_step_kg (например 5 или 2.5), weight_unit_note.
+- `machines`: gym_id, name, photo_media_id, zone, weight_step_kg (например 5 или 2.5; `0` — «без веса», кардио), weight_unit_note.
+- `machine_zones`: gym_id, name, sort_order — справочник зон зала (Кардио, Ноги, Спина…), ведётся в `Ещё → Зоны тренажёров`.
+  `machines.zone` хранит имя зоны текстом, чтобы группировка дерева не зависела от справочника; переименование зоны
+  обновляет и `machines.zone` у её тренажёров, а зона, вписанная в форме тренажёра, попадает в справочник сама
+  (`ensureZone`). Удалить можно только пустую зону.
 - `exercises`: gym_id, machine_id (nullable — свободные веса), name, slug, primary_muscles[], secondary_muscles[], video_media_id, overlay_profile (`none` | `pull_vertical` | `pull_horizontal`), steps[] (как делать), mistakes[], tips, default_rep_min, default_rep_max, status (`draft` | `published`). Условие публикации: ≥ 1 основная мышца + ≥ 1 шаг + (**готовое видео ИЛИ фото тренажёра**).
 - `media`: kind (`exercise_video` | `photo` | `progress_photo` | `machine_photo`), original_path, processed_paths (json: mp4, webm, poster, muscles_mp4?, photo, thumb), status (`uploaded` | `processing` | `ready` | `failed`), error, owner_id. `machine_photo` — фото тренажёра из `machines.photo_media_id`: оно заменяет видео в карточке упражнения, пока ролик не снят. `kind` — обычный `text` без CHECK-ограничения, поэтому новый вид файла миграции не требует.
 

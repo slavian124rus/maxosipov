@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useChunkedUpload } from '@/components/upload/use-chunked-upload'
-import { formatStep } from '@/components/trainer/machine-values'
+import { formatStep, isNoWeight, parseWeightStep } from '@/components/trainer/machine-values'
 import { exercisesLabel } from '@/shared/plural'
 import type { MachineListItem } from '@/modules/catalog'
 import {
@@ -71,8 +72,18 @@ export function MachineForm({
 
   // Форма пересоздаётся под каждый тренажёр (key у родителя), поэтому поля не сбрасываем вручную.
   useEffect(() => {
-    if (state.ok) onSaved?.()
-  }, [state.ok, state.id, onSaved])
+    if (!state.ok) return
+
+    // Лист закрывается сразу, поэтому подтверждение показываем тостом, а не строкой в форме.
+    toast.success(machine ? 'Тренажёр сохранён' : 'Тренажёр добавлен', {
+      description: name || undefined,
+    })
+    onSaved?.()
+  }, [state.ok, state.id, onSaved, machine, name])
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error)
+  }, [state])
 
   // Локальный превью-файл живёт только пока форма открыта.
   useEffect(
@@ -151,14 +162,26 @@ export function MachineForm({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="machine-step">Шаг веса, кг</Label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setStep('0')}
+            aria-pressed={step === '0' || step === '0,0'}
+            className={`min-h-11 rounded-control border px-3 text-[15px] ${
+              isNoWeight(parseWeightStep(step))
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
+          >
+            Без веса
+          </button>
           {STEP_CHOICES.map((choice) => (
             <button
               key={choice}
               type="button"
               onClick={() => setStep(choice)}
               aria-pressed={step === choice}
-              className={`min-h-11 flex-1 rounded-control border text-[15px] ${
+              className={`min-h-11 w-16 rounded-control border text-[15px] ${
                 step === choice
                   ? 'border-accent bg-surface-2 text-text'
                   : 'border-border bg-surface-1 text-text-secondary'
@@ -169,13 +192,18 @@ export function MachineForm({
           ))}
           <Input
             id="machine-step"
+            aria-label="Свой шаг веса"
             inputMode="decimal"
             value={step}
             onChange={(event) => setStep(event.target.value.replace(/[^\d.,]/g, ''))}
             className="w-24"
           />
         </div>
-        <p className="text-[13px] text-text-muted">Клиент будет прибавлять вес с этим шагом.</p>
+        <p className="text-[13px] text-text-muted">
+          {isNoWeight(parseWeightStep(step))
+            ? 'Вес не задаётся — подходит для кардио: дорожка, велотренажёр, эллипс.'
+            : 'Клиент будет прибавлять вес с этим шагом.'}
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">

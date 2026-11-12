@@ -57,6 +57,12 @@ test('касание тренажёра открывает его правку',
   expect(onEdit).toHaveBeenCalledWith('m3')
 })
 
+test('machineMeta: «без веса» для кардио вместо «шаг 0 кг»', () => {
+  expect(machineMeta({ ...MACHINES[1]!, weightStepKg: 0, thumbUrl: '/t.webp' })).toBe(
+    'без веса · в каталоге пока нет',
+  )
+})
+
 test('machineMeta: шаг, упражнения и состояние фото', () => {
   expect(machineMeta(MACHINES[0]!)).toBe('шаг 5 кг · 2 в каталоге')
   expect(machineMeta({ ...MACHINES[1]!, photoStatus: 'processing' })).toBe(

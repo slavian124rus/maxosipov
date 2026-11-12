@@ -1,14 +1,16 @@
 export { MUSCLES, isMuscleCode, muscleName, muscleView, svgLayerId } from './muscles'
 export type { MuscleCode, MuscleDefinition, MuscleView } from './muscles'
 
-export { muscles, machines, exercises } from './schema'
+export { muscles, machines, machineZones, exercises } from './schema'
 export type {
   Exercise,
   ExerciseStatus,
   Machine,
+  MachineZone,
   Muscle,
   NewExercise,
   NewMachine,
+  NewMachineZone,
   OverlayProfile,
 } from './schema'
 
@@ -43,5 +45,15 @@ export type {
   MachineExerciseCount,
   MachineListItem,
 } from './service'
+
+export {
+  createZone,
+  deleteZone,
+  ensureZone,
+  listZoneNames,
+  listZones,
+  renameZone,
+} from './zones'
+export type { MachineZoneItem } from './zones'
 
 

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
-import { countMachineExercises, listMachinesWithPhotos } from '@/modules/catalog'
+import { countMachineExercises, listMachinesWithPhotos, listZoneNames } from '@/modules/catalog'
 import { MachinesClient } from '@/components/trainer/machines-client'
 import { TrainerPage } from '@/components/trainer/page'
 
@@ -12,9 +12,10 @@ export default async function TrainerMachinesPage() {
   const { actor } = await requireUser()
   if (!can(actor, 'catalog.edit')) notFound()
 
-  const [machines, counts] = await Promise.all([
+  const [machines, counts, zoneNames] = await Promise.all([
     listMachinesWithPhotos(),
     countMachineExercises(),
+    listZoneNames(),
   ])
 
   // `published` — подпись «N в каталоге», `total` (с черновиками) — можно ли удалить.
@@ -27,7 +28,12 @@ export default async function TrainerMachinesPage() {
 
   return (
     <TrainerPage>
-      <MachinesClient machines={machines} counts={published} exerciseTotals={total} />
+      <MachinesClient
+        machines={machines}
+        counts={published}
+        exerciseTotals={total}
+        zones={zoneNames}
+      />
     </TrainerPage>
   )
 }

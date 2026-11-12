@@ -22,6 +22,7 @@ import { parseWeightStep } from '@/components/trainer/machine-values'
 import { setProcessingOptions } from '@/modules/media'
 import { assertCan } from '@/modules/rbac'
 import type { MuscleCode } from '@/shared/muscles'
+import { readableError } from '@/shared/form-error'
 
 export type SaveExerciseState = { error: string | null; id: string | null; notice?: string | null }
 
@@ -109,7 +110,7 @@ export async function saveExerciseAction(
         : null,
     }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Не удалось сохранить', id: null }
+    return { error: readableError(error, 'Не удалось сохранить'), id: null }
   }
 }
 
@@ -223,7 +224,7 @@ export async function saveMachineAction(
     return { error: null, ok: true, id: machine.id }
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Не удалось сохранить',
+      error: readableError(error, 'Не удалось сохранить тренажёр'),
       ok: false,
       id: null,
     }
@@ -244,7 +245,7 @@ export async function deleteMachineAction(
     await deleteMachine(actor, id)
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Тренажёр не удалён',
+      error: readableError(error, 'Тренажёр не удалён'),
       ok: false,
       id: null,
     }
@@ -274,7 +275,6 @@ export async function unpublishAction(formData: FormData): Promise<void> {
 }
 
 export type ArchiveExerciseState = { error: string | null; archived: boolean }
-
 /**
  * Убирает упражнение из каталога в архив (CLAUDE.md, правило 6): история подходов остаётся,
  * вернуть можно только запросом в БД — поэтому в интерфейсе это «удалить».
