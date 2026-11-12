@@ -1,8 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { disable, freeze, grant, unfreeze } from '@/modules/access'
+import { disable, formatDayRu, freeze, grant, unfreeze } from '@/modules/access'
 import { requireUser } from '@/modules/auth'
+import { getGym } from '@/modules/gym'
+import { INITIAL_GRANT_STATE, type GrantState } from './grant-state'
 
 const PAGE = '/trainer/subscriptions'
 
@@ -18,40 +20,66 @@ function optionalText(value: FormDataEntryValue | null): string | undefined {
   return raw || undefined
 }
 
-export async function grantMonthsAction(formData: FormData): Promise<void> {
+/**
+ * Продление подписки из кабинета (DESIGN.md §8.9): на месяцы или до даты.
+ * Возвращает дату окончания, чтобы форма показала «Выдано до …», а не молча закрылась.
+ */
+export async function grantSubscriptionAction(
+  _prev: GrantState,
+  formData: FormData,
+): Promise<GrantState> {
   const { actor } = await requireUser()
-  const userId = String(formData.get('userId'))
-  const months = Number(formData.get('months')) as 1 | 3 | 6 | 12
+  const userId = String(formData.get('userId') ?? '')
+  if (!userId) return { ...INITIAL_GRANT_STATE, error: 'Не выбран клиент' }
 
-  await grant(actor, userId, {
-    months,
-    ...(optionalNumber(formData.get('priceRub')) !== undefined
-      ? { priceRub: optionalNumber(formData.get('priceRub'))! }
-      : {}),
-    ...(optionalText(formData.get('note')) ? { note: optionalText(formData.get('note'))! } : {}),
-  })
+  const monthsRaw = String(formData.get('months') ?? '').trim()
+  const untilRaw = String(formData.get('untilDate') ?? '').trim()
 
-  revalidatePath(PAGE)
-}
+  try {
+    const priceRub = optionalNumber(formData.get('priceRub'))
+    const note = optionalText(formData.get('note'))
+    const extra = {
+      ...(priceRub !== undefined ? { priceRub } : {}),
+      ...(note ? { note } : {}),
+    }
 
-export async function grantUntilAction(formData: FormData): Promise<void> {
-  const { actor } = await requireUser()
-  const userId = String(formData.get('userId'))
-  const raw = String(formData.get('untilDate') ?? '')
+    let row
+    let months: number | null = null
 
-  // Дата из поля `date` — считаем полднем по Красноярску, чтобы не прыгать на сутки.
-  const untilDate = new Date(`${raw}T12:00:00+07:00`)
-  if (Number.isNaN(untilDate.getTime())) throw new Error('Неверная дата')
+    if (monthsRaw) {
+      months = Number(monthsRaw)
+      row = await grant(actor, userId, {
+        months: months as 1 | 3 | 6 | 12,
+        ...extra,
+      })
+    } else if (untilRaw) {
+      // Дата из поля `date` — полдень по Красноярску, чтобы не прыгать на сутки.
+      const untilDate = new Date(`${untilRaw}T12:00:00+07:00`)
+      if (Number.isNaN(untilDate.getTime())) {
+        return { ...INITIAL_GRANT_STATE, error: 'Неверная дата' }
+      }
+      row = await grant(actor, userId, { untilDate, ...extra })
+    } else {
+      return { ...INITIAL_GRANT_STATE, error: 'Укажи срок продления' }
+    }
 
-  await grant(actor, userId, {
-    untilDate,
-    ...(optionalNumber(formData.get('priceRub')) !== undefined
-      ? { priceRub: optionalNumber(formData.get('priceRub'))! }
-      : {}),
-    ...(optionalText(formData.get('note')) ? { note: optionalText(formData.get('note'))! } : {}),
-  })
+    const gym = await getGym()
+    revalidatePath(PAGE)
+    revalidatePath(`/trainer/clients/${userId}`)
+    revalidatePath('/trainer')
 
-  revalidatePath(PAGE)
+    return {
+      error: null,
+      untilLabel: `Выдано до ${formatDayRu(row.endsAt, gym.timezone)}`,
+      months,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    return {
+      ...INITIAL_GRANT_STATE,
+      error: /[а-яё]/i.test(message) ? message : 'Не удалось продлить подписку',
+    }
+  }
 }
 
 export async function freezeAction(formData: FormData): Promise<void> {

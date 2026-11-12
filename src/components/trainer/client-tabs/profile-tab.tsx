@@ -1,11 +1,23 @@
 import Link from 'next/link'
+import { accessPreviewLabel, grantPreviewLabel, type AccessState } from '@/modules/access'
 import type { ClientCard } from '@/modules/trainer'
+import { GrantSubscription, type GrantOption } from '@/components/trainer/grant-subscription'
 import {
   disableAction,
   freezeAction,
-  grantMonthsAction,
   unfreezeAction,
 } from '@/app/(app)/app/trainer/subscriptions/actions'
+
+const TZ = 'Asia/Krasnoyarsk'
+
+/** Варианты продления с точной датой: считаем на сервере по поясу зала. */
+function grantOptions(access: AccessState, months: readonly (1 | 3 | 6 | 12)[]): GrantOption[] {
+  return months.map((value) => ({
+    months: value,
+    label: `+${value} мес`,
+    untilLabel: grantPreviewLabel(access, value, TZ),
+  }))
+}
 
 const GOAL: Record<string, string> = {
   strength: 'Сила',
@@ -70,42 +82,47 @@ export function ProfileTab({ card }: { card: ClientCard }) {
         </p>
 
         {card.permissions.grantSubscription ? (
-          <div className="flex flex-wrap gap-2">
-            {[1, 3].map((months) => (
-              <form key={months} action={grantMonthsAction}>
+          <div className="flex flex-col gap-3">
+            <GrantSubscription
+              clientId={card.id}
+              clientName={card.name}
+              currentLabel={accessPreviewLabel(card.access, TZ)}
+              options={grantOptions(card.access, [1, 3])}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              {card.access.status === 'frozen' ? (
+                <form action={unfreezeAction}>
+                  <input type="hidden" name="userId" value={card.id} />
+                  <button
+                    type="submit"
+                    className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text"
+                  >
+                    Разморозить
+                  </button>
+                </form>
+              ) : (
+                <form action={freezeAction}>
+                  <input type="hidden" name="userId" value={card.id} />
+                  <button
+                    type="submit"
+                    className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text"
+                  >
+                    Заморозить
+                  </button>
+                </form>
+              )}
+
+              <form action={disableAction}>
                 <input type="hidden" name="userId" value={card.id} />
-                <input type="hidden" name="months" value={months} />
                 <button
                   type="submit"
-                  className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text"
+                  className="h-11 rounded-control border border-border px-3 text-[15px] text-danger"
                 >
-                  +{months} мес
+                  Отключить
                 </button>
               </form>
-            ))}
-
-            {card.access.status === 'frozen' ? (
-              <form action={unfreezeAction}>
-                <input type="hidden" name="userId" value={card.id} />
-                <button type="submit" className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text">
-                  Разморозить
-                </button>
-              </form>
-            ) : (
-              <form action={freezeAction}>
-                <input type="hidden" name="userId" value={card.id} />
-                <button type="submit" className="h-11 rounded-control bg-surface-2 px-3 text-[15px] text-text">
-                  Заморозить
-                </button>
-              </form>
-            )}
-
-            <form action={disableAction}>
-              <input type="hidden" name="userId" value={card.id} />
-              <button type="submit" className="h-11 rounded-control border border-border px-3 text-[15px] text-danger">
-                Отключить
-              </button>
-            </form>
+            </div>
           </div>
         ) : null}
 

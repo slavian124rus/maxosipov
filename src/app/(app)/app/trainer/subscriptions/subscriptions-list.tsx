@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetContent,
@@ -19,13 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  disableAction,
-  freezeAction,
-  grantMonthsAction,
-  grantUntilAction,
-  unfreezeAction,
-} from './actions'
+import { GrantSubscription, type GrantOption } from '@/components/trainer/grant-subscription'
+import { disableAction, freezeAction, unfreezeAction } from './actions'
 
 export type SubscriptionRowView = {
   id: string
@@ -35,6 +28,10 @@ export type SubscriptionRowView = {
   endsAtLabel: string | null
   tone: 'normal' | 'warning' | 'danger'
   isFrozen: boolean
+  /** «сейчас до 5 декабря 2026» / «доступа нет» — для подтверждения продления. */
+  currentLabel: string
+  /** Варианты продления с датой окончания, посчитанной на сервере. */
+  grantOptions: GrantOption[]
   history: { id: string; label: string; date: string }[]
 }
 
@@ -116,52 +113,15 @@ export function SubscriptionsList({
 
           {selected ? (
             <div className="flex flex-col gap-4 px-4 pb-6">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="priceRub">Цена, ₽</Label>
-                <Input
-                  id="priceRub"
-                  name="priceRub"
-                  form="grant-months-form"
-                  inputMode="numeric"
-                  defaultValue={defaultPrice ?? ''}
-                />
-                <Label htmlFor="note">Заметка</Label>
-                <Input
-                  id="note"
-                  name="note"
-                  form="grant-months-form"
-                  placeholder="Оплатил наличными"
-                />
-              </div>
-
-              <form
-                id="grant-months-form"
-                action={grantMonthsAction}
-                className="flex flex-col gap-2"
-              >
-                <input type="hidden" name="userId" value={selected.id} />
-                <div className="flex gap-2">
-                  {([1, 3] as const).map((months) => (
-                    <Button key={months} type="submit" name="months" value={months} className="flex-1">
-                      +{months} мес
-                    </Button>
-                  ))}
-                </div>
-                <Button type="submit" name="months" value={6} variant="secondary">
-                  +6 мес
-                </Button>
-              </form>
-
-              <form action={grantUntilAction} className="flex items-end gap-2">
-                <input type="hidden" name="userId" value={selected.id} />
-                <div className="flex flex-1 flex-col gap-2">
-                  <Label htmlFor="untilDate">До даты</Label>
-                  <Input id="untilDate" name="untilDate" type="date" required />
-                </div>
-                <Button type="submit" variant="secondary">
-                  Выдать
-                </Button>
-              </form>
+              <GrantSubscription
+                clientId={selected.id}
+                clientName={selected.name}
+                currentLabel={selected.currentLabel}
+                options={selected.grantOptions}
+                withPrice
+                defaultPrice={defaultPrice}
+                withUntilDate
+              />
 
               <div className="flex gap-2">
                 {selected.isFrozen ? (

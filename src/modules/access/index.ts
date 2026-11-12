@@ -1,4 +1,5 @@
 export { addDays, addMonthsClamped } from './dates'
+export { accessPreviewLabel, formatDayRu, grantPreviewLabel } from './format'
 
 export { computeAccess } from './compute'
 export type { AccessState, SubscriptionRow } from './compute'

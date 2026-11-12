@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { listSubscriptionsForActor, type SubscriptionFilter } from '@/modules/access'
+import { accessPreviewLabel, grantPreviewLabel } from '@/modules/access'
 import { formatContact, requireUser } from '@/modules/auth'
 import { getGym } from '@/modules/gym'
 import { can } from '@/modules/rbac'
 import { PageHeader, TrainerPage } from '@/components/trainer/page'
+import type { GrantOption } from '@/components/trainer/grant-subscription'
 import { SubscriptionsList, type SubscriptionRowView } from './subscriptions-list'
 
 // Список зависит от сессии и фильтров.
@@ -68,6 +70,13 @@ export default async function TrainerSubscriptionsPage({
     endsAtLabel: access.endsAt ? formatDateRu(access.endsAt) : null,
     tone: !access.hasAccess ? 'danger' : (access.daysLeft ?? 99) <= 7 ? 'warning' : 'normal',
     isFrozen: access.status === 'frozen',
+    /** Подписи для подтверждения продления: текущий доступ и дата после продления. */
+    currentLabel: accessPreviewLabel(access, gym.timezone),
+    grantOptions: ([1, 3, 6] as const).map<GrantOption>((months) => ({
+      months,
+      label: `+${months} мес`,
+      untilLabel: grantPreviewLabel(access, months, gym.timezone),
+    })),
     history: events.map((event) => ({
       id: event.id,
       label: EVENT_LABELS[event.type] ?? event.type,
