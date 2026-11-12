@@ -161,6 +161,49 @@ test('клиент применяет патч к своей программе,
   expect(changes[0]?.actorId).toBe(client.id)
 })
 
+test('delete_day удаляет день с упражнениями из базы и пишет историю', async () => {
+  const program = await copyTemplateToClient(client, templateId, client.id, gymId)
+  const firstDayId = program.days[0]!.id
+
+  // Добавили второй день, чтобы проверить переиндексацию оставшегося.
+  const withSecond = await applyProgramPatchAs(
+    client,
+    program.id,
+    { ops: [{ op: 'add_day', name: 'День B — ноги' }] },
+    'client',
+  )
+  const secondDayId = withSecond.days[1]!.id
+
+  const next = await applyProgramPatchAs(
+    client,
+    program.id,
+    { ops: [{ op: 'delete_day', dayId: firstDayId }] },
+    'client',
+  )
+
+  expect(next.days).toHaveLength(1)
+  expect(next.days[0]?.id).toBe(secondDayId)
+  expect(next.days[0]?.order).toBe(1)
+
+  // Строки ушли из базы: день и его упражнения (каскад по внешнему ключу).
+  const days = await db.select().from(programDays).where(eq(programDays.programId, program.id))
+  expect(days.map((day) => day.id)).toEqual([secondDayId])
+
+  const items = await db
+    .select()
+    .from(programExercises)
+    .where(eq(programExercises.dayId, firstDayId))
+  expect(items).toEqual([])
+
+  // В истории — понятная строка «Убран день: …».
+  const changes = await db
+    .select()
+    .from(programChanges)
+    .where(eq(programChanges.programId, program.id))
+  const lastDiff = changes.at(-1)?.diff as { text: string }[]
+  expect(lastDiff.map((line) => line.text)).toContain('Убран день: День A — спина и бицепс')
+})
+
 test('клиент не может менять чужую программу', async () => {
   const program = await copyTemplateToClient(otherClient, templateId, otherClient.id, gymId)
 

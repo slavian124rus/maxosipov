@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type { ProgramTree } from '@/modules/training'
 import { ProgramEditor, type CatalogItem } from './program-editor'
@@ -23,6 +23,22 @@ vi.mock('@/app/(app)/app/trainer/programs/actions', () => ({
 
 vi.mock('sonner', () => ({
   toast: { success: () => {}, error: () => {} },
+}))
+
+// Диалоги Radix портируют содержимое в body — подменяем простым условием по `open`.
+const dialog = vi.hoisted(() => ({ open: false }))
+
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ open, children }: { open?: boolean; children: React.ReactNode }) => {
+    dialog.open = Boolean(open)
+    return <div>{children}</div>
+  },
+  DialogContent: ({ children }: { children: React.ReactNode }) =>
+    dialog.open ? <div role="dialog">{children}</div> : null,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
 }))
 
 const CATALOG: CatalogItem[] = [
@@ -135,3 +151,55 @@ test('пустой день подсказывает, что делать, и «
   await vi.waitFor(() => expect(server.patches).toHaveLength(1))
   expect(server.patches[0]).toEqual({ ops: [{ op: 'add_day', name: 'День 3' }] })
 })
+
+test('«Удалить день» спрашивает подтверждение и отправляет delete_day', async () => {
+  render(<ProgramEditor program={PROGRAM} catalog={CATALOG} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить день' }))
+
+  const dialogBox = screen.getByRole('dialog')
+  expect(dialogBox.textContent).toContain('Удалить день «День 1 — ноги»?')
+  // В дне одно упражнение — предупреждаем, что оно уйдёт вместе с днём.
+  expect(dialogBox.textContent).toContain('1 упражнение')
+  expect(dialogBox.textContent).toContain('останутся в истории')
+
+  // Кнопка в диалоге, а не в шапке дня.
+  fireEvent.click(within(dialogBox).getByRole('button', { name: 'Удалить день' }))
+
+  await vi.waitFor(() => expect(server.patches).toHaveLength(1))
+  expect(server.patches[0]).toEqual({ ops: [{ op: 'delete_day', dayId: 'day-1' }] })
+})
+
+test('после удаления дня редактор переключается на соседний день', async () => {
+  render(<ProgramEditor program={PROGRAM} catalog={CATALOG} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить день' }))
+  const buttons = screen.getAllByRole('button', { name: 'Удалить день' })
+  fireEvent.click(buttons[buttons.length - 1]!)
+
+  // Первый день исчез — показан второй, а не пустой экран.
+  await vi.waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'День 2 — спина' })).toBeTruthy(),
+  )
+  expect(screen.getByText('В этом дне пока нет упражнений — добавь ниже')).toBeTruthy()
+})
+
+test('«Отмена» в удалении дня ничего не удаляет', () => {
+  render(<ProgramEditor program={PROGRAM} catalog={CATALOG} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить день' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+
+  expect(screen.getByRole('heading', { name: 'День 1 — ноги' })).toBeTruthy()
+  expect(server.patches).toHaveLength(0)
+})
+
+test('в предупреждении про последний день сказано, что дней не останется', () => {
+  const single: ProgramTree = { ...PROGRAM, days: [PROGRAM.days[0]!] }
+  render(<ProgramEditor program={single} catalog={CATALOG} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить день' }))
+
+  expect(screen.getByRole('dialog').textContent).toContain('Это последний день')
+})
+

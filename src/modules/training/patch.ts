@@ -83,6 +83,11 @@ const opSchema = z.discriminatedUnion('op', [
     afterDayId: id.optional(),
   }),
   z.object({ op: z.literal('rename_day'), dayId: id, name: z.string().trim().min(1).max(80) }),
+  /**
+   * Удаление дня вместе с его упражнениями. Уже выполненные тренировки остаются:
+   * `workout_sessions.program_day_id` — просто uuid без внешнего ключа, история не рушится.
+   */
+  z.object({ op: z.literal('delete_day'), dayId: id }),
 ])
 
 /** Патч программы — 1–20 операций, проверяется до показа клиенту. */
@@ -240,6 +245,12 @@ export function applyPatch(
 
     if (op.op === 'rename_day') {
       findDay(next, op.dayId).name = op.name
+    }
+
+    if (op.op === 'delete_day') {
+      // `findDay` нужен до фильтра: на опечатку в id лучше ошибка, чем «ничего не произошло».
+      const day = findDay(next, op.dayId)
+      next.days = next.days.filter((item) => item.id !== day.id)
     }
   }
 

@@ -18,10 +18,19 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { formatScheme } from '@/shared/scheme'
+import { exercisesLabel } from '@/shared/plural'
 import type { ProgramPatch, ProgramTree, ProgramTreeDay } from '@/modules/training'
 import { patchProgramAction, saveAsTemplateAction } from '@/app/(app)/app/trainer/programs/actions'
 import { AddExercise } from './editor-scheme'
@@ -117,6 +126,7 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
   const [activeDayId, setActiveDayId] = useState<string | null>(program.days[0]?.id ?? null)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -187,6 +197,24 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
 
     setRenaming(false)
     run({ ops: [{ op: 'rename_day', dayId: day.id, name }] })
+  }
+
+  /**
+   * Удаление дня вместе с упражнениями. Сразу переключаемся на соседний день, чтобы
+   * после исчезновения активного не «прыгать» в начало списка; при ошибке сервера
+   * `run` вернёт дни как в базе.
+   */
+  function deleteDay(): void {
+    if (!day) return
+
+    const index = days.findIndex((item) => item.id === day.id)
+    const neighbour = days[index + 1] ?? days[index - 1] ?? null
+
+    setDeleting(false)
+    setRenaming(false)
+    setActiveDayId(neighbour?.id ?? null)
+    setDays((items) => items.filter((item) => item.id !== day.id))
+    run({ ops: [{ op: 'delete_day', dayId: day.id }] })
   }
 
   function saveTemplate(): void {
@@ -278,10 +306,22 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="min-w-0 truncate text-[17px] font-semibold">{day.name}</h2>
-          <Button type="button" variant="ghost" size="sm" onClick={startRename}>
-            <Pencil size={15} strokeWidth={1.75} aria-hidden />
-            Переименовать день
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={startRename}>
+              <Pencil size={15} strokeWidth={1.75} aria-hidden />
+              Переименовать день
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleting(true)}
+              className="text-danger"
+            >
+              <Trash2 size={15} strokeWidth={1.75} aria-hidden />
+              Удалить день
+            </Button>
+          </div>
         </div>
       )}
 
@@ -343,6 +383,32 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
           Сохранить как шаблон
         </Button>
       ) : null}
+
+      <Dialog open={deleting} onOpenChange={setDeleting}>
+        <DialogContent className="grid grid-cols-[minmax(0,1fr)]">
+          <DialogHeader>
+            <DialogTitle>Удалить день «{day.name}»?</DialogTitle>
+            <DialogDescription>
+              {day.exercises.length > 0
+                ? `День исчезнет вместе с упражнениями: ${exercisesLabel(day.exercises.length)}. `
+                : 'День пустой, так что пропадёт только он. '}
+              Выполненные тренировки и записанные веса клиентов останутся в истории.
+              {days.length === 1
+                ? ' Это последний день — в программе не останется ни одного, добавь новый.'
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setDeleting(false)}>
+              Отмена
+            </Button>
+            <Button type="button" variant="destructive" disabled={pending} onClick={deleteDay}>
+              {pending ? 'Удаляем…' : 'Удалить день'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

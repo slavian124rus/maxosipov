@@ -231,6 +231,40 @@ test('diffPrograms: тексты добавления, изменения и у�
   expect(lines).toContain('Добавлено: Приседания, 3 подхода · 10–12 раз')
 })
 
+test('delete_day убирает день с упражнениями и переиндексирует остальные', () => {
+  const result = applyPatch(tree(), { ops: [{ op: 'delete_day', dayId: DAY1 }] }, published)
+
+  expect(result.days).toHaveLength(1)
+  expect(result.days[0]?.id).toBe(DAY2)
+  expect(result.days[0]?.order).toBe(1)
+  // Упражнения удалённого дня ушли вместе с ним.
+  expect(result.days.flatMap((day) => day.exercises)).toHaveLength(0)
+})
+
+test('delete_day: можно удалить последний день, программа остаётся пустой', () => {
+  const result = applyPatch(
+    tree(),
+    { ops: [{ op: 'delete_day', dayId: DAY1 }, { op: 'delete_day', dayId: DAY2 }] },
+    published,
+  )
+
+  expect(result.days).toEqual([])
+})
+
+test('delete_day: несуществующий день → PatchError, дерево не меняется', () => {
+  expect(() => applyPatch(tree(), { ops: [{ op: 'delete_day', dayId: C }] }, published)).toThrow(
+    new PatchError('Дня нет в программе'),
+  )
+})
+
+test('diffPrograms: удалённый день попадает в историю как «Убран день»', () => {
+  const before = tree()
+  const after = applyPatch(before, { ops: [{ op: 'delete_day', dayId: DAY2 }] }, published)
+  const lines = diffPrograms(before, after).map((line) => line.text)
+
+  expect(lines).toContain('Убран день: День B — ноги')
+})
+
 test('diffPrograms: перестановка отмечается как moved', () => {
   const before = tree()
   const after = applyPatch(

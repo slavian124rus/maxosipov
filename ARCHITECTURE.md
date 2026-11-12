@@ -310,8 +310,11 @@ users.assign_roles          roles.manage                 analytics.view
 | `propose_program_change(patch)` | изменение текущей программы | создаёт `ai_proposals` (pending) |
 
 `ProgramPatch` — Zod-схема операций: `add_exercise`, `remove_exercise`, `replace_exercise`, `set_sets_reps`,
-`set_target_weight`, `set_note`, `reorder`, `add_day`, `rename_day`. Каждый `exerciseId` проверяется на существование
+`set_target_weight`, `set_note`, `reorder`, `add_day`, `rename_day`, `delete_day`. Каждый `exerciseId` проверяется на существование
 в каталоге и статус `published`. Невалидный патч отклоняется до показа клиенту.
+`delete_day` удаляет день вместе с упражнениями: `program_exercises.day_id` — внешний ключ с `on delete cascade`,
+а `workout_sessions.program_day_id` — просто uuid без ссылки, поэтому уже выполненные тренировки не рушатся.
+Удалённый день попадает в историю строкой «Убран день: …» (`diffPrograms`).
 Правка одного упражнения в кабинете идёт отдельной страницей `/trainer/programs/<id>/exercises/<itemId>`
 (файл `programs/[id]/exercises/[itemId]/page.tsx` + `program-editor/program-exercise.tsx`): «Сохранить»
 собирает один патч только из изменённых полей. Права на страницу те же, что на программу —
