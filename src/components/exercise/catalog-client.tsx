@@ -124,7 +124,7 @@ export function CatalogClient({ items, machines }: Props) {
         </div>
 
         {/* Те же мышцы списком: попасть в чип проще, чем в тонкий контур на фигуре. */}
-        <div role="group" aria-label="Мышцы" className="flex gap-2 overflow-x-auto pb-1">
+        <div role="group" aria-label="Мышцы" className="flex gap-2 scroll-row pb-1">
           <button
             type="button"
             onClick={() => setMuscle(null)}
@@ -177,7 +177,7 @@ export function CatalogClient({ items, machines }: Props) {
       />
 
       {machines.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 scroll-row pb-1">
           <button
             type="button"
             onClick={() => setMachineId(null)}

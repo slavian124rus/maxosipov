@@ -52,7 +52,7 @@ export default async function ProgressPage({
           </p>
         ) : (
           <>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 scroll-row pb-1">
               {trained.map((item) => (
                 <Link
                   key={item.exerciseId}

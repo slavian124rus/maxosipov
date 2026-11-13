@@ -10,7 +10,7 @@ const CHIPS = [
 /** Быстрые кнопки над полем ввода (DESIGN.md §8.6). */
 export function QuickChips({ onPick }: { onPick: (text: string) => void }) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex gap-2 scroll-row pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {CHIPS.map((chip) => (
         <button
           key={chip.label}

@@ -157,7 +157,7 @@ export default async function ClientCardPage({
           {/* Вкладки: на телефоне — чипы в строку, на ПК — вертикальное меню. */}
           <nav
             aria-label="Разделы карточки"
-            className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:rounded-card lg:border lg:border-border lg:bg-surface-1 lg:p-1.5"
+            className="flex gap-2 scroll-row pb-1 lg:flex-col lg:overflow-visible lg:rounded-card lg:border lg:border-border lg:bg-surface-1 lg:p-1.5"
           >
             {TABS.map((item) => {
               const active = activeTab === item.id

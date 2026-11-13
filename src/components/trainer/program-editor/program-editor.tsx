@@ -247,7 +247,7 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 scroll-row pb-1">
         {days.map((item) => (
           <button
             key={item.id}

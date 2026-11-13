@@ -249,7 +249,7 @@ export function ExerciseEditor({
       <div
         role="tablist"
         aria-label="Разделы упражнения"
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+        className="-mx-1 flex gap-2 scroll-row px-1 pb-1"
       >
         {TABS.filter((item) => item.id !== 'swap' || alternatives).map((item) => (
           <button

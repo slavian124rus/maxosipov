@@ -74,7 +74,7 @@ export function PhotoCompare({ photos }: Props) {
                 <span className="text-[11px] text-warning">Ссылка устарела. Обнови страницу</span>
               ) : null}
 
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 scroll-row">
                 {samePose.map((item) => {
                   const selected = key === 'before' ? item.id === before?.id : item.id === after?.id
 
