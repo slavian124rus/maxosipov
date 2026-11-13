@@ -21,8 +21,12 @@ const dayKey = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }
 function stamp(iso: string, now = new Date()): string {
   const date = new Date(iso)
   return dayKey(date) === dayKey(now)
-    ? new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(date)
-    : new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, day: 'numeric', month: 'short' }).format(date)
+    ? new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(
+        date,
+      )
+    : new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, day: 'numeric', month: 'short' }).format(
+        date,
+      )
 }
 
 const normalize = (text: string) => text.toLowerCase().replace(/ё/g, 'е')
@@ -48,12 +52,23 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg">
+    <div className="flex min-h-dvh flex-col bg-bg lg:mx-auto lg:min-h-0 lg:w-full lg:max-w-[820px]">
       <header className="flex items-center gap-2 border-b border-border px-2 py-2">
-        <Link href="/" aria-label="Назад" className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary">
+        <Link
+          href="/"
+          aria-label="Назад"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary"
+        >
           <ArrowLeft size={22} />
         </Link>
         <h1 className="text-[20px] font-semibold">МаксИИм</h1>
+        <Link
+          href="/coach/new"
+          className="ml-auto hidden h-10 items-center gap-2 rounded-control bg-accent px-4 text-[14px] text-white lg:inline-flex"
+        >
+          <Pencil size={16} aria-hidden />
+          Новый чат
+        </Link>
       </header>
 
       <div className="px-4 pt-3">
@@ -71,7 +86,7 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
 
       {error ? <p className="px-4 pt-2 text-[13px] text-danger">{error}</p> : null}
 
-      <ul className="flex flex-1 flex-col pb-28">
+      <ul className="flex flex-1 flex-col pb-28 lg:pb-0">
         {shown.length === 0 ? (
           <li className="px-4 py-10 text-center text-[15px] text-text-secondary">
             {items.length === 0 ? 'Чатов пока нет — начни первый' : 'Ничего не нашлось'}
@@ -92,7 +107,11 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
                 <span className="flex items-center gap-2">
                   <span className="truncate text-[14px] text-text-secondary">{item.lastText}</span>
                   {item.hasPending ? (
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent" role="img" aria-label="Есть предложение" />
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent"
+                      role="img"
+                      aria-label="Есть предложение"
+                    />
                   ) : null}
                 </span>
               </span>
@@ -122,7 +141,7 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
       <Link
         href="/coach/new"
         aria-label="Новый чат"
-        className="fixed right-4 bottom-[max(env(safe-area-inset-bottom),20px)] z-20 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent text-white shadow-lg"
+        className="fixed right-4 bottom-[max(env(safe-area-inset-bottom),20px)] z-20 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent text-white shadow-lg lg:hidden"
       >
         <Pencil size={22} />
       </Link>

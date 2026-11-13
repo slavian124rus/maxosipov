@@ -123,7 +123,7 @@ export function PhotosClient({ photos, canWrite }: { photos: PhotoView[]; canWri
         </section>
       ) : null}
 
-      <section className="grid grid-cols-3 gap-2">
+      <section className="grid grid-cols-3 gap-2 lg:grid-cols-4 lg:gap-2.5">
         {photos.map((photo) => (
           <div key={photo.id} className="flex flex-col gap-1">
             {photo.status === 'ready' && photo.thumbUrl ? (

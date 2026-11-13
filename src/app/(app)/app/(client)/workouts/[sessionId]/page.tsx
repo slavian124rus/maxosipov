@@ -27,12 +27,10 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
 
   if (!detail) notFound()
 
-  const durationMin = detail.finishedAt
-    ? minutesBetween(detail.startedAt, detail.finishedAt)
-    : null
+  const durationMin = detail.finishedAt ? minutesBetween(detail.startedAt, detail.finishedAt) : null
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
+    <main className="flex flex-col gap-4 px-4 py-6 lg:mx-auto lg:w-full lg:max-w-[900px] lg:px-0 lg:py-0">
       <ClientBackLink href="/workouts" label="К тренировкам" />
 
       <h1 className="text-[22px] font-semibold">
@@ -44,7 +42,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         {formatWeight(summary?.volumeKg ?? 0)} · упражнений: {detail.exercises.length}
       </p>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-3">
         {detail.exercises.map((exercise) => (
           <li
             key={exercise.exerciseId}

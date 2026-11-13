@@ -259,8 +259,8 @@ export function MyPlan({
   }
 
   return (
-    <main className="flex flex-col gap-6 px-4 py-6">
-      <header className="flex flex-col gap-1">
+    <main className="flex flex-col gap-6 px-4 py-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start xl:gap-8 lg:px-0 lg:py-0">
+      <header className="flex flex-col gap-1 xl:col-span-2">
         <h1 className="text-[22px] font-semibold">Мой план</h1>
         <p className="text-[15px] text-text-secondary">
           {programName}. Меняй под себя — Максим увидит все правки.
@@ -268,95 +268,97 @@ export function MyPlan({
       </header>
 
       {error ? (
-        <p className="rounded-card border border-warning/40 px-3 py-2 text-[14px] text-warning">
+        <p className="rounded-card border border-warning/40 px-3 py-2 text-[14px] text-warning xl:col-span-2">
           {error}
         </p>
       ) : null}
 
-      {days.length > 1 ? (
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setCollapsed(new Set())}
-            className="min-h-9 rounded-full border border-border px-3 text-[13px] text-text-secondary"
-          >
-            Развернуть всё
-          </button>
-          <button
-            type="button"
-            onClick={() => setCollapsed(new Set(days.map((day) => day.id)))}
-            className="min-h-9 rounded-full border border-border px-3 text-[13px] text-text-secondary"
-          >
-            Свернуть всё
-          </button>
-        </div>
-      ) : null}
-
-      {days.map((day) => {
-        const open = !collapsed.has(day.id)
-
-        return (
-          <section key={day.id} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-6">
+        {days.length > 1 ? (
+          <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => toggleDay(day.id)}
-              aria-expanded={open}
-              className="flex min-h-12 items-center justify-between gap-2 rounded-card border border-border bg-surface-1 px-3 py-2 text-left"
+              onClick={() => setCollapsed(new Set())}
+              className="min-h-9 rounded-full border border-border px-3 text-[13px] text-text-secondary"
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <ChevronDown
-                  size={18}
-                  className={`shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
-                  aria-hidden
-                />
-                <span className="truncate text-[17px] font-semibold">{day.name}</span>
-              </span>
-              <span className="shrink-0 text-[13px] text-text-muted">
-                {formatDuration(day.minutes)} · {day.exercises.length}
-              </span>
+              Развернуть всё
             </button>
-            {open ? (
-              <>
-                <ul className="flex flex-col gap-2">
-                  {day.exercises.map((item, index) => (
-                    <ExerciseRow
-                      key={`${item.id}-${item.exerciseId}-${item.sets}-${item.repMin}-${item.repMax}-${item.restSec}`}
-                      item={item}
-                      index={index}
-                      count={day.exercises.length}
-                      catalog={catalog}
-                      busy={pending}
-                      onPatch={patch}
-                      onMove={(delta) => move(day, index, delta)}
-                    />
-                  ))}
-                </ul>
-                <AddExercise
-                  catalog={catalog}
-                  onAdd={(exerciseId) =>
-                    patch({
-                      ops: [
-                        {
-                          op: 'add_exercise',
-                          dayId: day.id,
-                          exerciseId,
-                          sets: 3,
-                          repMin: 10,
-                          repMax: 12,
-                          restSec: 90,
-                        },
-                      ],
-                    })
-                  }
-                />
-              </>
-            ) : null}
-          </section>
-        )
-      })}
+            <button
+              type="button"
+              onClick={() => setCollapsed(new Set(days.map((day) => day.id)))}
+              className="min-h-9 rounded-full border border-border px-3 text-[13px] text-text-secondary"
+            >
+              Свернуть всё
+            </button>
+          </div>
+        ) : null}
+
+        {days.map((day) => {
+          const open = !collapsed.has(day.id)
+
+          return (
+            <section key={day.id} className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => toggleDay(day.id)}
+                aria-expanded={open}
+                className="flex min-h-12 items-center justify-between gap-2 rounded-card border border-border bg-surface-1 px-3 py-2 text-left"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
+                    aria-hidden
+                  />
+                  <span className="truncate text-[17px] font-semibold">{day.name}</span>
+                </span>
+                <span className="shrink-0 text-[13px] text-text-muted">
+                  {formatDuration(day.minutes)} · {day.exercises.length}
+                </span>
+              </button>
+              {open ? (
+                <>
+                  <ul className="flex flex-col gap-2">
+                    {day.exercises.map((item, index) => (
+                      <ExerciseRow
+                        key={`${item.id}-${item.exerciseId}-${item.sets}-${item.repMin}-${item.repMax}-${item.restSec}`}
+                        item={item}
+                        index={index}
+                        count={day.exercises.length}
+                        catalog={catalog}
+                        busy={pending}
+                        onPatch={patch}
+                        onMove={(delta) => move(day, index, delta)}
+                      />
+                    ))}
+                  </ul>
+                  <AddExercise
+                    catalog={catalog}
+                    onAdd={(exerciseId) =>
+                      patch({
+                        ops: [
+                          {
+                            op: 'add_exercise',
+                            dayId: day.id,
+                            exerciseId,
+                            sets: 3,
+                            repMin: 10,
+                            repMax: 12,
+                            restSec: 90,
+                          },
+                        ],
+                      })
+                    }
+                  />
+                </>
+              ) : null}
+            </section>
+          )
+        })}
+      </div>
 
       {history.length > 0 ? (
-        <section className="flex flex-col gap-2">
+        <aside className="flex flex-col gap-2 xl:sticky xl:top-8">
           <h2 className="text-[17px] font-semibold">Что менялось</h2>
           {history.map((change) => (
             <div key={change.id} className="rounded-control border border-border px-3 py-2">
@@ -370,7 +372,7 @@ export function MyPlan({
               ))}
             </div>
           ))}
-        </section>
+        </aside>
       ) : null}
     </main>
   )

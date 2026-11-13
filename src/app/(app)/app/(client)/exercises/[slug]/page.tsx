@@ -23,9 +23,11 @@ export default async function ExercisePage({ params }: { params: Promise<{ slug:
       <ExerciseCard exercise={exercise} />
 
       {alternatives.length > 0 ? (
-        <section className="flex flex-col gap-2 px-4 pb-6">
-          <h2 className="text-[17px] font-semibold">Можно заменить на</h2>
-          <p className="text-[13px] text-text-muted">Если тренажёр занят — Максим советует эти</p>
+        <section className="flex flex-col gap-2 px-4 pb-6 lg:grid lg:grid-cols-2 lg:gap-2.5 lg:px-0">
+          <h2 className="text-[17px] font-semibold lg:col-span-2">Можно заменить на</h2>
+          <p className="text-[13px] text-text-muted lg:col-span-2">
+            Если тренажёр занят — Максим советует эти
+          </p>
           {alternatives.map((alt) => (
             <Link
               key={alt.id}

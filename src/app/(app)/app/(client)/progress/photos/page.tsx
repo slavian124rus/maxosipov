@@ -16,7 +16,7 @@ export default async function ProgressPhotosPage() {
   const photos = await listProgressPhotos(actor, user.id)
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6">
+    <main className="flex flex-col gap-4 px-4 py-6 lg:mx-auto lg:w-full lg:max-w-[1000px] lg:px-0 lg:py-0">
       <ClientBackLink href="/progress" label="К прогрессу" />
       <h1 className="text-[22px] font-semibold">Фото прогресса</h1>
 

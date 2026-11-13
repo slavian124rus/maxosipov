@@ -83,7 +83,9 @@ export function FreeMode({
 
   /** После решения про вес открываем следующее незавершённое упражнение. */
   function advanceFrom(exercise: WorkoutExercise): void {
-    const index = exercises.findIndex((item) => item.programExerciseId === exercise.programExerciseId)
+    const index = exercises.findIndex(
+      (item) => item.programExerciseId === exercise.programExerciseId,
+    )
     const next = exercises
       .slice(index + 1)
       .find((item) => (logged[item.programExerciseId]?.length ?? 0) < item.sets)
@@ -92,7 +94,7 @@ export function FreeMode({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
       {exercises.map((exercise) => {
         const done = logged[exercise.programExerciseId] ?? []
         const complete = done.length >= exercise.sets
@@ -111,37 +113,42 @@ export function FreeMode({
                 onClick={() => setActiveId(isActive ? null : exercise.programExerciseId)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
-              {exercise.posterUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка
-                <img
-                  src={exercise.posterUrl}
-                  alt=""
-                  width={62}
-                  height={62}
-                  className="h-[62px] w-[62px] rounded-[14px] object-cover"
-                />
-              ) : (
-                <div className="h-[62px] w-[62px] rounded-[14px] bg-surface-2" />
-              )}
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[17px]">
-                  {complete ? '✓ ' : ''}
-                  {exercise.name}
-                </span>
-                <span className="text-[13px] text-text-muted">
-                  {formatScheme(exercise.sets, exercise.repMin, exercise.repMax, exercise.restSec)}
-                  {exercise.loadType === 'bodyweight'
-                    ? ' · свой вес'
-                    : exercise.planWeightKg
-                      ? ` · план ${formatWeight(exercise.planWeightKg)}`
-                      : ''}
-                </span>
-                {exercise.recommendation ? (
-                  <span className="truncate text-[13px] text-text-secondary">
-                    {exercise.recommendation.text}
+                {exercise.posterUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка
+                  <img
+                    src={exercise.posterUrl}
+                    alt=""
+                    width={62}
+                    height={62}
+                    className="h-[62px] w-[62px] rounded-[14px] object-cover"
+                  />
+                ) : (
+                  <div className="h-[62px] w-[62px] rounded-[14px] bg-surface-2" />
+                )}
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-[17px]">
+                    {complete ? '✓ ' : ''}
+                    {exercise.name}
                   </span>
-                ) : null}
-              </div>
+                  <span className="text-[13px] text-text-muted">
+                    {formatScheme(
+                      exercise.sets,
+                      exercise.repMin,
+                      exercise.repMax,
+                      exercise.restSec,
+                    )}
+                    {exercise.loadType === 'bodyweight'
+                      ? ' · свой вес'
+                      : exercise.planWeightKg
+                        ? ` · план ${formatWeight(exercise.planWeightKg)}`
+                        : ''}
+                  </span>
+                  {exercise.recommendation ? (
+                    <span className="truncate text-[13px] text-text-secondary">
+                      {exercise.recommendation.text}
+                    </span>
+                  ) : null}
+                </div>
               </button>
 
               {/* Технику можно посмотреть сразу, не раскрывая карточку. */}
@@ -177,7 +184,9 @@ export function FreeMode({
                   </button>
                 ) : null}
 
-                {onSwap && canSwap?.(exercise) ? <SwapButton onClick={() => onSwap(exercise)} /> : null}
+                {onSwap && canSwap?.(exercise) ? (
+                  <SwapButton onClick={() => onSwap(exercise)} />
+                ) : null}
 
                 {done.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
@@ -186,7 +195,11 @@ export function FreeMode({
                         key={set.index}
                         className="rounded-full bg-surface-2 px-3 py-1 text-[13px] text-text-secondary"
                       >
-                        {set.index}: {exercise.loadType === 'bodyweight' || set.weightKg === 0 ? '' : `${formatWeight(set.weightKg)} · `}{set.reps} раз
+                        {set.index}:{' '}
+                        {exercise.loadType === 'bodyweight' || set.weightKg === 0
+                          ? ''
+                          : `${formatWeight(set.weightKg)} · `}
+                        {set.reps} раз
                       </span>
                     ))}
                   </div>
@@ -233,7 +246,10 @@ export function FreeMode({
                     text={nextRecommendations[exercise.programExerciseId]!.text}
                     weightKg={nextRecommendations[exercise.programExerciseId]!.weightKg}
                     action={nextRecommendations[exercise.programExerciseId]!.action}
-                    whyHref={whyHref(exercise, nextRecommendations[exercise.programExerciseId]!.weightKg)}
+                    whyHref={whyHref(
+                      exercise,
+                      nextRecommendations[exercise.programExerciseId]!.weightKg,
+                    )}
                     onAccept={async () => {
                       await onNextWeight(
                         exercise,

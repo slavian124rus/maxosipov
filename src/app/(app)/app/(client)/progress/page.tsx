@@ -40,8 +40,8 @@ export default async function ProgressPage({
   const lastMeasurement = measurements.find((row) => row.weightKg !== null)
 
   return (
-    <main className="flex flex-col gap-6 px-4 py-6">
-      <h1 className="text-[22px] font-semibold">Прогресс</h1>
+    <main className="flex flex-col gap-6 px-4 py-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8 lg:px-0 lg:py-0">
+      <h1 className="text-[22px] font-semibold lg:col-span-2">Прогресс</h1>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-[17px] font-semibold">Рабочий вес</h2>
@@ -52,7 +52,7 @@ export default async function ProgressPage({
           </p>
         ) : (
           <>
-            <div className="flex gap-2 scroll-row pb-1">
+            <div className="flex gap-2 scroll-row pb-1 lg:flex-wrap">
               {trained.map((item) => (
                 <Link
                   key={item.exerciseId}
