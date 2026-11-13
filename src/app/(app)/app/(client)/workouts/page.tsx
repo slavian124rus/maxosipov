@@ -19,15 +19,15 @@ export default async function WorkoutsPage() {
   const sessions = await listSessions(user.id)
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6 lg:px-0 lg:py-0">
+    <main className="flex flex-col gap-4 px-4 py-6">
       <h1 className="text-[22px] font-semibold">Тренировки</h1>
 
-      <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
+      <ul className="flex flex-col gap-2">
         {sessions.map((session) => (
           <li key={session.id}>
             <a
               href={`/workouts/${session.id}`}
-              className="flex items-baseline justify-between gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2/60 lg:min-h-14 lg:items-center"
+              className="flex items-baseline justify-between gap-2 rounded-card border border-border bg-surface-1 px-4 py-3"
             >
               <span className="text-[17px]">{formatDateRu(session.startedAt)}</span>
               <span className="text-[13px] text-text-muted">

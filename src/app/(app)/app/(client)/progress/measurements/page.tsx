@@ -18,7 +18,7 @@ export default async function MeasurementsPage() {
   const rows = await listMeasurements(actor, user.id, { limit: 200 })
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6 lg:mx-auto lg:w-full lg:max-w-[900px] lg:px-0 lg:py-0">
+    <main className="flex flex-col gap-4 px-4 py-6">
       <ClientBackLink href="/progress" label="К прогрессу" />
       <h1 className="text-[22px] font-semibold">Замеры</h1>
 

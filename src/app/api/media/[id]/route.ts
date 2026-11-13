@@ -21,6 +21,7 @@ export async function GET(
       received_chunks: status.receivedChunks,
       total_chunks: status.totalChunks,
       error: status.error,
+      playback: status.playback,
     })
   } catch {
     return NextResponse.json({ error: 'Файл не найден' }, { status: 404 })

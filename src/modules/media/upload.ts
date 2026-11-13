@@ -7,6 +7,7 @@ import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
 import { PHOTO_QUEUE, PROCESS_MEDIA_QUEUE } from '@/shared/queues'
 import { mediaDir, mediaRoot, safeJoin } from './paths'
+import { signMediaPath, VIDEO_URL_TTL_SEC } from './sign'
 import { media, type MediaKind, type ProcessingOptions } from './schema'
 
 export const CHUNK_SIZE = 5 * 1024 * 1024
@@ -225,6 +226,8 @@ export type MediaStatus = {
   receivedChunks: number[]
   totalChunks: number
   error: string | null
+  /** Подписанные ссылки на готовое видео (для живого предпросмотра); пока не готово — `null`. */
+  playback: { mp4: string | null; webm: string | null; poster: string | null } | null
 }
 /** Статус загрузки: по нему клиент продолжает прерванную загрузку. */
 export async function getMediaStatus(id: string): Promise<MediaStatus> {
@@ -235,6 +238,14 @@ export async function getMediaStatus(id: string): Promise<MediaStatus> {
     receivedChunks: row.receivedChunks,
     totalChunks: row.totalChunks,
     error: row.error,
+    playback:
+      row.status === 'ready' && row.processedPaths?.mp4
+        ? {
+            mp4: signMediaPath(row.processedPaths.mp4, VIDEO_URL_TTL_SEC),
+            webm: row.processedPaths.webm ? signMediaPath(row.processedPaths.webm, VIDEO_URL_TTL_SEC) : null,
+            poster: row.processedPaths.poster ? signMediaPath(row.processedPaths.poster, VIDEO_URL_TTL_SEC) : null,
+          }
+        : null,
   }
 }
 

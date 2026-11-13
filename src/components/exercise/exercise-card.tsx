@@ -30,133 +30,129 @@ export function ExerciseCard({ exercise }: { exercise: ExerciseDetail }) {
   const hasVideo = Boolean(exercise.videoMp4Url || exercise.videoWebmUrl)
 
   return (
-    <div className="flex flex-col gap-5 pb-24 xl:grid xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] xl:items-start xl:gap-10 xl:pb-0">
-      <div className="lg:mx-auto lg:w-full lg:max-w-[420px] xl:sticky xl:top-8 xl:mx-0 xl:max-w-none">
-        {hasVideo ? (
-          <ExerciseVideo
-            mp4={exercise.videoMp4Url}
-            webm={exercise.videoWebmUrl}
-            musclesMp4={exercise.musclesMp4Url}
-            poster={exercise.posterUrl}
-            name={exercise.name}
-          />
-        ) : (
-          <ExercisePhoto
-            src={exercise.photoUrl ?? exercise.thumbUrl}
-            machineName={exercise.machineName}
-            name={exercise.name}
-          />
-        )}
+    <div className="flex flex-col gap-5 pb-24">
+      {hasVideo ? (
+        <ExerciseVideo
+          mp4={exercise.videoMp4Url}
+          webm={exercise.videoWebmUrl}
+          musclesMp4={exercise.musclesMp4Url}
+          poster={exercise.posterUrl}
+          name={exercise.name}
+        />
+      ) : (
+        <ExercisePhoto
+          src={exercise.photoUrl ?? exercise.thumbUrl}
+          machineName={exercise.machineName}
+          name={exercise.name}
+        />
+      )}
+
+      <div className="flex flex-col gap-2 px-4">
+        <h1 className="font-display text-[34px] leading-none font-medium">{exercise.name}</h1>
+        <div className="flex flex-wrap gap-2 text-[13px]">
+          <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
+            {exercise.machineName ?? 'Свободные веса'}
+          </span>
+          <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
+            {exercise.defaultRepMin}–{exercise.defaultRepMax} раз
+          </span>
+          {exercise.hasMuscles ? (
+            <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
+              {PROFILE_LABEL[exercise.overlayProfile] ?? exercise.overlayProfile}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2 px-4 lg:px-0">
-          <h1 className="font-display text-[34px] leading-none font-medium">{exercise.name}</h1>
-          <div className="flex flex-wrap gap-2 text-[13px]">
-            <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
-              {exercise.machineName ?? 'Свободные веса'}
-            </span>
-            <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
-              {exercise.defaultRepMin}–{exercise.defaultRepMax} раз
-            </span>
-            {exercise.hasMuscles ? (
-              <span className="rounded-full bg-surface-2 px-3 py-1 text-text-secondary">
-                {PROFILE_LABEL[exercise.overlayProfile] ?? exercise.overlayProfile}
-              </span>
-            ) : null}
+      <section className="flex flex-col gap-3 px-4">
+        <h2 className="text-[22px] font-semibold">Какие мышцы работают</h2>
+        <MuscleFigure primary={flash ? [flash] : primary} secondary={secondary} size="md" />
+
+        <div className="flex flex-col gap-1">
+          <p className="text-[13px] text-text-muted">Основные</p>
+          <div className="flex flex-wrap gap-2">
+            {primary.length === 0 ? (
+              <span className="text-[15px] text-text-secondary">Не отмечены</span>
+            ) : (
+              primary.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setFlash(code)}
+                  className="rounded-full bg-surface-2 px-3 py-1 text-[15px] text-text"
+                >
+                  {muscleName(code)}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
-        <section className="flex flex-col gap-3 px-4 lg:px-0">
-          <h2 className="text-[22px] font-semibold">Какие мышцы работают</h2>
-          <MuscleFigure primary={flash ? [flash] : primary} secondary={secondary} size="md" />
-
+        {secondary.length > 0 ? (
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] text-text-muted">Основные</p>
+            <p className="text-[13px] text-text-muted">Помогают</p>
             <div className="flex flex-wrap gap-2">
-              {primary.length === 0 ? (
-                <span className="text-[15px] text-text-secondary">Не отмечены</span>
-              ) : (
-                primary.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => setFlash(code)}
-                    className="rounded-full bg-surface-2 px-3 py-1 text-[15px] text-text"
-                  >
-                    {muscleName(code)}
-                  </button>
-                ))
-              )}
+              {secondary.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setFlash(code)}
+                  className="rounded-full border border-border px-3 py-1 text-[15px] text-text-secondary"
+                >
+                  {muscleName(code)}
+                </button>
+              ))}
             </div>
           </div>
+        ) : null}
+      </section>
 
-          {secondary.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-[13px] text-text-muted">Помогают</p>
-              <div className="flex flex-wrap gap-2">
-                {secondary.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => setFlash(code)}
-                    className="rounded-full border border-border px-3 py-1 text-[15px] text-text-secondary"
-                  >
-                    {muscleName(code)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </section>
+      <section className="flex flex-col gap-3 px-4">
+        <h2 className="text-[22px] font-semibold">Как делать</h2>
+        <ol className="flex flex-col gap-2">
+          {exercise.steps.map((step, index) => (
+            <li key={`${index}-${step}`} className="flex gap-3">
+              <span className="font-display text-[20px] text-accent">{index + 1}</span>
+              <span className="text-[15px] text-text-secondary">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
-        <section className="flex flex-col gap-3 px-4 lg:px-0">
-          <h2 className="text-[22px] font-semibold">Как делать</h2>
-          <ol className="flex flex-col gap-2">
-            {exercise.steps.map((step, index) => (
-              <li key={`${index}-${step}`} className="flex gap-3">
-                <span className="font-display text-[20px] text-accent">{index + 1}</span>
-                <span className="text-[15px] text-text-secondary">{step}</span>
+      {exercise.mistakes.length > 0 ? (
+        <section className="flex flex-col gap-3 px-4">
+          <h2 className="text-[22px] font-semibold">Частые ошибки</h2>
+          <ul className="flex flex-col gap-2">
+            {exercise.mistakes.map((mistake) => (
+              <li key={mistake} className="text-[15px] text-text-secondary">
+                {mistake}
               </li>
             ))}
-          </ol>
+          </ul>
         </section>
+      ) : null}
 
-        {exercise.mistakes.length > 0 ? (
-          <section className="flex flex-col gap-3 px-4 lg:px-0">
-            <h2 className="text-[22px] font-semibold">Частые ошибки</h2>
-            <ul className="flex flex-col gap-2">
-              {exercise.mistakes.map((mistake) => (
-                <li key={mistake} className="text-[15px] text-text-secondary">
-                  {mistake}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+      {exercise.tips ? (
+        <section className="px-4">
+          <p className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text-secondary">
+            {exercise.tips}
+          </p>
+        </section>
+      ) : null}
 
-        {exercise.tips ? (
-          <section className="px-4 lg:px-0">
-            <p className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text-secondary">
-              {exercise.tips}
-            </p>
-          </section>
-        ) : null}
-
-        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[480px] gap-2 border-t border-border bg-surface-1 px-4 py-3 xl:static xl:mx-0 xl:max-w-none xl:border-0 xl:bg-transparent xl:px-0 xl:py-0">
-          <Link
-            href={`/coach?exercise=${exercise.slug}`}
-            className="flex h-12 flex-1 items-center justify-center rounded-control border border-border text-[15px] text-text lg:bg-surface-1"
-          >
-            Спросить МаксИИма
-          </Link>
-          <Link
-            href={`/workout?exercise=${exercise.id}`}
-            className="flex h-12 flex-1 items-center justify-center rounded-control bg-accent text-[15px] text-white"
-          >
-            В тренировку
-          </Link>
-        </div>
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[480px] gap-2 border-t border-border bg-surface-1 px-4 py-3">
+        <Link
+          href={`/coach?exercise=${exercise.slug}`}
+          className="flex h-12 flex-1 items-center justify-center rounded-control border border-border text-[15px] text-text"
+        >
+          Спросить МаксИИма
+        </Link>
+        <Link
+          href={`/workout?exercise=${exercise.id}`}
+          className="flex h-12 flex-1 items-center justify-center rounded-control bg-accent text-[15px] text-white"
+        >
+          В тренировку
+        </Link>
       </div>
     </div>
   )

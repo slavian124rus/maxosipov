@@ -410,3 +410,19 @@ test('completeUpload для progress_photo ставит задачу media.photo
 
   expect(queues).toHaveLength(1)
 })
+
+test('статус готового видео несёт ссылки для предпросмотра, неготового — нет', async () => {
+  const { id } = await upload3Chunks()
+  await completeUpload(id, { enqueue: async () => {} })
+  expect((await getMediaStatus(id)).playback).toBeNull()
+
+  await db
+    .update(media)
+    .set({ status: 'ready', processedPaths: { mp4: `${id}/video.mp4`, poster: `${id}/poster.jpg` } })
+    .where(eq(media.id, id))
+
+  const status = await getMediaStatus(id)
+  expect(status.playback?.mp4).toContain('video.mp4')
+  expect(status.playback?.poster).toContain('poster.jpg')
+  expect(status.playback?.webm).toBeNull()
+})

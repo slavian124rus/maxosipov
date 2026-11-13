@@ -44,22 +44,17 @@ function TypingDots() {
 type Message = { role: 'user' | 'assistant'; content: string; createdAt?: string }
 
 const TZ = 'Asia/Krasnoyarsk'
-const dayKey = (iso: string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso))
+const dayKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso))
 
 const clock = (iso: string) =>
-  new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  )
+  new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 
 /** Разделитель дат как в мессенджере: «Сегодня», «Вчера», «13 ноября». */
 function dayLabel(iso: string, now = new Date()): string {
   const key = dayKey(iso)
   if (key === dayKey(now.toISOString())) return 'Сегодня'
   if (key === dayKey(new Date(now.getTime() - 86_400_000).toISOString())) return 'Вчера'
-  return new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, day: 'numeric', month: 'long' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, day: 'numeric', month: 'long' }).format(new Date(iso))
 }
 
 type Props = {
@@ -72,10 +67,7 @@ type Props = {
 
 /** Высота и сдвиг видимой области: с клавиатурой чат занимает только то, что осталось над ней. */
 function useVisualViewport(): { height: number | null; top: number } {
-  const [state, setState] = useState<{ height: number | null; top: number }>({
-    height: null,
-    top: 0,
-  })
+  const [state, setState] = useState<{ height: number | null; top: number }>({ height: null, top: 0 })
 
   useEffect(() => {
     const viewport = window.visualViewport
@@ -264,11 +256,7 @@ export function ChatView({
         setRecording(false)
 
         const form = new FormData()
-        form.append(
-          'audio',
-          new Blob(chunks, { type: mime }),
-          mime === 'audio/mp4' ? 'voice.mp4' : 'voice.webm',
-        )
+        form.append('audio', new Blob(chunks, { type: mime }), mime === 'audio/mp4' ? 'voice.mp4' : 'voice.webm')
 
         try {
           const response = await fetch('/api/coach/voice', { method: 'POST', body: form })
@@ -298,14 +286,14 @@ export function ChatView({
     if (recording) recorderRef.current?.stop()
     else void startRecording()
   }
-  return (
+return (
     // Чат — отдельный полноэкранный экран (как в мессенджерах): без нижнего меню,
     // над клавиатурой остаются шапка, переписка и поле ввода.
     <div
-      className="fixed inset-x-0 z-30 flex flex-col bg-bg lg:left-[268px]"
+      className="fixed inset-x-0 z-30 flex flex-col bg-bg"
       style={{ top: viewport.top, height: viewport.height ?? '100dvh' }}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-bg px-2 py-2 lg:mx-auto lg:w-full lg:max-w-[920px] lg:border-x">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-bg px-2 py-2">
         <Link
           href="/coach"
           aria-label="Назад"
@@ -318,9 +306,7 @@ export function ChatView({
           <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-accent" />
         </div>
         <div className="flex flex-col">
-          <p className="max-w-[60vw] truncate text-[17px] font-semibold leading-tight lg:max-w-[520px]">
-            {title ?? 'МаксИИм'}
-          </p>
+          <p className="max-w-[60vw] truncate text-[17px] font-semibold leading-tight">{title ?? 'МаксИИм'}</p>
           <p className={`text-[13px] ${streaming ? 'text-accent' : 'text-text-muted'}`}>
             {streaming ? 'печатает…' : 'МаксИИм · ИИ-помощник Максима'}
           </p>
@@ -330,7 +316,7 @@ export function ChatView({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4 lg:mx-auto lg:w-full lg:max-w-[920px] lg:border-x lg:border-border"
+        className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4"
       >
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col justify-center gap-5 py-4">
@@ -341,7 +327,7 @@ export function ChatView({
                 Помогу с тренировкой, весами и техникой. Только упражнения из зала Колизей
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2">
               {STARTERS.map((starter) => (
                 <button
                   key={starter.title}
@@ -365,21 +351,18 @@ export function ChatView({
         {messages.map((message, index) => {
           const previous = messages[index - 1]
           const newDay =
-            message.createdAt &&
-            (!previous?.createdAt || dayKey(previous.createdAt) !== dayKey(message.createdAt))
+            message.createdAt && (!previous?.createdAt || dayKey(previous.createdAt) !== dayKey(message.createdAt))
           // Подряд идущие сообщения одного автора сближаем, как в мессенджерах.
           const joined = previous?.role === message.role && !newDay
 
           return (
             <div key={index} className={`flex flex-col ${joined ? '-mt-2' : ''}`}>
               {newDay && message.createdAt ? (
-                <p className="self-center py-1 text-[12px] text-text-muted">
-                  {dayLabel(message.createdAt)}
-                </p>
+                <p className="self-center py-1 text-[12px] text-text-muted">{dayLabel(message.createdAt)}</p>
               ) : null}
 
               {message.role === 'assistant' ? (
-                <div className="flex max-w-[92%] items-start gap-2 self-start lg:max-w-[680px]">
+                <div className="flex max-w-[92%] items-start gap-2 self-start">
                   {joined ? <span className="w-8 shrink-0" /> : <Avatar />}
                   <div className="rounded-[18px] rounded-tl-[6px] bg-surface-1 px-3.5 py-2.5 text-[16px] leading-snug text-text">
                     {message.content ? (
@@ -388,19 +371,15 @@ export function ChatView({
                       <TypingDots />
                     ) : null}
                     {message.createdAt && message.content ? (
-                      <p className="mt-1 text-right text-[11px] text-text-muted">
-                        {clock(message.createdAt)}
-                      </p>
+                      <p className="mt-1 text-right text-[11px] text-text-muted">{clock(message.createdAt)}</p>
                     ) : null}
                   </div>
                 </div>
               ) : (
-                <div className="max-w-[85%] self-end whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2.5 text-[16px] leading-snug text-white lg:max-w-[680px]">
+                <div className="max-w-[85%] self-end whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2.5 text-[16px] leading-snug text-white">
                   {message.content}
                   {message.createdAt ? (
-                    <p className="mt-1 text-right text-[11px] text-white/70">
-                      {clock(message.createdAt)}
-                    </p>
+                    <p className="mt-1 text-right text-[11px] text-white/70">{clock(message.createdAt)}</p>
                   ) : null}
                 </div>
               )}
@@ -427,7 +406,7 @@ export function ChatView({
         </button>
       ) : null}
 
-      <div className="shrink-0 border-t border-border bg-bg px-3 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] lg:mx-auto lg:w-full lg:max-w-[920px] lg:border-x">
+      <div className="shrink-0 border-t border-border bg-bg px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2">
         {input.trim() || messages.length === 0 ? null : (
           <div className="mb-2">
             <QuickChips

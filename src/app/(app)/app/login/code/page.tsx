@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { AuthShell } from '@/components/app/auth-shell'
 import { formatPhone, normalizePhone } from '@/modules/auth'
 import { CodeForm } from '../forms'
 
@@ -17,13 +16,13 @@ export default async function LoginCodePage({
   if (!normalized) redirect('/login/phone')
 
   return (
-    <AuthShell>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center gap-6 px-4 py-10">
       <div className="flex flex-col gap-2">
         <h1 className="text-[22px] font-semibold">Введи код из СМС</h1>
         <p className="text-[15px] text-text-secondary">Отправили на {formatPhone(normalized)}</p>
       </div>
 
       <CodeForm target={{ kind: 'phone', phone: normalized }} linkId={link} />
-    </AuthShell>
+    </main>
   )
 }

@@ -58,6 +58,8 @@ export type ExerciseDetail = ExerciseListItem & {
   defaultRepMax: number
   overlayProfile: OverlayProfile
   loadType: LoadType
+  /** Привязанное видео: по нему редактор следит за обработкой. */
+  videoMediaId: string | null
   videoMp4Url: string | null
   videoWebmUrl: string | null
   musclesMp4Url: string | null
@@ -612,6 +614,7 @@ export async function getExercise(
     defaultRepMax: row.exercise.defaultRepMax,
     overlayProfile: row.exercise.overlayProfile,
     loadType: row.exercise.loadType,
+    videoMediaId: row.exercise.videoMediaId,
     videoMp4Url: sign(paths?.mp4),
     videoWebmUrl: sign(paths?.webm),
     musclesMp4Url: showMuscles ? sign(paths?.musclesMp4) : null,

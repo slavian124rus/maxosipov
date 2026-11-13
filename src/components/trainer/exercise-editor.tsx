@@ -26,6 +26,7 @@ import {
 import { DeleteExercise } from '@/components/trainer/delete-exercise'
 import { ExerciseAiPanel } from '@/components/trainer/exercise-ai-panel'
 import { AlternativesPanel, type AlternativeOption } from '@/components/trainer/alternatives-panel'
+import { useMediaPlayback } from '@/components/trainer/use-media-playback'
 import { VideoProcessing } from '@/components/trainer/video-preview'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
@@ -85,6 +86,14 @@ export function ExerciseEditor({
   // «Убрать видео»: при сохранении видео отвязывается от карточки (файл остаётся в архиве).
   const [videoRemoved, setVideoRemoved] = useState(false)
   const videoMediaId = videoRemoved ? null : uploadedVideoId
+  // Живой статус: лоадер появляется сразу после загрузки и сам сменяется плеером, когда видео готово.
+  const pollId = videoMediaId === 'existing' ? exercise.videoMediaId : videoMediaId
+  const liveVideo = useMediaPlayback(pollId, {
+    status: exercise.videoStatus,
+    mp4Url: exercise.videoMp4Url,
+    webmUrl: exercise.videoWebmUrl,
+    posterUrl: exercise.posterUrl,
+  })
   const [cropX, setCropX] = useState(0.5)
   // Замены хранятся здесь, а не в панели: уходят на сервер общей кнопкой «Сохранить».
   const [altItems, setAltItems] = useState<AlternativeOption[]>(alternatives?.initial ?? [])
@@ -284,12 +293,7 @@ export function ExerciseEditor({
             videoFile={videoFile}
             videoMediaId={videoMediaId}
             cropX={cropX}
-            current={{
-              status: exercise.videoStatus,
-              mp4Url: exercise.videoMp4Url,
-              webmUrl: exercise.videoWebmUrl,
-              posterUrl: exercise.posterUrl,
-            }}
+            current={liveVideo}
             removed={videoRemoved}
             onRemove={() => {
               setVideoRemoved(true)
@@ -394,7 +398,11 @@ export function ExerciseEditor({
       </div>
 
       {state.error === 'Видео ещё обрабатывается' ? (
-        <VideoProcessing />
+        liveVideo?.status === 'ready' ? (
+          <p className="text-[15px] text-success">Видео готово — теперь можно публиковать.</p>
+        ) : (
+          <VideoProcessing />
+        )
       ) : state.error ? (
         <p className="text-[15px] text-danger">{state.error}</p>
       ) : null}

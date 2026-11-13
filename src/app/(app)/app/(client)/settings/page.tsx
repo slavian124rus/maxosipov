@@ -31,19 +31,17 @@ export default async function SettingsPage() {
   await requireClientPage('/settings')
 
   return (
-    <main className="flex flex-col gap-4 px-4 py-6 lg:px-0 lg:py-0">
+    <main className="flex flex-col gap-4 px-4 py-6">
       <h1 className="text-[22px] font-semibold">Настройки</h1>
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start xl:grid-cols-3">
+      <div className="flex flex-col gap-2">
         {ROWS.map(({ href, title, hint, icon: Icon }) => (
           <Link
             key={href}
             href={href}
-            className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2/60 lg:min-h-24 lg:items-start"
+            className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface-1 px-4 py-3"
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-surface-2 text-text-secondary">
-              <Icon size={22} strokeWidth={1.75} aria-hidden />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <Icon size={22} strokeWidth={1.75} className="shrink-0 text-text-secondary" aria-hidden />
+            <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-[17px]">{title}</span>
               <span className="text-[13px] text-text-muted">{hint}</span>
             </span>

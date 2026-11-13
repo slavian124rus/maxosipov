@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { AuthShell } from '@/components/app/auth-shell'
 import { Button } from '@/components/ui/button'
 import { env } from '@/shared/env'
 
@@ -20,7 +19,7 @@ export default async function LoginPage({
   const yandexReady = Boolean(env.YANDEX_CLIENT_ID && env.YANDEX_CLIENT_SECRET)
 
   return (
-    <AuthShell>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center gap-8 px-4 py-10">
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-[40px] leading-none font-medium">Тренируйся с Максимом</h1>
         <p className="text-[15px] text-text-secondary">
@@ -65,6 +64,6 @@ export default async function LoginPage({
           политикой обработки персональных данных
         </Link>
       </p>
-    </AuthShell>
+    </main>
   )
 }

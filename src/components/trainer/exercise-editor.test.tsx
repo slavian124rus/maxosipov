@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { ExerciseDetail } from '@/modules/catalog'
 import { ExerciseEditor, publishChecklist } from './exercise-editor'
@@ -85,6 +85,7 @@ const EXERCISE: ExerciseDetail = {
   loadType: 'external',
   defaultRepMax: 12,
   overlayProfile: 'none',
+  videoMediaId: null,
   videoMp4Url: null,
   videoWebmUrl: null,
   musclesMp4Url: null,
@@ -495,4 +496,32 @@ test('у упражнения без видео кнопки «Убрать ви
   render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
   fireEvent.click(screen.getByRole('tab', { name: 'Видео' }))
   expect(screen.queryByRole('button', { name: 'Убрать видео' })).toBeNull()
+})
+
+test('видео в обработке само становится плеером, пока окно открыто', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'ready', playback: { mp4: '/ready.mp4', webm: null, poster: null } }),
+    }),
+  )
+  const { container } = render(
+    <ExerciseEditor
+      exercise={{ ...EXERCISE, videoMediaId: 'vid-1', videoStatus: 'processing' }}
+      machines={MACHINES}
+    />,
+  )
+  fireEvent.click(screen.getByRole('tab', { name: 'Видео' }))
+  expect(screen.getByRole('status').textContent).toContain('Видео обрабатывается')
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3100)
+  })
+
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(container.querySelector('video source')?.getAttribute('src')).toBe('/ready.mp4')
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })

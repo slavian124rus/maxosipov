@@ -15,12 +15,7 @@ import {
   type ProgressionRules,
 } from '@/modules/progression'
 import type { VoiceRow } from '@/modules/coach-ai'
-import {
-  FreeMode,
-  type LoggedSet,
-  type NextRecommendation,
-  type WorkoutExercise,
-} from './free-mode'
+import { FreeMode, type LoggedSet, type NextRecommendation, type WorkoutExercise } from './free-mode'
 import { GuidedMode } from './guided-mode'
 import { FinishSummary } from './finish-summary'
 import { ProgramUpdateBanner } from './program-update-banner'
@@ -52,10 +47,7 @@ const swapsKey = (sessionUuid: string) => `workout-swaps:${sessionUuid}`
 
 function readSwaps(sessionUuid: string): Record<string, WorkoutExercise> {
   try {
-    return JSON.parse(localStorage.getItem(swapsKey(sessionUuid)) ?? '{}') as Record<
-      string,
-      WorkoutExercise
-    >
+    return JSON.parse(localStorage.getItem(swapsKey(sessionUuid)) ?? '{}') as Record<string, WorkoutExercise>
   } catch {
     return {}
   }
@@ -87,9 +79,7 @@ export function WorkoutClient({
   const startedRef = useRef(false)
   const loggedRef = useRef<Record<string, LoggedSet[]>>({})
   const [storageFailed, setStorageFailed] = useState(false)
-  const [nextRecommendations, setNextRecommendations] = useState<
-    Record<string, NextRecommendation>
-  >({})
+  const [nextRecommendations, setNextRecommendations] = useState<Record<string, NextRecommendation>>({})
   const programUpdated = useProgramVersion(programId)
   const online = useOnline()
 
@@ -114,22 +104,14 @@ export function WorkoutClient({
     if (!uuid || !('serviceWorker' in navigator)) return
 
     async function reload(): Promise<void> {
-      const rows = await (
-        await getOfflineDb()
-      ).sets
-        .where('sessionClientUuid')
-        .equals(uuid!)
-        .toArray()
+      const rows = await (await getOfflineDb()).sets.where('sessionClientUuid').equals(uuid!).toArray()
       const byExercise = new Map(exercises.map((item) => [item.exerciseId, item.programExerciseId]))
       const next: Record<string, LoggedSet[]> = {}
 
       for (const row of rows.sort((a, b) => a.setIndex - b.setIndex)) {
         const key = byExercise.get(row.exerciseId)
         if (!key) continue
-        next[key] = [
-          ...(next[key] ?? []),
-          { index: row.setIndex, weightKg: row.weightKg, reps: row.reps },
-        ]
+        next[key] = [...(next[key] ?? []), { index: row.setIndex, weightKg: row.weightKg, reps: row.reps }]
       }
 
       loggedRef.current = next
@@ -157,26 +139,18 @@ export function WorkoutClient({
       try {
         // Продолжаем незавершённую тренировку (в том числе после закрытия приложения офлайн)
         // или начинаем новую; решение — по данным IndexedDB.
-        const active = await session.startOrResume({
-          programDayId,
-          mode,
-          programSnapshot: plannedExercises,
-        })
+        const active = await session.startOrResume({ programDayId, mode, programSnapshot: plannedExercises })
         const savedSwaps = readSwaps(active.clientUuid)
         setSwaps(savedSwaps)
         const cards = plannedExercises.map((item) => savedSwaps[item.programExerciseId] ?? item)
 
-        const rows = await (
-          await getOfflineDb()
-        ).sets
+        const rows = await (await getOfflineDb()).sets
           .where('sessionClientUuid')
           .equals(active.clientUuid)
           .toArray()
 
         // подходы хранятся по `exerciseId`, экран ведёт учёт по карточкам (`programExerciseId`)
-        const cardByExercise = new Map(
-          cards.map((item) => [item.exerciseId, item.programExerciseId]),
-        )
+        const cardByExercise = new Map(cards.map((item) => [item.exerciseId, item.programExerciseId]))
         const restored: Record<string, LoggedSet[]> = {}
 
         for (const row of rows.sort((a, b) => a.setIndex - b.setIndex)) {
@@ -197,9 +171,7 @@ export function WorkoutClient({
 
     void boot()
     void session.precacheMedia(
-      plannedExercises.flatMap((item) =>
-        [item.videoMp4Url, item.posterUrl].filter((url): url is string => !!url),
-      ),
+      plannedExercises.flatMap((item) => [item.videoMp4Url, item.posterUrl].filter((url): url is string => !!url)),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps -- старт нужен один раз
   }, [])
@@ -286,18 +258,13 @@ export function WorkoutClient({
     await postNextWeight({ exerciseId: exercise.exerciseId, weightKg })
   }
 
+
   /** Варианты замены: список тренера плюс исходное упражнение, если уже меняли. */
   function swapOptions(card: WorkoutExercise): SwapOption[] {
-    const original = plannedExercises.find(
-      (item) => item.programExerciseId === card.programExerciseId,
-    )
+    const original = plannedExercises.find((item) => item.programExerciseId === card.programExerciseId)
     const list = [...(alternatives[card.programExerciseId] ?? [])]
     if (original && original.exerciseId !== card.exerciseId) {
-      list.unshift({
-        id: original.exerciseId,
-        name: original.name,
-        machineName: original.machineName,
-      })
+      list.unshift({ id: original.exerciseId, name: original.name, machineName: original.machineName })
     }
     return list.filter((option) => option.id !== card.exerciseId)
   }
@@ -316,11 +283,7 @@ export function WorkoutClient({
     return null
   }
 
-  async function swap(
-    card: WorkoutExercise,
-    option: SwapOption,
-    swapMode: SwapMode,
-  ): Promise<string | null> {
+  async function swap(card: WorkoutExercise, option: SwapOption, swapMode: SwapMode): Promise<string | null> {
     const result =
       swapMode === 'forever'
         ? await replaceForeverAction(card.programExerciseId, option.id)
@@ -330,8 +293,7 @@ export function WorkoutClient({
     const next = { ...swaps, [card.programExerciseId]: result.card }
     setSwaps(next)
     try {
-      if (session.session)
-        localStorage.setItem(swapsKey(session.session.clientUuid), JSON.stringify(next))
+      if (session.session) localStorage.setItem(swapsKey(session.session.clientUuid), JSON.stringify(next))
     } catch {
       // Память устройства недоступна — замена останется до перезагрузки.
     }
@@ -396,7 +358,7 @@ export function WorkoutClient({
 
   if (finished) {
     return (
-      <div className="px-4 py-6 lg:mx-auto lg:w-full lg:max-w-[760px] lg:px-0 lg:py-0">
+      <div className="px-4 py-6">
         <FinishSummary
           durationMin={finished.durationMin}
           exerciseCount={finished.count}
@@ -410,11 +372,7 @@ export function WorkoutClient({
   }
 
   return (
-    <div
-      className={`flex flex-col gap-4 px-4 py-6 lg:px-0 lg:py-0 ${
-        mode === 'guided' ? 'lg:mx-auto lg:w-full lg:max-w-[760px]' : ''
-      }`}
-    >
+    <div className="flex flex-col gap-4 px-4 py-6">
       <header className="flex items-center justify-between gap-2">
         <h1 className="text-[22px] font-semibold">Тренировка · {dayName}</h1>
         <div className="flex items-center gap-2">

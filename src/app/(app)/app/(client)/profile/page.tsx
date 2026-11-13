@@ -34,97 +34,91 @@ export default async function ProfilePage() {
   const profile = await getClientProfile(user.id)
 
   return (
-    <main className="flex flex-col gap-6 px-4 py-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] xl:items-start xl:gap-8 lg:px-0 lg:py-0">
-      <h1 className="text-[22px] font-semibold xl:col-span-2">Профиль</h1>
+    <main className="flex flex-col gap-6 px-4 py-6">
+      <h1 className="text-[22px] font-semibold">Профиль</h1>
 
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <p className="text-[17px]">{user.name || 'Без имени'}</p>
-          <p className="text-[15px] text-text-secondary">
-            {user.phone ? formatPhone(user.phone) : user.email}
-          </p>
-          <p className="text-[15px] text-text-secondary">
-            {accessLabel(access.status, access.endsAt, access.hasAccess)}
-          </p>
-        </div>
-
-        <ProfileForm
-          name={user.name}
-          profile={
-            profile
-              ? {
-                  sex: profile.sex,
-                  birthYear: profile.birthYear,
-                  heightCm: profile.heightCm,
-                  weightKg: profile.weightKg,
-                  goal: profile.goal,
-                  experience: profile.experience,
-                  sessionsPerWeek: profile.sessionsPerWeek,
-                  limitations: profile.limitations,
-                  healthConsent: profile.healthConsentAt !== null,
-                }
-              : null
-          }
-        />
+      <div className="flex flex-col gap-1">
+        <p className="text-[17px]">{user.name || 'Без имени'}</p>
+        <p className="text-[15px] text-text-secondary">{user.phone ? formatPhone(user.phone) : user.email}</p>
+        <p className="text-[15px] text-text-secondary">
+          {accessLabel(access.status, access.endsAt, access.hasAccess)}
+        </p>
       </div>
 
-      <aside className="flex flex-col gap-4 xl:sticky xl:top-8">
-        {notes.length > 0 ? (
-          <section className="flex flex-col gap-2">
-            <p className="text-[13px] text-text-muted">Заметки Максима</p>
-            {notes.map((note) => (
-              <p
-                key={note.id}
-                className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text"
-              >
-                {note.text}
-              </p>
-            ))}
-          </section>
-        ) : null}
+      <ProfileForm
+        name={user.name}
+        profile={
+          profile
+            ? {
+                sex: profile.sex,
+                birthYear: profile.birthYear,
+                heightCm: profile.heightCm,
+                weightKg: profile.weightKg,
+                goal: profile.goal,
+                experience: profile.experience,
+                sessionsPerWeek: profile.sessionsPerWeek,
+                limitations: profile.limitations,
+                healthConsent: profile.healthConsentAt !== null,
+              }
+            : null
+        }
+      />
 
-        <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
-        <LockscreenToggle />
-
-        <div className="flex flex-col gap-2">
-          <p className="text-[13px] text-text-muted">Режим тренировки</p>
-          <form action={setWorkoutModeAction} className="flex gap-2">
-            <input type="hidden" name="mode" value="free" />
-            <button
-              type="submit"
-              className={`h-12 flex-1 rounded-control border text-[15px] ${
-                user.workoutMode === 'free'
-                  ? 'border-accent bg-surface-2 text-text'
-                  : 'border-border bg-surface-1 text-text-secondary'
-              }`}
+      {notes.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <p className="text-[13px] text-text-muted">Заметки Максима</p>
+          {notes.map((note) => (
+            <p
+              key={note.id}
+              className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text"
             >
-              Свободный
-            </button>
-          </form>
-          <form action={setWorkoutModeAction} className="flex gap-2">
-            <input type="hidden" name="mode" value="guided" />
-            <button
-              type="submit"
-              className={`h-12 flex-1 rounded-control border text-[15px] ${
-                user.workoutMode === 'guided'
-                  ? 'border-accent bg-surface-2 text-text'
-                  : 'border-border bg-surface-1 text-text-secondary'
-              }`}
-            >
-              Пошаговый
-            </button>
-          </form>
-        </div>
+              {note.text}
+            </p>
+          ))}
+        </section>
+      ) : null}
 
-        <form action="/api/auth/logout" method="post">
+      <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
+      <LockscreenToggle />
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] text-text-muted">Режим тренировки</p>
+        <form action={setWorkoutModeAction} className="flex gap-2">
+          <input type="hidden" name="mode" value="free" />
           <button
             type="submit"
-            className="h-12 w-full rounded-control border border-border bg-surface-1 text-[15px] text-text"
+            className={`h-12 flex-1 rounded-control border text-[15px] ${
+              user.workoutMode === 'free'
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
           >
-            Выйти
+            Свободный
           </button>
         </form>
-      </aside>
+        <form action={setWorkoutModeAction} className="flex gap-2">
+          <input type="hidden" name="mode" value="guided" />
+          <button
+            type="submit"
+            className={`h-12 flex-1 rounded-control border text-[15px] ${
+              user.workoutMode === 'guided'
+                ? 'border-accent bg-surface-2 text-text'
+                : 'border-border bg-surface-1 text-text-secondary'
+            }`}
+          >
+            Пошаговый
+          </button>
+        </form>
+      </div>
+
+      <form action="/api/auth/logout" method="post">
+        <button
+          type="submit"
+          className="h-12 w-full rounded-control border border-border bg-surface-1 text-[15px] text-text"
+        >
+          Выйти
+        </button>
+      </form>
     </main>
   )
 }
