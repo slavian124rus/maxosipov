@@ -20,11 +20,14 @@ export type SwapMode = 'today' | 'forever'
 export function SwapSheet({
   exerciseName,
   options,
+  lockedReason = null,
   onClose,
   onPick,
 }: {
   exerciseName: string
   options: SwapOption[]
+  /** Заменить сейчас нельзя (уже есть подходы или нет сети): список только для просмотра. */
+  lockedReason?: string | null
   onClose: () => void
   /** Возвращает текст ошибки или `null`, если замена прошла. */
   onPick: (option: SwapOption, mode: SwapMode) => Promise<string | null>
@@ -51,7 +54,9 @@ export function SwapSheet({
           <DialogDescription>
             {chosen
               ? `Вместо «${exerciseName}». Заменить только на эту тренировку или оставить в программе?`
-              : `Тренажёр для «${exerciseName}» занят — вот что подходит по мышцам`}
+              : lockedReason
+                ? `${lockedReason}. Вот чем тренер разрешил заменить «${exerciseName}»`
+                : `Тренажёр для «${exerciseName}» занят — вот что подходит по мышцам`}
           </DialogDescription>
         </DialogHeader>
 
@@ -69,19 +74,28 @@ export function SwapSheet({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setChosen(option)}
-                className="flex min-h-14 flex-col justify-center rounded-control border border-border bg-surface-1 px-3 py-2 text-left"
-              >
-                <span className="text-[15px]">{option.name}</span>
-                {option.machineName ? (
-                  <span className="text-[13px] text-text-muted">{option.machineName}</span>
-                ) : null}
-              </button>
-            ))}
+            {options.map((option) => {
+              const content = (
+                <>
+                  <span className="text-[15px]">{option.name}</span>
+                  {option.machineName ? (
+                    <span className="text-[13px] text-text-muted">{option.machineName}</span>
+                  ) : null}
+                </>
+              )
+              const base =
+                'flex min-h-14 flex-col justify-center rounded-control border border-border bg-surface-1 px-3 py-2 text-left'
+
+              return lockedReason ? (
+                <div key={option.id} className={base}>
+                  {content}
+                </div>
+              ) : (
+                <button key={option.id} type="button" onClick={() => setChosen(option)} className={base}>
+                  {content}
+                </button>
+              )
+            })}
           </div>
         )}
 

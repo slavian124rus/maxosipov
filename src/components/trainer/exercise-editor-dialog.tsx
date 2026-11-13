@@ -107,6 +107,7 @@ function ExerciseLoader({
           <ExerciseEditor
             exercise={data.exercise}
             machines={data.machines}
+            alternatives={{ initial: data.alternatives ?? [], catalog: data.catalog ?? [] }}
             onSaved={onSaved}
             onDeleted={onDeleted}
           />

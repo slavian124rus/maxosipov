@@ -20,6 +20,8 @@ vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
   unpublishAction: async () => {},
   draftExerciseAction: async () => ({ draft: null, error: null }),
   archiveExerciseAction: async () => ({ error: server.archiveError, archived: server.archived }),
+  saveAlternativesAction: async () => ({ error: null }),
+  suggestAlternativesAction: async () => [],
   reviewExerciseAction: async () => ({
     error: server.reviewError,
     issues: server.reviewIssues,
@@ -324,3 +326,25 @@ test('вкладка «МаксИИм»: без модели показывае�
   expect(screen.queryByRole('button', { name: 'Применить исправления' })).toBeNull()
 })
 
+
+test('вкладка «Замены» есть, когда переданы альтернативы, и показывает заданные тренером', () => {
+  render(
+    <ExerciseEditor
+      exercise={EXERCISE}
+      machines={MACHINES}
+      alternatives={{
+        initial: [{ id: 'ex-2', name: 'Жим ногами', machineName: 'Платформа' }],
+        catalog: [{ id: 'ex-2', name: 'Жим ногами', machineName: 'Платформа' }],
+      }}
+    />,
+  )
+
+  fireEvent.click(tab('Замены'))
+  expect(screen.getByText('Можно заменить на')).toBeTruthy()
+  expect(screen.getByText('Жим ногами')).toBeTruthy()
+})
+
+test('без данных об альтернативах вкладки «Замены» нет', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+  expect(screen.queryByRole('tab', { name: 'Замены' })).toBeNull()
+})

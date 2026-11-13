@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/modules/auth'
 import { can } from '@/modules/rbac'
 import { getExercise, listAlternatives, listExercises, listMachines } from '@/modules/catalog'
-import { AlternativesPanel } from '@/components/trainer/alternatives-panel'
 import { ExerciseEditor } from '@/components/trainer/exercise-editor'
 import { PageHeader, TrainerPage } from '@/components/trainer/page'
 
@@ -41,24 +40,21 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
             name: machine.name,
             zone: machine.zone,
           }))}
+          alternatives={{
+            initial: alternatives.map((item) => ({
+              id: item.id,
+              name: item.name,
+              machineName: item.machineName,
+            })),
+            catalog: published.map((item) => ({
+              id: item.id,
+              name: item.name,
+              machineName: item.machineName,
+            })),
+          }}
         />
       </div>
 
-      <div className="w-full max-w-[860px]">
-        <AlternativesPanel
-          exerciseId={exercise.id}
-          initial={alternatives.map((item) => ({
-            id: item.id,
-            name: item.name,
-            machineName: item.machineName,
-          }))}
-          catalog={published.map((item) => ({
-            id: item.id,
-            name: item.name,
-            machineName: item.machineName,
-          }))}
-        />
-      </div>
     </TrainerPage>
   )
 }

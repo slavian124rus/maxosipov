@@ -25,6 +25,7 @@ import {
 } from '@/app/(app)/app/trainer/exercises/actions'
 import { DeleteExercise } from '@/components/trainer/delete-exercise'
 import { ExerciseAiPanel } from '@/components/trainer/exercise-ai-panel'
+import { AlternativesPanel, type AlternativeOption } from '@/components/trainer/alternatives-panel'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 
@@ -33,6 +34,7 @@ const TABS = [
   { id: 'video', label: 'Видео' },
   { id: 'machine', label: 'Тренажёр' },
   { id: 'muscles', label: 'Мышцы' },
+  { id: 'swap', label: 'Замены' },
   { id: 'ai', label: 'МаксИИм' },
   { id: 'publish', label: 'Публикация' },
 ] as const
@@ -59,11 +61,14 @@ export function publishChecklist(input: {
 export function ExerciseEditor({
   exercise,
   machines,
+  alternatives,
   onSaved,
   onDeleted,
 }: {
   exercise: ExerciseDetail
   machines: MachineChoice[]
+  /** «Можно заменить на»: заданные тренером и весь каталог для добавления. Нет — вкладки нет. */
+  alternatives?: { initial: AlternativeOption[]; catalog: AlternativeOption[] }
   onSaved?: () => void
   /** Упражнение удалено: окно можно закрыть, дерево обновится. */
   onDeleted?: () => void
@@ -235,7 +240,7 @@ export function ExerciseEditor({
         aria-label="Разделы упражнения"
         className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
       >
-        {TABS.map((item) => (
+        {TABS.filter((item) => item.id !== 'swap' || alternatives).map((item) => (
           <button
             key={item.id}
             type="button"
@@ -298,6 +303,14 @@ export function ExerciseEditor({
             onDraft={() => void createDraft()}
             drafting={drafting}
             draftError={draftError}
+          />
+        ) : null}
+
+        {tab === 'swap' && alternatives ? (
+          <AlternativesPanel
+            exerciseId={exercise.id}
+            initial={alternatives.initial}
+            catalog={alternatives.catalog}
           />
         ) : null}
 

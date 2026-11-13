@@ -7,6 +7,8 @@ import {
   createMachine,
   deleteMachine,
   getExercise,
+  listAlternatives,
+  listExercises,
   listMachines,
   publishExercise,
   setAlternatives,
@@ -120,9 +122,19 @@ export async function saveExerciseAction(
 
 export type DraftExerciseState = { draft: ExerciseDraft | null; error: string | null }
 
+/** В окне правки нужны только id, название и тренажёр. */
+type AlternativeChoice = { id: string; name: string; machineName: string | null }
+
+function toAlternativeItem(item: AlternativeChoice): AlternativeChoice {
+  return { id: item.id, name: item.name, machineName: item.machineName }
+}
+
 export type ExerciseLoadState = {
   exercise: ExerciseDetail | null
   machines: Pick<Machine, 'id' | 'name' | 'zone'>[]
+  /** Запасные упражнения (`null` — не загрузились) и каталог для добавления. */
+  alternatives?: AlternativeChoice[]
+  catalog?: AlternativeChoice[]
   error: string | null
 }
 
@@ -140,9 +152,11 @@ export async function loadExerciseAction(id: string): Promise<ExerciseLoadState>
   }
 
   try {
-    const [exercise, machines] = await Promise.all([
+    const [exercise, machines, alternatives, published] = await Promise.all([
       getExercise(id, { includeDrafts: true }),
       listMachines(),
+      listAlternatives(id),
+      listExercises(),
     ])
 
     if (!exercise) return { exercise: null, machines: [], error: 'Упражнение не найдено' }
@@ -154,6 +168,8 @@ export async function loadExerciseAction(id: string): Promise<ExerciseLoadState>
         name: machine.name,
         zone: machine.zone,
       })),
+      alternatives: alternatives.map(toAlternativeItem),
+      catalog: published.map(toAlternativeItem),
       error: null,
     }
   } catch (error) {

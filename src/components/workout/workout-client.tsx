@@ -269,12 +269,18 @@ export function WorkoutClient({
     return list.filter((option) => option.id !== card.exerciseId)
   }
 
+  /** Кнопка видна, если у упражнения есть запасные: посмотреть их можно всегда. */
   function canSwap(card: WorkoutExercise): boolean {
-    return (
-      online &&
-      (loggedRef.current[card.programExerciseId]?.length ?? 0) === 0 &&
-      swapOptions(card).length > 0
-    )
+    return swapOptions(card).length > 0
+  }
+
+  /** Почему заменить сейчас нельзя; `null` — можно. */
+  function swapLockedReason(card: WorkoutExercise): string | null {
+    if ((logged[card.programExerciseId]?.length ?? 0) > 0) {
+      return 'Подход уже записан: заменить можно только до первого подхода'
+    }
+    if (!online) return 'Нет сети: заменить можно, когда она появится'
+    return null
   }
 
   async function swap(card: WorkoutExercise, option: SwapOption, swapMode: SwapMode): Promise<string | null> {
@@ -441,6 +447,7 @@ export function WorkoutClient({
         <SwapSheet
           exerciseName={swapping.name}
           options={swapOptions(swapping)}
+          lockedReason={swapLockedReason(swapping)}
           onClose={() => setSwapping(null)}
           onPick={(option, swapMode) => swap(swapping, option, swapMode)}
         />
