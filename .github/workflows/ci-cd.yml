@@ -160,8 +160,8 @@ jobs:
             for i in $(seq 1 15); do
               code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
               case "$url" in
-                */api/auth/*) ok=$([ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 500 ] && echo y) ;;
-                *) ok=$([ "$code" = "200" ] && echo y) ;;
+                */api/auth/*) ok=$([ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 500 ] && echo y || true) ;;
+                *) ok=$([ "$code" = "200" ] && echo y || true) ;;
               esac
               [ "$ok" = "y" ] && { echo "✓ $url → $code"; continue 2; }
               sleep 4
