@@ -456,3 +456,19 @@ test('нижняя панель кнопок залипает снизу на т
   expect(footer.className).toContain('bg-bg')
   expect(footer.className).not.toContain('bg-transparent')
 })
+
+test('«Какой вес у упражнения» живёт на вкладке «Описание», а не «Тренажёр»', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  expect(screen.getByText('Какой вес у упражнения')).toBeTruthy()
+
+  fireEvent.click(tab('Тренажёр'))
+  expect(screen.queryByText('Какой вес у упражнения')).toBeNull()
+})
+
+test('выбранный тип веса уходит в форму', () => {
+  const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  fireEvent.click(screen.getByRole('button', { name: /Свой вес \+ отягощение/ }))
+  expect(container.querySelector('input[name="loadType"]')?.getAttribute('value')).toBe('bodyweight_plus')
+})

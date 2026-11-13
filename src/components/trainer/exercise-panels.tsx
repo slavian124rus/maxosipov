@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
 import { cycleMuscle, type MuscleState } from '@/components/muscle-figure/state'
+import { LoadTypePanel, type LoadTypeValue } from '@/components/trainer/load-type-panel'
 import { VideoCrop } from '@/components/trainer/video-crop'
 import { VideoPreview, type CurrentVideo } from '@/components/trainer/video-preview'
 import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalog-tree'
@@ -222,6 +223,8 @@ export function TextPanel({
   onDraft,
   drafting,
   draftError,
+  loadType,
+  onLoadType,
 }: {
   name: string
   onName: (value: string) => void
@@ -238,6 +241,9 @@ export function TextPanel({
   onDraft: () => void
   drafting: boolean
   draftError: string | null
+  /** Тип нагрузки: «Какой вес у упражнения». Нет — блок не показываем. */
+  loadType?: LoadTypeValue
+  onLoadType?: (value: LoadTypeValue) => void
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -278,6 +284,8 @@ export function TextPanel({
           />
         </div>
       </div>
+
+      {loadType && onLoadType ? <LoadTypePanel value={loadType} onChange={onLoadType} /> : null}
 
       <ListEditor
         title="Как делать"

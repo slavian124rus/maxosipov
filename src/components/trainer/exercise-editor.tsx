@@ -1,6 +1,6 @@
 'use client'
 
-import { LoadTypePanel, type LoadTypeValue } from './load-type-panel'
+import type { LoadTypeValue } from './load-type-panel'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -288,10 +288,7 @@ export function ExerciseEditor({
         ) : null}
 
         {tab === 'machine' ? (
-          <div className="flex flex-col gap-5">
-            <MachinePanel machines={machines} machineId={machineId} onChange={setMachineId} />
-            <LoadTypePanel value={loadType} onChange={setLoadType} />
-          </div>
+          <MachinePanel machines={machines} machineId={machineId} onChange={setMachineId} />
         ) : null}
 
         {tab === 'muscles' ? (
@@ -320,6 +317,8 @@ export function ExerciseEditor({
             onDraft={() => void createDraft()}
             drafting={drafting}
             draftError={draftError}
+            loadType={loadType}
+            onLoadType={setLoadType}
           />
         ) : null}
 
