@@ -348,3 +348,54 @@ test('без данных об альтернативах вкладки «За�
   render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
   expect(screen.queryByRole('tab', { name: 'Замены' })).toBeNull()
 })
+
+test('вкладка «Видео»: загруженное видео можно посмотреть прямо в окне', () => {
+  const { container } = render(
+    <ExerciseEditor
+      exercise={{
+        ...EXERCISE,
+        hasVideo: true,
+        videoStatus: 'ready',
+        videoMp4Url: '/media/video.mp4?sig=1',
+        videoWebmUrl: '/media/video.webm?sig=1',
+        posterUrl: '/media/poster.jpg?sig=1',
+      }}
+      machines={MACHINES}
+    />,
+  )
+
+  fireEvent.click(tab('Видео'))
+
+  const video = container.querySelector('video[controls]')
+  expect(video).toBeTruthy()
+  expect(video?.getAttribute('poster')).toBe('/media/poster.jpg?sig=1')
+  expect(container.querySelector('source[type="video/mp4"]')?.getAttribute('src')).toBe('/media/video.mp4?sig=1')
+})
+
+test('вкладка «Видео»: пока ролик обрабатывается, так и написано, плеера нет', () => {
+  const { container } = render(
+    <ExerciseEditor exercise={{ ...EXERCISE, videoStatus: 'processing' }} machines={MACHINES} />,
+  )
+
+  fireEvent.click(tab('Видео'))
+
+  expect(screen.getByText(/Видео обрабатывается/)).toBeTruthy()
+  expect(container.querySelector('video')).toBeNull()
+})
+
+test('у упражнения с видео форма просит сервер оставить его, а не стереть', () => {
+  const { container } = render(
+    <ExerciseEditor
+      exercise={{ ...EXERCISE, hasVideo: true, videoStatus: 'ready', videoMp4Url: '/media/v.mp4' }}
+      machines={MACHINES}
+    />,
+  )
+
+  expect(container.querySelector('input[name="keepVideo"]')?.getAttribute('value')).toBe('1')
+  expect(container.querySelector('input[name="videoMediaId"]')?.getAttribute('value')).toBe('')
+})
+
+test('у упражнения без видео признака «оставить видео» нет', () => {
+  const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+  expect(container.querySelector('input[name="keepVideo"]')?.getAttribute('value') ?? '').toBe('')
+})

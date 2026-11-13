@@ -79,7 +79,7 @@ export function ExerciseEditor({
 
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoMediaId, setVideoMediaId] = useState<string | null>(
-    exercise.videoMp4Url ? 'existing' : null,
+    exercise.videoMp4Url || exercise.videoStatus ? 'existing' : null,
   )
   const [cropX, setCropX] = useState(0.5)
   const [machineId, setMachineId] = useState<string>(exercise.machineId ?? '')
@@ -218,6 +218,8 @@ export function ExerciseEditor({
         name="videoMediaId"
         value={videoMediaId === 'existing' ? '' : (videoMediaId ?? '')}
       />
+      {/* Видео не менялось: просим сервер оставить привязанное, а не считать пустое поле «убрать». */}
+      <input type="hidden" name="keepVideo" value={videoMediaId === 'existing' ? '1' : ''} />
       <input type="hidden" name="machineId" value={machineId} />
       <input type="hidden" name="primary" value={muscles.primary.join(',')} />
       <input type="hidden" name="secondary" value={muscles.secondary.join(',')} />
@@ -265,6 +267,12 @@ export function ExerciseEditor({
             videoFile={videoFile}
             videoMediaId={videoMediaId}
             cropX={cropX}
+            current={{
+              status: exercise.videoStatus,
+              mp4Url: exercise.videoMp4Url,
+              webmUrl: exercise.videoWebmUrl,
+              posterUrl: exercise.posterUrl,
+            }}
             onUpload={(file) => void uploadVideo(file)}
             onCropChange={setCropX}
           />

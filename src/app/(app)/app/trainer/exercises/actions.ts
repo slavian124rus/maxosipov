@@ -70,7 +70,10 @@ export async function saveExerciseAction(
     machineId: text(formData.get('machineId')) || null,
     primaryMuscles: list(formData.get('primary')) as MuscleCode[],
     secondaryMuscles: list(formData.get('secondary')) as MuscleCode[],
-    videoMediaId: text(formData.get('videoMediaId')) || null,
+    // Пустое поле + keepVideo: видео не трогали, оставляем привязанное (`undefined`).
+    videoMediaId:
+      text(formData.get('videoMediaId')) ||
+      (text(formData.get('id')) && text(formData.get('keepVideo')) === '1' ? undefined : null),
     steps: jsonList(formData.get('steps')),
     mistakes: jsonList(formData.get('mistakes')),
     tips: text(formData.get('tips')) || null,

@@ -13,7 +13,8 @@ export const exerciseInputSchema = z
     machineId: z.string().uuid().nullable(),
     primaryMuscles: z.array(muscleCodeSchema).max(10),
     secondaryMuscles: z.array(muscleCodeSchema).max(15),
-    videoMediaId: z.string().uuid().nullable(),
+    /** `undefined` при правке — оставить привязанное видео как есть; `null` — убрать. */
+    videoMediaId: z.string().uuid().nullable().optional(),
     steps: z.array(z.string().trim().min(1)).max(10),
     mistakes: z.array(z.string().trim().min(1)).max(10),
     tips: z.string().trim().max(500).nullable(),

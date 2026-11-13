@@ -23,7 +23,8 @@ export async function buildWorkoutExercise(
   entry: WorkoutEntry,
   recommendation: Recommendation | null = null,
 ): Promise<WorkoutExercise> {
-  const detail = await getExercise(entry.exerciseId)
+  // Упражнение уже в программе клиента: даже если карточку вернули в черновики, тренировка не должна опустеть.
+  const detail = await getExercise(entry.exerciseId, { includeDrafts: true })
   const [nextWeight, history, lastWeights] = await Promise.all([
     getNextWeight(userId, entry.exerciseId),
     // История завершённых тренировок: по ней и по текущим подходам экран считает «В следующий раз»

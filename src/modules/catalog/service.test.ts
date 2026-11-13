@@ -668,7 +668,7 @@ test('опубликованное упражнение после правки 
   expect(detail).toBeNull() // клиентам не показывается
 })
 
-test('смена видео опубликованного на ещё не обработанное возвращает в черновики', async () => {
+test('смена видео опубликованного на ещё не обработанное без фото тренажёра возвращает в черновики', async () => {
   const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
   await publishExercise(actor, exercise.id)
 
@@ -677,6 +677,54 @@ test('смена видео опубликованного на ещё не об
     videoMediaId: processingVideoId,
   })
   expect(updated.status).toBe('draft')
+})
+
+test('смена видео опубликованного на ещё обрабатываемое оставляет его опубликованным, если есть фото тренажёра', async () => {
+  // Пока ролик обрабатывается, карточка показывает фото тренажёра, а клиенты не теряют упражнение из тренировки.
+  const machineId = await createMachineWithPhoto('Верхний блок', {})
+  const exercise = await createExercise(actor, { ...baseInput, machineId, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const updated = await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    machineId,
+    videoMediaId: processingVideoId,
+  })
+  expect(updated.status).toBe('published')
+})
+
+test('видео, которое не обработалось, возвращает опубликованное в черновики даже при фото тренажёра', async () => {
+  const machineId = await createMachineWithPhoto('Блок с ошибкой', {})
+  const [failed] = await db
+    .insert(media)
+    .values({
+      kind: 'exercise_video',
+      ownerId: actor.id,
+      status: 'failed',
+      sizeBytes: 1000,
+      mime: 'video/mp4',
+      totalChunks: 1,
+    })
+    .returning()
+  const exercise = await createExercise(actor, { ...baseInput, machineId, videoMediaId: readyVideoId })
+  await publishExercise(actor, exercise.id)
+
+  const updated = await updateExercise(actor, exercise.id, {
+    ...baseInput,
+    machineId,
+    videoMediaId: failed!.id,
+  })
+  expect(updated.status).toBe('draft')
+})
+
+test('правка без поля видео оставляет уже привязанное видео', async () => {
+  const exercise = await createExercise(actor, { ...baseInput, videoMediaId: readyVideoId })
+
+  const { videoMediaId: _keep, ...withoutVideo } = baseInput
+  void _keep
+  const updated = await updateExercise(actor, exercise.id, { ...withoutVideo, tips: 'Спина прямая' })
+
+  expect(updated.videoMediaId).toBe(readyVideoId)
 })
 
 test('безобидная правка опубликованного статус не меняет', async () => {

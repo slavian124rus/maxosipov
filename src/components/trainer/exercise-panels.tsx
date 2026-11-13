@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { MuscleFigure } from '@/components/muscle-figure/muscle-figure'
 import { cycleMuscle, type MuscleState } from '@/components/muscle-figure/state'
 import { VideoCrop } from '@/components/trainer/video-crop'
+import { VideoPreview, type CurrentVideo } from '@/components/trainer/video-preview'
 import { groupMachinesByZone, normalizeQuery } from '@/components/trainer/catalog-tree'
 import { Highlight, TreeSearchField } from '@/components/trainer/tree-ui'
 import { muscleName, type MuscleCode } from '@/shared/muscles'
@@ -35,6 +36,7 @@ export function VideoPanel({
   videoFile,
   videoMediaId,
   cropX,
+  current = null,
   onUpload,
   onCropChange,
 }: {
@@ -42,6 +44,8 @@ export function VideoPanel({
   videoFile: File | null
   videoMediaId: string | null
   cropX: number
+  /** Уже загруженное видео упражнения: для предпросмотра. */
+  current?: CurrentVideo | null
   onUpload: (file: File) => void
   onCropChange: (value: number) => void
 }) {
@@ -84,6 +88,8 @@ export function VideoPanel({
           {videoMediaId === 'existing' ? 'Видео уже загружено' : 'Видео загружено'}
         </p>
       ) : null}
+
+      <VideoPreview file={videoFile} current={current} />
 
       <VideoCrop file={videoFile} value={cropX} onChange={onCropChange} />
     </div>

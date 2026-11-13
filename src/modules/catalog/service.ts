@@ -143,12 +143,14 @@ async function findMachinePhoto(machineId: string | null): Promise<Media | null>
  * Что мешает опубликовать упражнение; `null`, если всё в порядке.
  * Правило публикации: мышцы + шаги + (готовое видео **или** фото тренажёра).
  */
+const VIDEO_PROCESSING = 'Видео ещё обрабатывается'
+
 async function findPublishProblem(data: PublishData): Promise<string | null> {
   if (data.videoMediaId) {
     const [video] = await db.select().from(media).where(eq(media.id, data.videoMediaId)).limit(1)
 
     if (!video) return 'Добавь видео или фото тренажёра'
-    if (video.status === 'processing') return 'Видео ещё обрабатывается'
+    if (video.status === 'processing') return VIDEO_PROCESSING
     if (video.status !== 'ready') return 'Видео не обработалось — загрузи новое'
   } else if (!(await findMachinePhoto(data.machineId))) {
     return 'Добавь видео или фото тренажёра'
@@ -161,7 +163,7 @@ async function findPublishProblem(data: PublishData): Promise<string | null> {
 }
 
 /** К упражнению можно привязать только видео упражнения, не фото и не чужие файлы. */
-async function assertExerciseVideo(videoMediaId: string | null): Promise<void> {
+async function assertExerciseVideo(videoMediaId: string | null | undefined): Promise<void> {
   if (!videoMediaId) return
   const [row] = await db
     .select({ kind: media.kind })
@@ -361,7 +363,7 @@ export async function createExercise(actor: Actor, input: ExerciseInput): Promis
       slug,
       primaryMuscles: data.primaryMuscles,
       secondaryMuscles: data.secondaryMuscles,
-      videoMediaId: data.videoMediaId,
+      videoMediaId: data.videoMediaId ?? null,
       overlayProfile: data.overlayProfile,
       loadType: data.loadType ?? 'external',
       steps: data.steps,
@@ -389,9 +391,15 @@ export async function updateExercise(
   const [existing] = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1)
   if (!existing) throw new Error('Упражнение не найдено')
 
+  const videoMediaId = data.videoMediaId === undefined ? existing.videoMediaId : data.videoMediaId
+
   // Правка не должна оставлять в каталоге пустую карточку: если опубликованное упражнение
   // перестало удовлетворять правилам публикации, оно возвращается в черновики.
-  const problem = existing.status === 'published' ? await findPublishProblem(data) : null
+  let problem = existing.status === 'published' ? await findPublishProblem({ ...data, videoMediaId }) : null
+
+  // Новый ролик ещё обрабатывается, но у тренажёра есть фото: карточка пока показывает фото,
+  // а упражнение не пропадает из тренировок клиентов.
+  if (problem === VIDEO_PROCESSING && (await findMachinePhoto(data.machineId))) problem = null
 
   const [row] = await db
     .update(exercises)
@@ -400,7 +408,7 @@ export async function updateExercise(
       name: data.name,
       primaryMuscles: data.primaryMuscles,
       secondaryMuscles: data.secondaryMuscles,
-      videoMediaId: data.videoMediaId,
+      videoMediaId,
       overlayProfile: data.overlayProfile,
       ...(data.loadType ? { loadType: data.loadType } : {}),
       steps: data.steps,
