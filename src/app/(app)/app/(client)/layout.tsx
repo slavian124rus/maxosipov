@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { connection } from 'next/server'
 import { BottomNav } from '@/components/app/bottom-nav'
 import { ClientSideNav } from '@/components/app/client-side-nav'
 import { OfflineSync } from '@/components/app/offline-sync'
@@ -15,6 +16,11 @@ export const instant = false
  * `requireClientPage` (ARCHITECTURE.md §8.4).
  */
 export default async function ClientLayout({ children }: { children: ReactNode }) {
+  // Меню показывает зал и имя клиента, то есть читает БД. Без `connection()`
+  // Next пытается выполнить layout при сборке (prerender) — там базы нет,
+  // и `pnpm build` в Docker падает с ECONNREFUSED. Явно уходим в динамику.
+  await connection()
+
   const [current, gym] = await Promise.all([getCurrentUser(), getGym()])
   const user = current?.user
 
