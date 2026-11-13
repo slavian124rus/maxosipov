@@ -26,6 +26,7 @@ import {
 import { DeleteExercise } from '@/components/trainer/delete-exercise'
 import { ExerciseAiPanel } from '@/components/trainer/exercise-ai-panel'
 import { AlternativesPanel, type AlternativeOption } from '@/components/trainer/alternatives-panel'
+import { VideoProcessing } from '@/components/trainer/video-preview'
 
 const INITIAL: SaveExerciseState = { error: null, id: null }
 
@@ -126,7 +127,8 @@ export function ExerciseEditor({
   }, [state])
 
   useEffect(() => {
-    if (state.error) toast.error(state.error)
+    // «Видео ещё обрабатывается» показывает крутилка под формой, без красного тоста.
+    if (state.error && state.error !== 'Видео ещё обрабатывается') toast.error(state.error)
   }, [state])
 
   const machine = machines.find((item) => item.id === machineId) ?? null
@@ -391,7 +393,11 @@ export function ExerciseEditor({
         ) : null}
       </div>
 
-      {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
+      {state.error === 'Видео ещё обрабатывается' ? (
+        <VideoProcessing />
+      ) : state.error ? (
+        <p className="text-[15px] text-danger">{state.error}</p>
+      ) : null}
       {state.notice ? <p className="text-[15px] text-text-secondary">{state.notice}</p> : null}
 
       {/* Панель залипает снизу на тёмной подложке во всю ширину: на телефоне контент не должен просвечивать сквозь кнопки. */}

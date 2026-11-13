@@ -42,11 +42,7 @@ export function VideoPreview({ file, current }: { file: File | null; current: Cu
   if (!current || !current.status) return null
 
   if (current.status === 'processing') {
-    return (
-      <p className="rounded-card border border-border bg-surface-1 px-4 py-3 text-[15px] text-text-secondary">
-        Видео обрабатывается. Пока в карточке показывается фото тренажёра; обычно это занимает пару минут.
-      </p>
-    )
+    return <VideoProcessing />
   }
 
   if (current.status !== 'ready' || !current.mp4Url) {
@@ -82,5 +78,32 @@ function Frame({ caption, children }: { caption: string; children: React.ReactNo
       </div>
       <figcaption className="text-center text-[13px] text-text-muted">{caption}</figcaption>
     </figure>
+  )
+}
+
+/** Видео сжимается на сервере: крутилка и бегущий блик вместо сухой строки. */
+export function VideoProcessing() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="relative flex items-center gap-4 overflow-hidden rounded-card border border-border bg-surface-1 p-4"
+    >
+      <div
+        data-loader
+        aria-hidden="true"
+        className="size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-accent"
+      />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-[17px] font-medium text-text">Видео обрабатывается</p>
+        <p className="text-[14px] text-text-secondary">
+          Обычно пара минут. Пока в карточке — фото тренажёра.
+        </p>
+      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 animate-[video-shimmer_1.8s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent"
+      />
+    </div>
   )
 }
