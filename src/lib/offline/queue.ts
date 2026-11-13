@@ -131,6 +131,7 @@ async function runFlushAll(fetchFn: typeof fetch): Promise<void> {
     const ok = await post(fetchFn, '/api/training/finish', {
       sessionClientUuid: record.clientUuid,
       finishedAt: record.finishRequestedAt,
+      ...(record.warmupStatus ? { warmupStatus: record.warmupStatus } : {}),
     })
 
     if (ok) {

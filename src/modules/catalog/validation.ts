@@ -20,6 +20,7 @@ export const exerciseInputSchema = z
     defaultRepMin: z.number().int().min(1).max(50),
     defaultRepMax: z.number().int().min(1).max(50),
     overlayProfile: z.enum(['none', 'pull_vertical', 'pull_horizontal']),
+    loadType: z.enum(['external', 'bodyweight', 'bodyweight_plus']).optional(),
   })
   .refine((data) => data.defaultRepMax >= data.defaultRepMin, {
     message: 'Максимум повторений меньше минимума',

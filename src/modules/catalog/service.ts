@@ -17,7 +17,7 @@ import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { enqueueJob } from '@/shared/queue'
 import { media } from '@/shared/db/schema'
-import { exercises, machines, type Exercise, type Machine, type OverlayProfile } from './schema'
+import { exercises, machines, type Exercise, type LoadType, type Machine, type OverlayProfile } from './schema'
 import { ensureZone } from './zones'
 import type { MuscleCode } from './muscles'
 import { slugify } from './slug'
@@ -57,6 +57,7 @@ export type ExerciseDetail = ExerciseListItem & {
   defaultRepMin: number
   defaultRepMax: number
   overlayProfile: OverlayProfile
+  loadType: LoadType
   videoMp4Url: string | null
   videoWebmUrl: string | null
   musclesMp4Url: string | null
@@ -362,6 +363,7 @@ export async function createExercise(actor: Actor, input: ExerciseInput): Promis
       secondaryMuscles: data.secondaryMuscles,
       videoMediaId: data.videoMediaId,
       overlayProfile: data.overlayProfile,
+      loadType: data.loadType ?? 'external',
       steps: data.steps,
       mistakes: data.mistakes,
       tips: data.tips,
@@ -400,6 +402,7 @@ export async function updateExercise(
       secondaryMuscles: data.secondaryMuscles,
       videoMediaId: data.videoMediaId,
       overlayProfile: data.overlayProfile,
+      ...(data.loadType ? { loadType: data.loadType } : {}),
       steps: data.steps,
       mistakes: data.mistakes,
       tips: data.tips,
@@ -600,6 +603,7 @@ export async function getExercise(
     defaultRepMin: row.exercise.defaultRepMin,
     defaultRepMax: row.exercise.defaultRepMax,
     overlayProfile: row.exercise.overlayProfile,
+    loadType: row.exercise.loadType,
     videoMp4Url: sign(paths?.mp4),
     videoWebmUrl: sign(paths?.webm),
     musclesMp4Url: showMuscles ? sign(paths?.musclesMp4) : null,

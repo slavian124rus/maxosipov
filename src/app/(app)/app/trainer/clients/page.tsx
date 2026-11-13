@@ -126,7 +126,14 @@ export default async function TrainerClientsPage({
                   </span>
 
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[15px] text-text">{client.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[15px] text-text">{client.name}</span>
+                      {client.planEditedByClient ? (
+                        <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-warning">
+                          план менял
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="truncate text-[13px] text-text-muted lg:hidden">
                       {lastWorkout}
                     </span>

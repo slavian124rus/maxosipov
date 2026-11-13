@@ -11,7 +11,9 @@ import {
 } from '@/modules/gym'
 import { PERMISSIONS, type Permission, type RolePermission } from '@/modules/rbac'
 import { assignRole, createRole, setClientTrainer, updateRole } from '@/modules/rbac'
-import { env } from '@/shared/env'
+import { AI_TASKS } from '@/shared/ai-tasks'
+import { defaultModelName, listProviderModels, pingModel } from '@/modules/coach-ai'
+import { assertCan } from '@/modules/rbac'
 import { formFailure } from '../form-errors'
 import { SAVED_FORM_STATE, type FormState } from '../form-state'
 
@@ -26,21 +28,22 @@ function number(formData: FormData, name: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function modelName(kind: 'main' | 'fast' | 'fallback'): string {
-  if (kind === 'main') return env.AI_MODEL_MAIN ?? 'main'
-  if (kind === 'fast') return env.AI_MODEL_FAST ?? 'fast'
-  return env.AI_MODEL_FALLBACK ?? 'fallback'
-}
 
 /** Памятка МаксИИма, дневной лимит и цены моделей. */
 export async function saveAiSettingsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { actor } = await requireUser()
 
+  // Модель каждой задачи: выбранная в админке или, если поле пустое, по умолчанию.
+  const aiModels: NonNullable<AiSettingsInput['aiModels']> = {}
   const aiPrices: AiSettingsInput['aiPrices'] = {}
-  for (const kind of ['main', 'fast', 'fallback'] as const) {
-    const inPer1k = number(formData, `in_${kind}`)
-    const outPer1k = number(formData, `out_${kind}`)
-    if (inPer1k > 0 || outPer1k > 0) aiPrices[modelName(kind)] = { inPer1k, outPer1k }
+  for (const { task, kind } of AI_TASKS) {
+    const chosen = text(formData, `model_${task}`)
+    aiModels[task] = chosen
+
+    const inPer1k = number(formData, `in_${task}`)
+    const outPer1k = number(formData, `out_${task}`)
+    const effective = chosen || defaultModelName(kind) || task
+    if (inPer1k > 0 || outPer1k > 0) aiPrices[effective] = { inPer1k, outPer1k }
   }
 
   try {
@@ -48,6 +51,7 @@ export async function saveAiSettingsAction(_prev: FormState, formData: FormData)
       aiMemo: text(formData, 'aiMemo'),
       aiDailyLimit: Math.round(number(formData, 'aiDailyLimit')),
       aiPrices,
+      aiModels,
     })
   } catch (error) {
     return formFailure(error, 'Не удалось сохранить настройки МаксИИма')
@@ -188,4 +192,30 @@ export async function setTrainerAction(_prev: FormState, formData: FormData): Pr
 
   revalidatePath('/trainer/settings/people')
   return SAVED_FORM_STATE
+}
+/** «Проверить»: короткий вызов модели — ответ и время или причина ошибки. */
+export async function testModelAction(
+  modelId: string,
+): Promise<{ ok: true; ms: number; text: string } | { ok: false; ms: number; error: string }> {
+  const { actor } = await requireUser()
+  assertCan(actor, 'settings.ai')
+
+  const id = modelId.trim()
+  if (!id) return { ok: false, ms: 0, error: 'Укажи id модели' }
+  return pingModel(id)
+}
+
+/** «Модели провайдера»: список id, если провайдер его отдаёт. */
+export async function listModelsAction(): Promise<{ models: string[]; error: string | null }> {
+  const { actor } = await requireUser()
+  assertCan(actor, 'settings.ai')
+
+  try {
+    return { models: await listProviderModels(), error: null }
+  } catch (error) {
+    return {
+      models: [],
+      error: error instanceof Error ? error.message : 'Не удалось получить список. Впиши id вручную',
+    }
+  }
 }

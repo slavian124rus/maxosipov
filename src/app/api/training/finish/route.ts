@@ -9,6 +9,7 @@ const bodySchema = z.object({
   sessionClientUuid: z.string().min(1).max(64),
   finishedAt: z.string().datetime().optional(),
   comment: z.string().max(1000).optional(),
+  warmupStatus: z.enum(['done', 'skipped']).optional(),
 })
 
 /** Завершение тренировки. Повторный вызов безопасен. */
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     await finishSession(current.user.id, parsed.data.sessionClientUuid, {
       finishedAt: parsed.data.finishedAt ? new Date(parsed.data.finishedAt) : new Date(),
       ...(parsed.data.comment ? { comment: parsed.data.comment } : {}),
+      ...(parsed.data.warmupStatus ? { warmupStatus: parsed.data.warmupStatus } : {}),
     })
 
     return NextResponse.json({ ok: true })

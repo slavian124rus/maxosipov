@@ -100,6 +100,14 @@ export function settingsNavItems(actor: Actor): SettingsItem[] {
           group: 'Зал',
         }
       : null,
+    can(actor, 'catalog.edit')
+      ? {
+          href: '/trainer/settings/warmups',
+          label: 'Разминки',
+          description: 'Что делать перед тренировкой: ноги, верх, всё тело',
+          group: 'Зал',
+        }
+      : null,
     can(actor, 'settings.brand')
       ? {
           href: '/trainer/settings/brand',

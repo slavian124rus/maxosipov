@@ -16,7 +16,9 @@ import {
   programDays,
   programExercises,
   programs,
+  resolvePlanWeights,
   type ProgramDiffLine,
+  type ProgramTree,
   type ProgramPatch,
   type ProposalKind,
   type ProposalStatus,
@@ -26,7 +28,13 @@ export type DraftProgramPayload = {
   name: string
   days: {
     name: string
-    exercises: { exerciseId: string; sets: number; repMin: number; repMax: number }[]
+    exercises: {
+      exerciseId: string
+      sets: number
+      repMin: number
+      repMax: number
+      restSec?: number
+    }[]
   }[]
   rationale: string | null
 }
@@ -38,10 +46,12 @@ export type ProposalView = {
   diff: unknown
   payload: unknown
   rationale: string | null
+  preview: unknown
   createdAt: Date
 }
 
 const ALREADY_DECIDED = 'Уже решено'
+const PROGRAM_CHANGED = 'Программа уже изменилась — попроси МаксИИма собрать заново'
 
 async function loadProposal(actor: Actor, proposalId: string) {
   const [proposal] = await db
@@ -108,6 +118,23 @@ export async function acceptProposal(actor: Actor, proposalId: string): Promise<
   // Меняет программу только клиент с действующим доступом (ARCHITECTURE.md §8.4).
   await assertClientAccess(actor.id)
 
+  // Предложение собрано по старой версии программы — применять его нельзя.
+  if (proposal.kind === 'patch' && proposal.programId && proposal.baseProgramUpdatedAt) {
+    const [current] = await db
+      .select({ updatedAt: programs.updatedAt })
+      .from(programs)
+      .where(eq(programs.id, proposal.programId))
+      .limit(1)
+
+    if (current && current.updatedAt.getTime() > proposal.baseProgramUpdatedAt.getTime()) {
+      await db
+        .update(aiProposals)
+        .set({ status: 'superseded', updatedAt: new Date() })
+        .where(and(eq(aiProposals.id, proposalId), eq(aiProposals.status, 'pending')))
+      throw new Error(PROGRAM_CHANGED)
+    }
+  }
+
   // Статус ставим первым: параллельное повторное нажатие увидит «Уже решено»
   // и не применит изменение дважды.
   await markDecided(actor, proposalId, 'accepted')
@@ -137,6 +164,25 @@ export async function acceptProposal(actor: Actor, proposalId: string): Promise<
 
     await db.transaction(async (tx) => {
       const now = new Date()
+
+      // Веса и отдых прежней программы переезжают в новую по совпадающим упражнениям.
+      const previous = await tx
+        .select({
+          exerciseId: programExercises.exerciseId,
+          weightKg: programExercises.targetWeightKg,
+          restSec: programExercises.restSec,
+        })
+        .from(programExercises)
+        .innerJoin(programDays, eq(programDays.id, programExercises.dayId))
+        .innerJoin(programs, eq(programs.id, programDays.programId))
+        .where(and(eq(programs.ownerId, actor.id), eq(programs.status, 'active')))
+
+      const carryWeights: Record<string, number> = {}
+      const carryRest = new Map<string, number>()
+      for (const row of previous) {
+        if ((row.weightKg ?? 0) > 0) carryWeights[row.exerciseId] = row.weightKg!
+        carryRest.set(row.exerciseId, row.restSec)
+      }
 
       await tx
         .update(programs)
@@ -176,11 +222,13 @@ export async function acceptProposal(actor: Actor, proposalId: string): Promise<
               sets: item.sets,
               repMin: item.repMin,
               repMax: item.repMax,
-              restSec: 90,
+              restSec: item.restSec ?? carryRest.get(item.exerciseId) ?? 90,
             })),
           )
         }
       }
+
+      await resolvePlanWeights(created.id, actor.id, { carry: carryWeights }, tx)
 
       await tx.insert(programChanges).values({
         programId: created.id,
@@ -218,6 +266,7 @@ export async function listProposals(
       diff: aiProposals.diff,
       payload: aiProposals.payload,
       rationale: aiProposals.rationale,
+      preview: aiProposals.preview,
       createdAt: aiProposals.createdAt,
     })
     .from(aiProposals)
@@ -238,6 +287,102 @@ export type ProposalLine = {
 
 export type ProposalCard = ProposalView & { lines: ProposalLine[] }
 
+/** Строки «что изменится» для предложения: по дереву программы на момент создания. */
+export async function buildProposalLines(
+  kind: ProposalKind,
+  payloadValue: unknown,
+  program: ProgramTree | null,
+): Promise<ProposalLine[]> {
+  if (kind === 'new_program') {
+    const draft = payloadValue as DraftProgramPayload
+    const ids = draft.days.flatMap((day) => day.exercises.map((item) => item.exerciseId))
+    const names = await exerciseNames(ids)
+    const lines: ProposalLine[] = []
+
+    for (const day of draft.days) {
+      lines.push({ kind: 'added', dayName: day.name, text: `Добавлен день: ${day.name}` })
+      for (const item of day.exercises) {
+        lines.push({
+          kind: 'added',
+          dayName: day.name,
+          text: `Добавлено: ${names(item.exerciseId)}, ${item.sets} подхода по ${item.repMin}–${item.repMax} повторений`,
+        })
+      }
+    }
+
+    return lines
+  }
+
+  if (!program) return []
+
+  const patch = payloadValue as ProgramPatch
+  const published = await db
+    .select({ id: exercises.id })
+    .from(exercises)
+    .where(eq(exercises.status, 'published'))
+  const publishedIds = new Set(published.map((row) => row.id))
+
+  try {
+    const after = applyPatch(program, patch, publishedIds)
+    const ids = [
+      ...program.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
+      ...after.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
+    ]
+    return diffPrograms(program, after, await exerciseNames([...new Set(ids)]))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Создаёт предложение МаксИИма. Прежние ожидающие предложения клиента становятся «устаревшими»:
+ * одновременно жива только одна карточка. Строки «что изменится» сохраняются снимком.
+ */
+export async function createProposal(input: {
+  userId: string
+  conversationId: string | null
+  kind: ProposalKind
+  program: ProgramTree | null
+  payload: unknown
+  rationale: string | null
+}): Promise<string> {
+  const lines = await buildProposalLines(input.kind, input.payload, input.program)
+
+  let baseUpdatedAt: Date | null = null
+  if (input.program) {
+    const [row] = await db
+      .select({ updatedAt: programs.updatedAt })
+      .from(programs)
+      .where(eq(programs.id, input.program.id))
+      .limit(1)
+    baseUpdatedAt = row?.updatedAt ?? null
+  }
+
+  return db.transaction(async (tx) => {
+    await tx
+      .update(aiProposals)
+      .set({ status: 'superseded', updatedAt: new Date() })
+      .where(and(eq(aiProposals.userId, input.userId), eq(aiProposals.status, 'pending')))
+
+    const [created] = await tx
+      .insert(aiProposals)
+      .values({
+        userId: input.userId,
+        programId: input.program?.id ?? null,
+        kind: input.kind,
+        diff: input.payload,
+        payload: input.payload,
+        conversationId: input.conversationId,
+        rationale: input.rationale,
+        baseProgramUpdatedAt: baseUpdatedAt,
+        preview: lines,
+      })
+      .returning({ id: aiProposals.id })
+
+    return created!.id
+  })
+}
+
 async function exerciseNames(ids: string[]): Promise<(id: string) => string> {
   if (ids.length === 0) return (id) => id
 
@@ -250,7 +395,7 @@ async function exerciseNames(ids: string[]): Promise<(id: string) => string> {
   return (id) => map.get(id) ?? id
 }
 
-/** Карточки для экрана чата: строки «что изменится» уже в человеческом виде. */
+/** Карточки для экрана чата. Строки берём из снимка; пересчёт — только для старых ожидающих. */
 export async function listProposalCards(
   userId: string,
   conversationId?: string,
@@ -259,52 +404,22 @@ export async function listProposalCards(
   const cards: ProposalCard[] = []
 
   for (const proposal of proposals) {
-    if (proposal.kind === 'new_program') {
-      const draft = (proposal.payload ?? proposal.diff) as DraftProgramPayload
-      const ids = draft.days.flatMap((day) => day.exercises.map((item) => item.exerciseId))
-      const names = await exerciseNames(ids)
-      const lines: ProposalLine[] = []
-
-      for (const day of draft.days) {
-        lines.push({ kind: 'added', dayName: day.name, text: `Добавлен день: ${day.name}` })
-        for (const item of day.exercises) {
-          lines.push({
-            kind: 'added',
-            dayName: day.name,
-            text: `Добавлено: ${names(item.exerciseId)}, ${item.sets} подхода по ${item.repMin}–${item.repMax} повторений`,
-          })
-        }
-      }
-
-      cards.push({ ...proposal, lines })
+    if (Array.isArray(proposal.preview)) {
+      cards.push({ ...proposal, lines: proposal.preview as ProposalLine[] })
       continue
     }
 
-    const program = await findProposalProgram(proposal.id)
-    if (!program) {
+    if (proposal.status !== 'pending') {
       cards.push({ ...proposal, lines: [] })
       continue
     }
 
-    const patch = (proposal.payload ?? proposal.diff) as ProgramPatch
-    const published = await db
-      .select({ id: exercises.id })
-      .from(exercises)
-      .where(eq(exercises.status, 'published'))
-    const publishedIds = new Set(published.map((row) => row.id))
-
-    let lines: ProposalLine[] = []
-    try {
-      const after = applyPatch(program, patch, publishedIds)
-      const ids = [
-        ...program.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
-        ...after.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
-      ]
-      lines = diffPrograms(program, after, await exerciseNames([...new Set(ids)]))
-    } catch {
-      lines = []
-    }
-
+    const program = proposal.kind === 'patch' ? await findProposalProgram(proposal.id) : null
+    const lines = await buildProposalLines(
+      proposal.kind,
+      proposal.payload ?? proposal.diff,
+      program,
+    )
     cards.push({ ...proposal, lines })
   }
 

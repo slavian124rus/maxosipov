@@ -1,11 +1,13 @@
 'use client'
 
+import { SwapButton } from './swap-button'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ExerciseLogger } from './exercise-logger'
 import { FeelingPicker, type Feeling } from './feeling-picker'
 import { HowToButton, HowToDialog } from './how-to'
 import { RecommendationCard } from './recommendation-card'
+import { RestTimer } from './rest-timer'
 import { formatScheme } from '@/shared/scheme'
 import { formatWeight } from '@/modules/progression'
 
@@ -18,6 +20,7 @@ export type WorkoutExercise = {
   repMin: number
   repMax: number
   restSec: number
+  loadType: 'external' | 'bodyweight' | 'bodyweight_plus'
   stepKg: number
   posterUrl: string | null
   videoMp4Url: string | null
@@ -54,8 +57,11 @@ type Props = {
   logged: Record<string, LoggedSet[]>
   onLog: (exercise: WorkoutExercise, weightKg: number, reps: number) => void
   onFeeling: (exercise: WorkoutExercise, feeling: Feeling) => void
-  onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void
+  onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void | Promise<void>
   nextRecommendations: Record<string, NextRecommendation>
+  /** Можно ли заменить упражнение (есть запасные и подходы ещё не записаны). */
+  canSwap?: (exercise: WorkoutExercise) => boolean
+  onSwap?: (exercise: WorkoutExercise) => void
 }
 
 /** Свободный режим: список карточек, активная раскрывается (DESIGN.md §8.3). */
@@ -66,10 +72,24 @@ export function FreeMode({
   onFeeling,
   onNextWeight,
   nextRecommendations,
+  canSwap,
+  onSwap,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(exercises[0]?.programExerciseId ?? null)
   /** Открытая карточка «Как делать»: техника без ухода со страницы тренировки. */
   const [howTo, setHowTo] = useState<WorkoutExercise | null>(null)
+  /** Отдых после подхода: таймер показывается под логгером, пока не истечёт или не пропущен. */
+  const [resting, setResting] = useState<{ id: string; run: number } | null>(null)
+
+  /** После решения про вес открываем следующее незавершённое упражнение. */
+  function advanceFrom(exercise: WorkoutExercise): void {
+    const index = exercises.findIndex((item) => item.programExerciseId === exercise.programExerciseId)
+    const next = exercises
+      .slice(index + 1)
+      .find((item) => (logged[item.programExerciseId]?.length ?? 0) < item.sets)
+
+    window.setTimeout(() => setActiveId(next ? next.programExerciseId : null), 900)
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -109,8 +129,12 @@ export function FreeMode({
                   {exercise.name}
                 </span>
                 <span className="text-[13px] text-text-muted">
-                  {formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}
-                  {exercise.planWeightKg ? ` · план ${formatWeight(exercise.planWeightKg)}` : ''}
+                  {formatScheme(exercise.sets, exercise.repMin, exercise.repMax, exercise.restSec)}
+                  {exercise.loadType === 'bodyweight'
+                    ? ' · свой вес'
+                    : exercise.planWeightKg
+                      ? ` · план ${formatWeight(exercise.planWeightKg)}`
+                      : ''}
                 </span>
                 {exercise.recommendation ? (
                   <span className="truncate text-[13px] text-text-secondary">
@@ -153,6 +177,8 @@ export function FreeMode({
                   </button>
                 ) : null}
 
+                {onSwap && canSwap?.(exercise) ? <SwapButton onClick={() => onSwap(exercise)} /> : null}
+
                 {done.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {done.map((set) => (
@@ -160,7 +186,7 @@ export function FreeMode({
                         key={set.index}
                         className="rounded-full bg-surface-2 px-3 py-1 text-[13px] text-text-secondary"
                       >
-                        {set.index}: {formatWeight(set.weightKg)} · {set.reps} раз
+                        {set.index}: {exercise.loadType === 'bodyweight' || set.weightKg === 0 ? '' : `${formatWeight(set.weightKg)} · `}{set.reps} раз
                       </span>
                     ))}
                   </div>
@@ -171,8 +197,24 @@ export function FreeMode({
                   stepKg={exercise.stepKg}
                   initialWeightKg={done.at(-1)?.weightKg ?? exercise.startWeightKg}
                   initialReps={done.at(-1)?.reps ?? exercise.repMax}
-                  onLog={(weightKg, reps) => onLog(exercise, weightKg, reps)}
+                  onLog={(weightKg, reps) => {
+                    onLog(exercise, weightKg, reps)
+                    if (done.length + 1 < exercise.sets && exercise.restSec > 0) {
+                      setResting({ id: exercise.programExerciseId, run: Date.now() })
+                    }
+                  }}
+                  loadType={exercise.loadType}
                 />
+
+                {resting?.id === exercise.programExerciseId ? (
+                  <RestTimer
+                    key={resting.run}
+                    compact
+                    seconds={exercise.restSec}
+                    onDone={() => setResting(null)}
+                    onSkip={() => setResting(null)}
+                  />
+                ) : null}
 
                 <div className="flex flex-wrap items-center gap-2">
                   <HowToButton onClick={() => setHowTo(exercise)} />
@@ -192,15 +234,19 @@ export function FreeMode({
                     weightKg={nextRecommendations[exercise.programExerciseId]!.weightKg}
                     action={nextRecommendations[exercise.programExerciseId]!.action}
                     whyHref={whyHref(exercise, nextRecommendations[exercise.programExerciseId]!.weightKg)}
-                    onAccept={() =>
-                      onNextWeight(
+                    onAccept={async () => {
+                      await onNextWeight(
                         exercise,
                         nextRecommendations[exercise.programExerciseId]?.weightKg ??
                           done.at(-1)?.weightKg ??
                           exercise.startWeightKg,
                       )
-                    }
-                    onKeep={() => onNextWeight(exercise, done.at(-1)?.weightKg ?? exercise.startWeightKg)}
+                      advanceFrom(exercise)
+                    }}
+                    onKeep={async () => {
+                      await onNextWeight(exercise, done.at(-1)?.weightKg ?? exercise.startWeightKg)
+                      advanceFrom(exercise)
+                    }}
                   />
                 ) : null}
               </div>

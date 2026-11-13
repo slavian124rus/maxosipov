@@ -206,6 +206,13 @@ type ExerciseImportContext = {
   log: (line: string) => void
 }
 
+/** Тип нагрузки по тренажёру и названию: коврик — свой вес, подтягивания и отжимания — свой вес + отягощение. */
+function guessLoadType(name: string, machineName?: string): 'bodyweight' | 'bodyweight_plus' | undefined {
+  if (machineName?.toLowerCase().startsWith('коврик')) return 'bodyweight'
+  if (/^(подтягивани|отжимани)/i.test(name)) return 'bodyweight_plus'
+  return undefined
+}
+
 /** Упражнения: upsert по `slug`, публикация только без `needsReview` и с готовым фото. */
 async function importExercises(ctx: ExerciseImportContext): Promise<void> {
   const { gymId, machinesBySlug, machineIds, photoReady, options, summary, log } = ctx
@@ -228,6 +235,7 @@ async function importExercises(ctx: ExerciseImportContext): Promise<void> {
       defaultRepMin: item.defaultRepMin,
       defaultRepMax: item.defaultRepMax,
       overlayProfile: item.overlayProfile,
+      loadType: guessLoadType(item.name, machine?.name),
     })
 
     const [existing] = await db

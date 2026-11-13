@@ -4,7 +4,7 @@ import { exercises } from '@/modules/catalog'
 import type { Recommendation } from '@/modules/progression'
 import { getRecommendations, setLogs, workoutSessions } from '@/modules/training'
 import { db } from '@/shared/db'
-import { AiUnavailableError, getModelName, withFallback } from './provider'
+import { AiUnavailableError, getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 const SUMMARY_INSTRUCTION =
@@ -79,7 +79,7 @@ export function trimToWord(text: string, limit = SUMMARY_LIMIT): string {
 
 type SummaryDeps = {
   generate?: typeof generateText
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
 }
 

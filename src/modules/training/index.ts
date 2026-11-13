@@ -21,9 +21,12 @@ export {
   getActiveProgram,
   getProgramAuthorKinds,
   getProgramTree,
+  getClientEditStatus,
+  listUnseenClientEdits,
   listProgramChanges,
+  markClientEditSeen,
 } from './programs'
-export type { ChangeActorKind, ProgramChangeView } from './programs'
+export type { ChangeActorKind, ClientEditStatus, ProgramChangeView } from './programs'
 
 export {
   applyProgramWeights,
@@ -31,10 +34,24 @@ export {
   fillProgramWeightsFromProfile,
   loadWeightHints,
   programExerciseHints,
+  lastWorkingWeights,
   programWeightStats,
+  resolvePlanWeights,
   toStartWeightProfile,
 } from './weights'
 export type { ProgramExerciseHint, WeightHint } from './weights'
+
+export { estimateDayMinutes } from './duration'
+export { adjustWarmupForPain, resolveDayFocus, warmupSeconds } from './warmup'
+export {
+  archiveWarmupTemplate,
+  getWarmupFor,
+  listWarmupTemplates,
+  saveWarmupTemplate,
+} from './warmups'
+export type { WarmupTemplateInput } from './warmups'
+export type { DayFocus, WarmupFocus, WarmupItem, WarmupStatus, WarmupTemplate } from './schema'
+export type { DurationDay } from './duration'
 
 export { pickWorkoutDay } from './day-choice'
 export type { DayChoice } from './day-choice'

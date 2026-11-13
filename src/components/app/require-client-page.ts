@@ -13,6 +13,8 @@ export type ClientPath =
   | '/exercises'
   | '/progress'
   | '/profile'
+  | '/settings'
+  | '/plan'
   | '/paywall'
 
 /**

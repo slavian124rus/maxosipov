@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowUp, Mic, Square } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Mic, Square } from 'lucide-react'
 import type { ProposalCard as ProposalCardData } from '@/modules/coach-ai'
 import { ProposalCard } from './proposal-card'
 import { QuickChips } from './quick-chips'
@@ -41,10 +41,25 @@ function TypingDots() {
   )
 }
 
-type Message = { role: 'user' | 'assistant'; content: string }
+type Message = { role: 'user' | 'assistant'; content: string; createdAt?: string }
+
+const TZ = 'Asia/Krasnoyarsk'
+const dayKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso))
+
+const clock = (iso: string) =>
+  new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+
+/** Разделитель дат как в мессенджере: «Сегодня», «Вчера», «13 ноября». */
+function dayLabel(iso: string, now = new Date()): string {
+  const key = dayKey(iso)
+  if (key === dayKey(now.toISOString())) return 'Сегодня'
+  if (key === dayKey(new Date(now.getTime() - 86_400_000).toISOString())) return 'Вчера'
+  return new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, day: 'numeric', month: 'long' }).format(new Date(iso))
+}
 
 type Props = {
   initialConversationId: string | null
+  initialTitle: string | null
   initialMessages: Message[]
   initialProposals: ProposalCardData[]
   prefill: string | null
@@ -74,8 +89,17 @@ function useVisualViewport(): { height: number | null; top: number } {
 const HINT = 'Максим видит предложения, изменения в плане и сообщения о боли или травме'
 
 /** Чат МаксИИма (DESIGN.md §8.6). */
-export function ChatView({ initialConversationId, initialMessages, initialProposals, prefill }: Props) {
+export function ChatView({
+  initialConversationId,
+  initialTitle,
+  initialMessages,
+  initialProposals,
+  prefill,
+}: Props) {
   const [conversationId, setConversationId] = useState(initialConversationId)
+  const [title, setTitle] = useState(initialTitle)
+  const [atBottom, setAtBottom] = useState(true)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [proposals, setProposals] = useState<ProposalCardData[]>(initialProposals)
   const [input, setInput] = useState(prefill ?? '')
@@ -93,9 +117,16 @@ export function ChatView({ initialConversationId, initialMessages, initialPropos
     inputRef.current?.focus()
   }, [prefill])
 
+  // Автопрокрутка вниз — только если читатель и так внизу: пролистал вверх — не дёргаем.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, viewport.height])
+    if (atBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, viewport.height, atBottom])
+
+  function onScroll(): void {
+    const element = scrollRef.current
+    if (!element) return
+    setAtBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 80)
+  }
 
   // Поле растёт вместе с текстом (до 5 строк), а не прячет его.
   useEffect(() => {
@@ -138,9 +169,10 @@ export function ChatView({ initialConversationId, initialMessages, initialPropos
     setStreaming(true)
     setMessages((current) => [
       ...current,
-      { role: 'user', content: text },
-      { role: 'assistant', content: '' },
+      { role: 'user', content: text, createdAt: new Date().toISOString() },
+      { role: 'assistant', content: '', createdAt: new Date().toISOString() },
     ])
+    setAtBottom(true)
 
     try {
       const response = await fetch('/api/coach/chat', {
@@ -150,7 +182,12 @@ export function ChatView({ initialConversationId, initialMessages, initialPropos
       })
 
       const nextConversationId = response.headers.get('x-coach-conversation-id') ?? conversationId
-      if (nextConversationId) setConversationId(nextConversationId)
+      if (nextConversationId && nextConversationId !== conversationId) {
+        setConversationId(nextConversationId)
+        // Новый чат получил id: адрес меняем без перезагрузки, чтобы «назад» и обновление вели в этот чат.
+        window.history.replaceState(null, '', `/coach/${nextConversationId}`)
+        if (!title) setTitle(text.replace(/\s+/g, ' ').trim().slice(0, 40))
+      }
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
@@ -258,7 +295,7 @@ return (
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-border bg-bg px-2 py-2">
         <Link
-          href="/"
+          href="/coach"
           aria-label="Назад"
           className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary"
         >
@@ -269,12 +306,18 @@ return (
           <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-accent" />
         </div>
         <div className="flex flex-col">
-          <p className="text-[17px] font-semibold leading-tight">МаксИИм</p>
-          <p className="text-[13px] text-text-muted">ИИ-помощник Максима</p>
+          <p className="max-w-[60vw] truncate text-[17px] font-semibold leading-tight">{title ?? 'МаксИИм'}</p>
+          <p className={`text-[13px] ${streaming ? 'text-accent' : 'text-text-muted'}`}>
+            {streaming ? 'печатает…' : 'МаксИИм · ИИ-помощник Максима'}
+          </p>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4"
+      >
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col justify-center gap-5 py-4">
             <div className="flex flex-col items-center gap-2 text-center">
@@ -305,27 +348,44 @@ return (
           <p className="text-center text-[12px] text-text-muted">{HINT}</p>
         )}
 
-        {messages.map((message, index) =>
-          message.role === 'assistant' ? (
-            <div key={index} className="flex max-w-[92%] items-start gap-2 self-start">
-              <Avatar />
-              <div className="rounded-[18px] rounded-tl-[6px] bg-surface-1 px-3.5 py-2.5 text-[16px] leading-snug text-text">
-                {message.content ? (
-                  <RichText text={message.content} />
-                ) : streaming && index === messages.length - 1 ? (
-                  <TypingDots />
-                ) : null}
-              </div>
+        {messages.map((message, index) => {
+          const previous = messages[index - 1]
+          const newDay =
+            message.createdAt && (!previous?.createdAt || dayKey(previous.createdAt) !== dayKey(message.createdAt))
+          // Подряд идущие сообщения одного автора сближаем, как в мессенджерах.
+          const joined = previous?.role === message.role && !newDay
+
+          return (
+            <div key={index} className={`flex flex-col ${joined ? '-mt-2' : ''}`}>
+              {newDay && message.createdAt ? (
+                <p className="self-center py-1 text-[12px] text-text-muted">{dayLabel(message.createdAt)}</p>
+              ) : null}
+
+              {message.role === 'assistant' ? (
+                <div className="flex max-w-[92%] items-start gap-2 self-start">
+                  {joined ? <span className="w-8 shrink-0" /> : <Avatar />}
+                  <div className="rounded-[18px] rounded-tl-[6px] bg-surface-1 px-3.5 py-2.5 text-[16px] leading-snug text-text">
+                    {message.content ? (
+                      <RichText text={message.content} />
+                    ) : streaming && index === messages.length - 1 ? (
+                      <TypingDots />
+                    ) : null}
+                    {message.createdAt && message.content ? (
+                      <p className="mt-1 text-right text-[11px] text-text-muted">{clock(message.createdAt)}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-[85%] self-end whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2.5 text-[16px] leading-snug text-white">
+                  {message.content}
+                  {message.createdAt ? (
+                    <p className="mt-1 text-right text-[11px] text-white/70">{clock(message.createdAt)}</p>
+                  ) : null}
+                </div>
+              )}
             </div>
-          ) : (
-            <div
-              key={index}
-              className="max-w-[85%] self-end whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2.5 text-[16px] leading-snug text-white"
-            >
-              {message.content}
-            </div>
-          ),
-        )}
+          )
+        })}
 
         {proposals.map((proposal) => (
           <ProposalCard key={proposal.id} proposal={proposal} onDecide={decide} />
@@ -334,6 +394,17 @@ return (
         {error ? <p className="text-[13px] text-danger">{error}</p> : null}
         <div ref={bottomRef} />
       </div>
+
+      {!atBottom ? (
+        <button
+          type="button"
+          aria-label="Вниз"
+          onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          className="absolute right-4 bottom-24 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface-1 shadow-md"
+        >
+          <ArrowDown size={18} />
+        </button>
+      ) : null}
 
       <div className="shrink-0 border-t border-border bg-bg px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2">
         {input.trim() || messages.length === 0 ? null : (

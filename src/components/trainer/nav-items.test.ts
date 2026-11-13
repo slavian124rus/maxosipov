@@ -93,6 +93,7 @@ test('раздел «Ещё»: пустые группы не показываю
   expect(groups[0]?.items.map((item) => item.href)).toEqual([
     '/trainer/machines',
     '/trainer/settings/zones',
+    '/trainer/settings/warmups',
   ])
 })
 

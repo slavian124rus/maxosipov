@@ -13,8 +13,19 @@ export type { ChatDeps, ChatHistory } from './chat'
 export { acceptProposal, listProposalCards, listProposals, rejectProposal } from './proposals'
 export type { DraftProgramPayload, ProposalCard, ProposalLine, ProposalView } from './proposals'
 
+export {
+  archiveConversation,
+  getConversationMessages,
+  getConversationTitle,
+  listConversations,
+  titleFromText,
+} from './conversations'
+export type { ConversationListItem, ConversationMessage } from './conversations'
+
 export { detectFlag, PAIN_REPLY } from './flags'
 export type { PainFlag } from './flags'
+export { loadPainState } from './pain'
+export type { PainState, PainZone } from './pain'
 
 export { buildContextBlock, loadContextData } from './context'
 export type { CatalogEntry, ContextData } from './context'
@@ -24,7 +35,16 @@ export { buildSystemPrompt, SYSTEM_PROMPT_TEMPLATE } from './prompt'
 export { createCoachTools } from './tools'
 export type { CoachToolContext } from './tools'
 
-export { AiUnavailableError, getModel, getModelName, withFallback } from './provider'
+export {
+  AiUnavailableError,
+  DEFAULT_TEMPLATES_MODEL,
+  defaultModelName,
+  getModel,
+  getModelName,
+  listProviderModels,
+  pingModel,
+  withFallback,
+} from './provider'
 export type { ModelKind } from './provider'
 
 export {

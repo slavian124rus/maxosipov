@@ -9,7 +9,7 @@ import { gyms } from '@/modules/gym'
 import { notifications } from '@/modules/notifications'
 import type { Actor } from '@/modules/rbac'
 import { AiUnavailableError } from './provider'
-import { aiMessages, aiUsageDaily } from './schema'
+import { aiConversations, aiMessages, aiUsageDaily } from './schema'
 import { handleChatMessage, LIMIT_REPLY, UNAVAILABLE_REPLY } from './chat'
 import { PAIN_REPLY } from './flags'
 import { recordUsage, reserveMessage } from './usage'
@@ -129,15 +129,16 @@ beforeEach(async () => {
   current = { user, actor }
 })
 
-test('флаг боли: модель не вызвана, ответ PAIN_REPLY, уведомление тренеру', async () => {
-  const getModel = vi.fn()
+test('флаг боли: тренеру уведомление, ответ начинается с PAIN_REPLY и продолжается моделью', async () => {
+  const model = mockModel('Присед уберём, поставим жим ногами.')
 
   const response = await handleChatMessage(current, null, 'болит колено, чем заменить присед?', {
-    getModel,
+    getModel: () => model,
   })
 
-  await expect(response.text()).resolves.toBe(PAIN_REPLY)
-  expect(getModel).not.toHaveBeenCalled()
+  const text = await response.text()
+  expect(text.startsWith(PAIN_REPLY)).toBe(true)
+  expect(text).toContain('Присед уберём')
 
   const notes = await db.select().from(notifications).where(eq(notifications.userId, trainerId))
   expect(notes).toHaveLength(1)
@@ -145,6 +146,38 @@ test('флаг боли: модель не вызвана, ответ PAIN_REPLY
 
   const messages = await db.select().from(aiMessages)
   expect(messages.filter((message) => message.flagged === 'pain')).toHaveLength(1)
+})
+
+test('повторная жалоба по той же зоне не шлёт Максиму второе уведомление', async () => {
+  const model = () => mockModel('Понял.')
+  await (await handleChatMessage(current, null, 'болит колено', { getModel: model })).text()
+  await (await handleChatMessage(current, null, 'колено всё ещё болит', { getModel: model })).text()
+
+  const notes = await db.select().from(notifications).where(eq(notifications.userId, trainerId))
+  expect(notes).toHaveLength(1)
+})
+
+test('после разбора фраза «Максим посмотрел, всё ок» не ставит флаг и доходит до модели', async () => {
+  const model = () => mockModel('Хорошо, заменю становую.')
+  await (await handleChatMessage(current, null, 'болит спина', { getModel: model })).text()
+
+  await db
+    .update(aiMessages)
+    .set({ resolvedAt: new Date(), resolutionNote: 'Спину можно, без становой' })
+    .where(eq(aiMessages.flagged, 'pain'))
+
+  const response = await handleChatMessage(
+    current,
+    null,
+    'Максим посмотрел спину, всё ок, замени становую',
+    { getModel: model },
+  )
+  const text = await response.text()
+
+  expect(text).toBe('Хорошо, заменю становую.')
+  expect(text.startsWith(PAIN_REPLY)).toBe(false)
+  const flagged = await db.select().from(aiMessages).where(eq(aiMessages.flagged, 'pain'))
+  expect(flagged).toHaveLength(1)
 })
 
 test('лимит: 31-е сообщение не уходит модели', async () => {
@@ -197,6 +230,22 @@ test('обычный вопрос: ответ стримится, сообщен
   const [usage] = await db.select().from(aiUsageDaily).where(eq(aiUsageDaily.userId, user.id))
   expect(usage?.messages).toBe(1)
   expect(usage?.tokens).toBe(120)
+})
+
+test('новый чат получает заголовок из первого вопроса, второй вопрос его не меняет', async () => {
+  const model = () => mockModel('Ок.')
+
+  const first = await handleChatMessage(current, null, 'Какой вес на тягу верхнего блока?', { getModel: model })
+  await first.text()
+
+  const [conversation] = await db.select().from(aiConversations)
+  expect(conversation?.title).toBe('Какой вес на тягу верхнего блока?')
+
+  await (
+    await handleChatMessage(current, conversation!.id, 'А на жим ногами?', { getModel: model })
+  ).text()
+  const [after] = await db.select().from(aiConversations)
+  expect(after?.title).toBe('Какой вес на тягу верхнего блока?')
 })
 
 test('боль при исчерпанном лимите всё равно доходит до тренера', async () => {

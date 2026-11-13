@@ -94,6 +94,31 @@ test('памятка и лимит сохраняются, лимит 201 — о
   ).rejects.toThrow()
 })
 
+test('модели по задачам: сохраняются без пробелов, пустое значение убирает переопределение', async () => {
+  const settings = await updateAiSettings(owner, {
+    aiMemo: '',
+    aiDailyLimit: 30,
+    aiPrices: {},
+    aiModels: { chat: '  my-chat-model ', templates: '', quick: 'fast-one' },
+  })
+
+  expect(settings.aiModels).toEqual({ chat: 'my-chat-model', quick: 'fast-one' })
+
+  const cleared = await updateAiSettings(owner, { aiMemo: '', aiDailyLimit: 30, aiPrices: {}, aiModels: {} })
+  expect(cleared.aiModels).toEqual({})
+})
+
+test('id модели длиннее 120 символов — ошибка валидации', async () => {
+  await expect(
+    updateAiSettings(owner, {
+      aiMemo: '',
+      aiDailyLimit: 30,
+      aiPrices: {},
+      aiModels: { chat: 'x'.repeat(121) },
+    }),
+  ).rejects.toThrow()
+})
+
 test('без права settings.ai изменить настройки нельзя', async () => {
   await expect(
     updateAiSettings(client, { aiMemo: '', aiDailyLimit: 10, aiPrices: {} }),

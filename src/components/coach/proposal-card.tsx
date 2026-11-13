@@ -30,6 +30,11 @@ export function ProposalCard({
     }
   }
 
+  // Решённые предложения не висят в чате полной карточкой — остаётся одна строка.
+  if (proposal.status !== 'pending') {
+    return <ProposalSummary proposal={proposal} />
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-3">
       <p className="text-[15px] font-semibold">Что изменится</p>
@@ -54,7 +59,7 @@ export function ProposalCard({
         <p className="text-[13px] text-text-muted">{proposal.rationale}</p>
       ) : null}
 
-      {proposal.status === 'pending' ? (
+      {
         <div className="flex gap-2">
           <Button type="button" className="flex-1" disabled={busy} onClick={() => void decide('accept')}>
             Принять
@@ -69,11 +74,51 @@ export function ProposalCard({
             Не надо
           </Button>
         </div>
-      ) : proposal.status === 'accepted' ? (
-        <p className="text-[15px] text-success">Принято ✓</p>
-      ) : (
-        <p className="text-[15px] text-text-muted">Отклонено</p>
-      )}
+      }
+    </div>
+  )
+}
+
+const SUMMARY_LABEL: Record<string, { text: string; className: string }> = {
+  accepted: { text: '✓ Принято', className: 'text-success' },
+  rejected: { text: 'Отклонено', className: 'text-text-muted' },
+  superseded: { text: 'Устарело — есть новее', className: 'text-text-muted' },
+  reverted: { text: 'Откачено', className: 'text-text-muted' },
+}
+
+/** Одна строка вместо карточки; тап раскрывает, что менялось. */
+function ProposalSummary({ proposal }: { proposal: ProposalCardData }) {
+  const [open, setOpen] = useState(false)
+  const label = SUMMARY_LABEL[proposal.status] ?? SUMMARY_LABEL.rejected!
+  const count = proposal.lines.length
+
+  return (
+    <div className="rounded-card border border-border bg-surface-1 px-4 py-2">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span className={`text-[14px] ${label.className}`}>
+          {label.text}
+          {proposal.status === 'accepted' && count > 0 ? ` · изменений: ${count}` : ''}
+        </span>
+        {count > 0 ? <span className="text-[12px] text-text-muted">{open ? 'Скрыть' : 'Показать'}</span> : null}
+      </button>
+      {open ? (
+        <div className="mt-2 flex flex-col gap-1">
+          {proposal.lines.map((line, index) => {
+            const sign = SIGN[line.kind] ?? SIGN.changed!
+            return (
+              <p key={`${index}-${line.text}`} className={`text-[13px] ${sign.className}`}>
+                {sign.prefix}
+                {line.text}
+              </p>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }

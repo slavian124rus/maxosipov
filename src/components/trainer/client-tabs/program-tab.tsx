@@ -3,6 +3,7 @@ import { programWeightStats } from '@/modules/training'
 import type { CatalogItem } from '@/components/trainer/program-editor/program-editor'
 import { ProgramEditor } from '@/components/trainer/program-editor/program-editor'
 import { RevertButton } from '@/components/trainer/program-editor/revert-button'
+import { PlanEditNotice } from './plan-edit-notice'
 import { ProgramActions, type ProgramTemplateOption } from './program-actions'
 
 const ACTOR: Record<string, string> = {
@@ -33,6 +34,14 @@ export function ProgramTab({
           clientId={card.id}
           templates={templates}
           program={card.program ? { id: card.program.id, name: card.program.name } : null}
+        />
+      ) : null}
+
+      {card.program && card.clientEdit?.unseen && card.clientEdit.editedAt ? (
+        <PlanEditNotice
+          programId={card.program.id}
+          clientId={card.id}
+          editedAt={card.clientEdit.editedAt.toISOString()}
         />
       ) : null}
 
@@ -85,7 +94,8 @@ export function ProgramTab({
                   {line.text}
                 </p>
               ))}
-              {change.actorKind === 'ai_proposal_accepted' && card.permissions.editProgram ? (
+              {(change.actorKind === 'ai_proposal_accepted' || change.actorKind === 'client') &&
+              card.permissions.editProgram ? (
                 <RevertButton changeId={change.id} clientId={card.id} />
               ) : null}
             </div>

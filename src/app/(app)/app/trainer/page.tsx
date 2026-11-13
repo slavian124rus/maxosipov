@@ -72,8 +72,15 @@ export default async function TrainerTodayPage() {
                   >
                     Открыть
                   </Link>
-                  <form action={resolveFlagAction} className="flex-1">
+                  <form action={resolveFlagAction} className="flex flex-1 flex-col gap-2">
                     <input type="hidden" name="id" value={flag.id} />
+                    <input
+                      type="text"
+                      name="note"
+                      maxLength={300}
+                      placeholder="Что сказать МаксИИму (необязательно)"
+                      className="h-10 rounded-control border border-border bg-surface-1 px-3 text-[14px] text-text placeholder:text-text-muted"
+                    />
                     <button
                       type="submit"
                       className="h-10 w-full rounded-control bg-surface-2 text-[15px] text-text hover:bg-surface-2/70"

@@ -7,10 +7,12 @@ type Props = {
   seconds: number
   onDone: () => void
   onSkip: () => void
+  /** Компактная полоса для свободного режима: под логгером, без большого кольца. */
+  compact?: boolean
 }
 
 /** Таймер отдыха: крупные цифры, кольцо прогресса, вибрация в конце. */
-export function RestTimer({ seconds, onDone, onSkip }: Props) {
+export function RestTimer({ seconds, onDone, onSkip, compact = false }: Props) {
   const [left, setLeft] = useState(seconds)
 
   useEffect(() => {
@@ -29,6 +31,23 @@ export function RestTimer({ seconds, onDone, onSkip }: Props) {
   const progress = seconds > 0 ? (seconds - left) / seconds : 1
   const minutes = Math.floor(left / 60)
   const restSeconds = left % 60
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 rounded-card border border-border bg-surface-2 px-3 py-2">
+        <span className="text-[13px] text-text-muted">Отдых</span>
+        <span className="font-display text-[24px] tabular-nums">
+          {minutes}:{String(restSeconds).padStart(2, '0')}
+        </span>
+        <div className="ml-auto h-1.5 w-16 overflow-hidden rounded-full bg-surface-1">
+          <div className="h-1.5 rounded-full bg-accent" style={{ width: `${progress * 100}%` }} />
+        </div>
+        <Button type="button" variant="ghost" onClick={onSkip}>
+          Пропустить
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface-1 px-4 py-6">

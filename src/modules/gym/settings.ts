@@ -2,7 +2,7 @@ import { and, eq, gte, lt, sql } from 'drizzle-orm'
 import { assertCan, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { aiMessages } from '@/modules/coach-ai'
-import { gyms, type Gym, type GymBrand, type GymSettings, type ProgressionRules } from './schema'
+import { gyms, type AiModels, type Gym, type GymBrand, type GymSettings, type ProgressionRules } from './schema'
 import { z } from 'zod'
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Цвет в формате #RRGGBB')
@@ -23,6 +23,15 @@ export const aiSettingsSchema = z.object({
     .min(0, 'Лимит сообщений — от 0 до 200 в сутки')
     .max(200, 'Лимит сообщений — от 0 до 200 в сутки'),
   aiPrices: priceSchema,
+  aiModels: z
+    .object({
+      chat: z.string().trim().max(120, 'Id модели — до 120 символов').optional(),
+      templates: z.string().trim().max(120, 'Id модели — до 120 символов').optional(),
+      exercises: z.string().trim().max(120, 'Id модели — до 120 символов').optional(),
+      quick: z.string().trim().max(120, 'Id модели — до 120 символов').optional(),
+      fallback: z.string().trim().max(120, 'Id модели — до 120 символов').optional(),
+    })
+    .optional(),
 })
 
 export const progressionRulesSchema = z.object({
@@ -81,6 +90,14 @@ export async function updateAiSettings(actor: Actor, input: AiSettingsInput): Pr
     aiMemo: data.aiMemo,
     aiDailyLimit: data.aiDailyLimit,
     aiPrices: data.aiPrices,
+    // Пустые поля убираем: для них действует значение по умолчанию.
+    ...(data.aiModels
+      ? {
+          aiModels: Object.fromEntries(
+            Object.entries(data.aiModels).filter(([, value]) => Boolean(value)),
+          ) as AiModels,
+        }
+      : {}),
   }
 
   await saveSettings(gym, settings)

@@ -1,3 +1,4 @@
+import { LockscreenToggle } from '@/components/app/lockscreen-toggle'
 import { PushOptIn } from '@/components/app/push-opt-in'
 import { ProfileForm } from '@/components/app/profile-form'
 import { requireClientPage } from '@/components/app/require-client-page'
@@ -78,6 +79,7 @@ export default async function ProfilePage() {
       ) : null}
 
       <PushOptIn vapidPublicKey={env.VAPID_PUBLIC_KEY ?? null} />
+      <LockscreenToggle />
 
       <div className="flex flex-col gap-2">
         <p className="text-[13px] text-text-muted">Режим тренировки</p>

@@ -11,10 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { formatDuration } from '@/shared/scheme'
 import { exercisesLabel } from '@/shared/plural'
 import { pluralDays } from '@/shared/program-labels'
 
-export type DayOption = { id: string; name: string; exercises: number }
+export type DayOption = { id: string; name: string; exercises: number; minutes?: number }
 
 /**
  * Смена дня тренировки на экране «Сегодня» (DESIGN.md §8.1): клиент не хочет сегодня
@@ -61,7 +62,7 @@ export function DayPicker({
               <span className="font-display text-[20px] leading-none text-accent">{index + 1}</span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[15px] text-text">{day.name}</span>
-                <span className="text-[13px] text-text-muted">{exercisesLabel(day.exercises)}</span>
+                <span className="text-[13px] text-text-muted">{[exercisesLabel(day.exercises), formatDuration(day.minutes ?? 0)].filter(Boolean).join(' · ')}</span>
               </span>
               {day.id === recommendedId ? (
                 <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-text-secondary">

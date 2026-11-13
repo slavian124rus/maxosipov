@@ -1,3 +1,5 @@
+export { recommendBodyweight } from './bodyweight'
+export type { BodyweightRecommendation } from './bodyweight'
 export { recommend } from './recommend'
 export { estimateProgramWeights, estimateStartWeight } from './start-weight'
 export type { StartWeightExercise, StartWeightProfile } from './start-weight'

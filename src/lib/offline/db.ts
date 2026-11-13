@@ -14,6 +14,8 @@ export type ActiveSessionRecord = {
   startSynced: boolean
   /** Клиент нажал «Завершить»; запись удаляется после подтверждения сервером. */
   finishRequestedAt?: string
+  /** Разминка перед тренировкой: сделана или пропущена. Уходит вместе с завершением. */
+  warmupStatus?: 'done' | 'skipped'
 }
 
 export type OfflineSet = {
@@ -30,14 +32,22 @@ export type OfflineSet = {
   synced: 0 | 1
 }
 
+/** План тренировки для уведомления: его читает и страница, и service worker. */
+export type NotifyPlanRecord = {
+  sessionClientUuid: string
+  exercises: import('@/shared/workout-notification').NotifyExercise[]
+}
+
 export type OfflineDb = {
   activeSession: Table<ActiveSessionRecord, string>
   sets: Table<OfflineSet, string>
+  notifyPlan: Table<NotifyPlanRecord, string>
 }
 
 class MaxosipovDb extends Dexie implements OfflineDb {
   activeSession!: Table<ActiveSessionRecord, string>
   sets!: Table<OfflineSet, string>
+  notifyPlan!: Table<NotifyPlanRecord, string>
 
   constructor() {
     super('maxosipov')
@@ -65,6 +75,11 @@ class MaxosipovDb extends Dexie implements OfflineDb {
             record.startSynced = record.startSynced ?? false
           })
       })
+    this.version(3).stores({
+      activeSession: 'clientUuid',
+      sets: 'clientUuid, synced, sessionClientUuid',
+      notifyPlan: 'sessionClientUuid',
+    })
   }
 }
 

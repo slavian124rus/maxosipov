@@ -13,7 +13,7 @@ import {
   type ProgramPatch,
   type ProgramTree,
 } from './patch'
-import { estimateWeightsForClient } from './weights'
+import { estimateWeightsForClient, resolvePlanWeights } from './weights'
 import {
   programChanges,
   programDays,
@@ -225,7 +225,24 @@ export async function applyProgramPatchAs(
       await tx.delete(programExercises).where(inArray(programExercises.id, removedItems))
     }
 
-    await tx.update(programs).set({ updatedAt: new Date() }).where(eq(programs.id, programId))
+    await tx
+      .update(programs)
+      .set({
+        updatedAt: new Date(),
+        ...(actorKind === 'client' ? { clientEditedAt: new Date() } : {}),
+      })
+      .where(eq(programs.id, programId))
+
+    // Новое или заменённое упражнение не должно остаться без плана веса.
+    let result = next
+    const addsExercises = parsed.ops.some(
+      (op) => op.op === 'add_exercise' || op.op === 'replace_exercise',
+    )
+
+    if (addsExercises && program.ownerId) {
+      const filled = await resolvePlanWeights(programId, program.ownerId, {}, tx)
+      if (filled > 0) result = (await getProgramTree(programId, tx)) ?? next
+    }
 
     await tx.insert(programChanges).values({
       programId,
@@ -233,10 +250,10 @@ export async function applyProgramPatchAs(
       actorKind,
       diff,
       before: current,
-      after: next,
+      after: result,
     })
 
-    return next
+    return result
   })
 
   // Клиенту — «Максим обновил программу» (push). Ошибка уведомления не отменяет патч.
@@ -435,4 +452,53 @@ export async function archiveProgram(actor: Actor, programId: string): Promise<v
     .update(programs)
     .set({ status: 'archived', updatedAt: new Date() })
     .where(eq(programs.id, programId))
+}
+export type ClientEditStatus = {
+  /** Когда клиент последний раз менял свою программу. */
+  editedAt: Date | null
+  /** Тренер ещё не просмотрел последнюю правку клиента. */
+  unseen: boolean
+}
+
+export async function getClientEditStatus(programId: string): Promise<ClientEditStatus> {
+  const [row] = await db
+    .select({ editedAt: programs.clientEditedAt, seenAt: programs.clientEditSeenAt })
+    .from(programs)
+    .where(eq(programs.id, programId))
+    .limit(1)
+
+  const editedAt = row?.editedAt ?? null
+  return { editedAt, unseen: editedAt !== null && (row?.seenAt === null || row!.seenAt! < editedAt) }
+}
+
+/** «Просмотрено»: тренер увидел правки клиента в плане. */
+export async function markClientEditSeen(actor: Actor, programId: string): Promise<void> {
+  const [program] = await db.select().from(programs).where(eq(programs.id, programId)).limit(1)
+  if (!program) throw new Error('Программа не найдена')
+  await assertProgramWrite(actor, program.ownerId)
+
+  await db
+    .update(programs)
+    .set({ clientEditSeenAt: new Date() })
+    .where(eq(programs.id, programId))
+}
+
+/** Клиенты из списка, чьи правки в активном плане тренер ещё не просмотрел. */
+export async function listUnseenClientEdits(clientIds: string[]): Promise<Set<string>> {
+  if (clientIds.length === 0) return new Set()
+
+  const rows = await db
+    .select({
+      ownerId: programs.ownerId,
+      editedAt: programs.clientEditedAt,
+      seenAt: programs.clientEditSeenAt,
+    })
+    .from(programs)
+    .where(and(inArray(programs.ownerId, clientIds), eq(programs.status, 'active')))
+
+  return new Set(
+    rows
+      .filter((row) => row.ownerId && row.editedAt && (!row.seenAt || row.seenAt < row.editedAt))
+      .map((row) => row.ownerId!),
+  )
 }

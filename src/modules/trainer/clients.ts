@@ -23,9 +23,12 @@ import {
 import { assertCan, can, permissionScope, roles, type Actor } from '@/modules/rbac'
 import {
   getActiveProgram,
+  getClientEditStatus,
   getLastWorkoutDates,
   listProgramChanges,
+  listUnseenClientEdits,
   listSessions,
+  type ClientEditStatus,
   type ProgramChangeView,
   type ProgramTree,
 } from '@/modules/training'
@@ -69,6 +72,8 @@ export type ClientListItem = {
   contact: string
   access: AccessState
   lastWorkoutAt: Date | null
+  /** Клиент менял свой план, тренер ещё не просмотрел. */
+  planEditedByClient: boolean
 }
 
 export type ClientSessionItem = {
@@ -88,6 +93,7 @@ export type ClientCard = {
   profile: ClientProfile | null
   program: ProgramTree | null
   programChanges: ProgramChangeView[]
+  clientEdit: ClientEditStatus | null
   sessions: ClientSessionItem[]
   measurements: BodyMeasurement[]
   photos: ProgressPhotoView[]
@@ -159,6 +165,7 @@ export async function listClients(
 
   const ids = visible.map(({ user }) => user.id)
   const lastWorkouts = await getLastWorkoutDates(ids)
+  const unseenEdits = await listUnseenClientEdits(ids)
 
   return visible.map(({ user, access }) => ({
     id: user.id,
@@ -166,6 +173,7 @@ export async function listClients(
     contact: user.phone ?? user.email ?? '',
     access,
     lastWorkoutAt: lastWorkouts.get(user.id) ?? null,
+    planEditedByClient: unseenEdits.has(user.id),
   }))
 }
 
@@ -184,6 +192,7 @@ export async function getClientCard(actor: Actor, clientId: string): Promise<Cli
   const profile = await getClientProfile(clientId)
   const program = await getActiveProgram(clientId)
   const programChanges = program ? await listProgramChanges(program.id) : []
+  const clientEdit = program ? await getClientEditStatus(program.id) : null
   const sessions = await listSessions(clientId, 30)
   const measurements = await listMeasurements(actor, clientId, { limit: 60 })
 
@@ -218,6 +227,7 @@ export async function getClientCard(actor: Actor, clientId: string): Promise<Cli
     profile,
     program,
     programChanges,
+    clientEdit,
     sessions: sessions.map((session) => ({
       id: session.id,
       startedAt: session.startedAt,

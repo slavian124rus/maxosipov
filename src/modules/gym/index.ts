@@ -1,6 +1,7 @@
 import { db } from '@/shared/db'
 import {
   gyms,
+  type AiModels,
   type Gym,
   type GymBrand,
   type GymSettings,
@@ -9,7 +10,7 @@ import {
 } from './schema'
 
 export { gyms }
-export type { Gym, NewGym, GymBrand, GymSettings, ProgressionRules }
+export type { AiModels, Gym, NewGym, GymBrand, GymSettings, ProgressionRules }
 
 export {
   aiSettingsSchema,

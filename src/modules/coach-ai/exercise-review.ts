@@ -1,7 +1,7 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import { MUSCLES, isMuscleCode } from '@/shared/muscles'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 /** Карточка упражнения в объёме, нужном для проверки. */
@@ -245,7 +245,7 @@ export function sanitizeExerciseFix(
 }
 
 export type ExerciseReviewDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   userId?: string
 }
@@ -293,13 +293,13 @@ export async function reviewExerciseWithAi(
         schema: fixSchema,
         prompt: `${INSTRUCTION}\n\nДопустимые коды мышц:\n${muscleList}\n\nТекущая карточка:\n${context}`,
       }),
-    'main',
+    'exercises',
     { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 45_000 },
   )
 
   if (deps.userId) {
     await recordUsage(deps.userId, {
-      model: getModelName('main'),
+      model: getModelName('exercises'),
       tokensIn: result.usage?.inputTokens ?? 0,
       tokensOut: result.usage?.outputTokens ?? 0,
       countsTowardLimit: false,

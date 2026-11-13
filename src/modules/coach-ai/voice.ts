@@ -1,7 +1,7 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import { detectFlag, type PainFlag } from './flags'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 export type VoiceRow = {
@@ -37,7 +37,7 @@ const voiceSchema = z.object({
 })
 
 export type VoiceDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   /** Для учёта расходов (в дневной лимит сообщений не входит). */
   userId?: string

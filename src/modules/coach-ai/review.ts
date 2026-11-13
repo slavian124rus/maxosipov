@@ -180,7 +180,11 @@ export async function listTrainerFlags(
 }
 
 /** «Разобрался»: жалоба исчезает из ленты. Право `clients.view_ai_flags` на клиента. */
-export async function resolveFlag(actor: Actor, messageId: string): Promise<void> {
+export async function resolveFlag(
+  actor: Actor,
+  messageId: string,
+  note?: string | null,
+): Promise<void> {
   const [message] = await db.select().from(aiMessages).where(eq(aiMessages.id, messageId)).limit(1)
   if (!message || !message.flagged) throw new NotFoundError('Жалоба не найдена')
 
@@ -188,7 +192,12 @@ export async function resolveFlag(actor: Actor, messageId: string): Promise<void
 
   await db
     .update(aiMessages)
-    .set({ resolvedAt: new Date(), resolvedBy: actor.id, updatedAt: new Date() })
+    .set({
+      resolvedAt: new Date(),
+      resolvedBy: actor.id,
+      resolutionNote: note?.trim() ? note.trim().slice(0, 300) : null,
+      updatedAt: new Date(),
+    })
     .where(eq(aiMessages.id, messageId))
 }
 

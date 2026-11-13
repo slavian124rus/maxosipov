@@ -1,7 +1,7 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import type { ProgramAudience, ProgramGoal } from '@/modules/training'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 /** Упражнение каталога в объёме, нужном помощнику шаблонов. */
@@ -82,7 +82,7 @@ const draftSchema = z.object({
 })
 
 export type TemplateDraftDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   userId?: string
 }
@@ -146,13 +146,13 @@ export async function draftProgramTemplate(
         schema: draftSchema,
         prompt: `${INSTRUCTION}\n\nБриф:\n${briefText}\n\nКаталог (id | название | зона | тренажёр | основные мышцы):\n${catalogText}`,
       }),
-    'main',
+    'templates',
     { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 60_000 },
   )
 
   if (deps.userId) {
     await recordUsage(deps.userId, {
-      model: getModelName('main'),
+      model: getModelName('templates'),
       tokensIn: result.usage?.inputTokens ?? 0,
       tokensOut: result.usage?.outputTokens ?? 0,
       countsTowardLimit: false,

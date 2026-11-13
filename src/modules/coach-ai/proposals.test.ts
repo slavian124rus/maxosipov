@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { users } from '@/modules/auth'
 import { exercises } from '@/modules/catalog'
 import { addDays, subscriptions } from '@/modules/access'
@@ -260,4 +260,52 @@ test('без действующей подписки принять предло
 
   const [row] = await db.select().from(aiProposals).where(eq(aiProposals.id, proposalId))
   expect(row?.status).toBe('pending')
+})
+
+test('предложение, собранное по старой версии программы, не применяется', async () => {
+  const proposalId = await createPatchProposal()
+  await db
+    .update(aiProposals)
+    .set({ baseProgramUpdatedAt: new Date(Date.now() - 60_000) })
+    .where(eq(aiProposals.id, proposalId))
+  await db.update(programs).set({ updatedAt: new Date() }).where(eq(programs.id, programId))
+
+  await expect(acceptProposal(client, proposalId)).rejects.toThrow('уже изменилась')
+
+  const [proposal] = await db.select().from(aiProposals).where(eq(aiProposals.id, proposalId))
+  expect(proposal?.status).toBe('superseded')
+  const program = await getProgramTree(programId)
+  expect(program?.days[0]?.exercises[0]?.exerciseId).toBe(exerciseA)
+})
+
+test('принятие new_program переносит вес и отдых прежней программы', async () => {
+  await db
+    .update(programExercises)
+    .set({ targetWeightKg: 55, restSec: 150 })
+    .where(eq(programExercises.id, programExerciseId))
+
+  const [row] = await db
+    .insert(aiProposals)
+    .values({
+      userId: client.id,
+      programId,
+      kind: 'new_program',
+      diff: {},
+      payload: {
+        name: 'Новая',
+        days: [{ name: 'День 1', exercises: [{ exerciseId: exerciseA, sets: 4, repMin: 8, repMax: 10 }] }],
+      },
+    })
+    .returning({ id: aiProposals.id })
+
+  await acceptProposal(client, row!.id)
+
+  const [created] = await db
+    .select({ id: programs.id })
+    .from(programs)
+    .where(and(eq(programs.ownerId, client.id), eq(programs.status, 'active')))
+  const tree = await getProgramTree(created!.id)
+  const item = tree!.days[0]!.exercises[0]!
+  expect(item.targetWeightKg).toBe(55)
+  expect(item.restSec).toBe(150)
 })

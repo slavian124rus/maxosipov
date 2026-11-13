@@ -12,6 +12,7 @@ import {
   listSessions,
   listTemplates,
   pickWorkoutDay,
+  estimateDayMinutes,
 } from '@/modules/training'
 import { adminUrl } from '@/shared/app-url'
 import { env } from '@/shared/env'
@@ -81,6 +82,7 @@ export default async function TodayPage() {
             id: day.id,
             name: day.name,
             exercises: day.exercises.length,
+            minutes: estimateDayMinutes(day),
           }))}
           recommendedId={pickWorkoutDay(days, lastDayId)?.id ?? nextDay.id}
           ongoingDayId={ongoing?.dayId ?? null}

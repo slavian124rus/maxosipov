@@ -16,6 +16,15 @@ export type GymBrand = {
   logoUrl: string | null
 }
 
+/** Модели ИИ по задачам (id у провайдера). Пусто — берётся значение по умолчанию. */
+export type AiModels = {
+  chat?: string
+  templates?: string
+  exercises?: string
+  quick?: string
+  fallback?: string
+}
+
 export type GymSettings = {
   trialDays: number
   subscriptionPriceRub: number | null
@@ -24,6 +33,8 @@ export type GymSettings = {
   aiMemo: string
   /** Цены ИИ за 1k токенов по модели; пусто — стоимость не считается (нули). */
   aiPrices?: Record<string, { inPer1k: number; outPer1k: number }>
+  /** Модели по задачам; секреты и адрес провайдера остаются в окружении. */
+  aiModels?: AiModels
   /** Главный тренер: его получают новые клиенты (а не «первый с ролью по названию» — ревью F6). */
   headTrainerId?: string | null
   /** Контакты Максима для экрана «нет доступа». */

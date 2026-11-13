@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { getClientProfile } from '@/modules/auth'
 import { exercises, machines } from '@/modules/catalog'
 import {
@@ -8,13 +8,17 @@ import {
 } from '@/modules/progression'
 import { db } from '@/shared/db'
 import type { ProgramTree } from './patch'
-import { programDays, programExercises } from './schema'
+import { nextWeights, programDays, programExercises, setLogs, workoutSessions } from './schema'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Executor = typeof db | Tx
 
 /** Что нужно знать об упражнении, чтобы посчитать стартовый вес. */
-export type WeightHint = StartWeightExercise & { name: string; machineName: string | null }
+export type WeightHint = StartWeightExercise & {
+  name: string
+  machineName: string | null
+  loadType: 'external' | 'bodyweight' | 'bodyweight_plus'
+}
 
 /**
  * Подсказки по упражнениям: основные мышцы, тренажёр и шаг веса.
@@ -35,6 +39,7 @@ export async function loadWeightHints(
       machineId: exercises.machineId,
       machineName: machines.name,
       stepKg: machines.weightStepKg,
+      loadType: exercises.loadType,
     })
     .from(exercises)
     .leftJoin(machines, eq(exercises.machineId, machines.id))
@@ -49,6 +54,7 @@ export async function loadWeightHints(
         primary: row.primary,
         onMachine: row.machineId !== null,
         stepKg: row.stepKg ?? 2.5,
+        loadType: row.loadType,
       },
     ]),
   )
@@ -84,7 +90,10 @@ export async function estimateWeightsForClient(
   if (!profile) return {}
 
   const hints = await loadWeightHints(exerciseIds, executor)
-  const items = [...hints.entries()].map(([exerciseId, hint]) => ({ exerciseId, hint }))
+  // «Только свой вес» — килограммы не считаем.
+  const items = [...hints.entries()]
+    .filter(([, hint]) => hint.loadType !== 'bodyweight')
+    .map(([exerciseId, hint]) => ({ exerciseId, hint }))
 
   return estimateProgramWeights(items, profile)
 }
@@ -198,3 +207,102 @@ export async function programExerciseHints(
   )
 }
 
+
+/**
+ * Последний рабочий вес клиента по каждому упражнению: максимум по самой свежей завершённой
+ * тренировке, где упражнение было. Нулевой вес (свой вес тела) не считается.
+ */
+export async function lastWorkingWeights(
+  userId: string,
+  exerciseIds: string[],
+  executor: Executor = db,
+): Promise<Record<string, number>> {
+  const unique = [...new Set(exerciseIds)]
+  if (unique.length === 0) return {}
+
+  const rows = await executor
+    .select({
+      exerciseId: setLogs.exerciseId,
+      sessionId: setLogs.sessionId,
+      weightKg: setLogs.weightKg,
+      startedAt: workoutSessions.startedAt,
+    })
+    .from(setLogs)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, setLogs.sessionId))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        isNotNull(workoutSessions.finishedAt),
+        inArray(setLogs.exerciseId, unique),
+      ),
+    )
+    .orderBy(desc(workoutSessions.startedAt))
+
+  const result: Record<string, number> = {}
+  const latestSession = new Map<string, string>()
+
+  for (const row of rows) {
+    const owner = latestSession.get(row.exerciseId)
+    if (owner === undefined) latestSession.set(row.exerciseId, row.sessionId)
+    else if (owner !== row.sessionId) continue
+
+    if (row.weightKg > (result[row.exerciseId] ?? 0)) result[row.exerciseId] = row.weightKg
+  }
+
+  return result
+}
+
+/**
+ * Единая точка подбора планового веса. Пустые веса программы заполняются по приоритету:
+ * 1) принятый «вес на следующий раз»; 2) последний рабочий вес из истории; 3) оценка по анкете.
+ * Уже заданные веса не трогаем; упражнения «только свой вес» пропускаем.
+ * `carry` — веса прежней программы (при выдаче новой): они важнее истории.
+ */
+export async function resolvePlanWeights(
+  programId: string,
+  userId: string,
+  options: { carry?: Record<string, number> } = {},
+  executor: Executor = db,
+): Promise<number> {
+  const rows = await executor
+    .select({
+      exerciseId: programExercises.exerciseId,
+      targetWeightKg: programExercises.targetWeightKg,
+      loadType: exercises.loadType,
+    })
+    .from(programExercises)
+    .innerJoin(programDays, eq(programDays.id, programExercises.dayId))
+    .innerJoin(exercises, eq(exercises.id, programExercises.exerciseId))
+    .where(eq(programDays.programId, programId))
+
+  const needed = [
+    ...new Set(
+      rows
+        .filter((row) => row.loadType !== 'bodyweight' && (row.targetWeightKg ?? 0) <= 0)
+        .map((row) => row.exerciseId),
+    ),
+  ]
+  if (needed.length === 0) return 0
+
+  const saved = await executor
+    .select({ exerciseId: nextWeights.exerciseId, weightKg: nextWeights.weightKg })
+    .from(nextWeights)
+    .where(and(eq(nextWeights.userId, userId), inArray(nextWeights.exerciseId, needed)))
+
+  const resolved: Record<string, number> = {}
+  const take = (source: Record<string, number>): void => {
+    for (const id of needed) {
+      const weight = source[id]
+      if (resolved[id] === undefined && weight !== undefined && weight > 0) resolved[id] = weight
+    }
+  }
+
+  take(options.carry ?? {})
+  take(Object.fromEntries(saved.map((row) => [row.exerciseId, row.weightKg])))
+  take(await lastWorkingWeights(userId, needed, executor))
+
+  const rest = needed.filter((id) => resolved[id] === undefined)
+  if (rest.length > 0) take(await estimateWeightsForClient(userId, rest, executor))
+
+  return applyProgramWeights(programId, resolved, { onlyEmpty: true }, executor)
+}

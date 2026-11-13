@@ -24,6 +24,13 @@ test('без доступа история и профиль доступны', 
   expect(decideRoute({ ...base, hasAccess: false, path: '/profile' })).toEqual({ allow: true })
 })
 
+test('без доступа настройки открыты, а «Мой план» — нет', () => {
+  expect(decideRoute({ ...base, hasAccess: false, path: '/settings' })).toEqual({ allow: true })
+  expect(decideRoute({ ...base, hasAccess: false, path: '/plan' })).toEqual({
+    redirect: '/paywall',
+  })
+})
+
 test('bypass пускает везде', () => {
   expect(decideRoute({ ...base, bypass: true, hasAccess: false, path: '/exercises' })).toEqual({
     allow: true,

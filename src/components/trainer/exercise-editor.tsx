@@ -1,5 +1,6 @@
 'use client'
 
+import { LoadTypePanel, type LoadTypeValue } from './load-type-panel'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -90,6 +91,7 @@ export function ExerciseEditor({
   )
   const [tips, setTips] = useState(exercise.tips ?? '')
   const [overlayProfile, setOverlayProfile] = useState<string>(exercise.overlayProfile)
+  const [loadType, setLoadType] = useState<LoadTypeValue>(exercise.loadType)
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   /** Результат проверки на вкладке «МаксИИм»: замечания и предложенные исправления. */
@@ -225,6 +227,7 @@ export function ExerciseEditor({
       />
       <input type="hidden" name="tips" value={tips} />
       <input type="hidden" name="overlayProfile" value={overlayProfile} />
+      <input type="hidden" name="loadType" value={loadType} />
       <input type="hidden" name="cropX" value={String(cropX)} />
 
       <div
@@ -263,7 +266,10 @@ export function ExerciseEditor({
         ) : null}
 
         {tab === 'machine' ? (
-          <MachinePanel machines={machines} machineId={machineId} onChange={setMachineId} />
+          <div className="flex flex-col gap-5">
+            <MachinePanel machines={machines} machineId={machineId} onChange={setMachineId} />
+            <LoadTypePanel value={loadType} onChange={setLoadType} />
+          </div>
         ) : null}
 
         {tab === 'muscles' ? (

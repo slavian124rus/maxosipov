@@ -1,7 +1,7 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import { formatScheme } from '@/shared/scheme'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 import type { TemplateCatalogItem } from './template-draft'
 
@@ -118,7 +118,7 @@ const REVIEW_INSTRUCTION = [
 ].join('\n')
 
 export type TemplateReviewDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   userId?: string
 }
@@ -154,13 +154,13 @@ export async function reviewTemplateWithAi(
         schema: reviewSchema,
         prompt: `${REVIEW_INSTRUCTION}\n\nШаблон:\n${text}`,
       }),
-    'fast',
+    'templates',
     { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 30_000 },
   )
 
   if (deps.userId) {
     await recordUsage(deps.userId, {
-      model: getModelName('fast'),
+      model: getModelName('templates'),
       tokensIn: result.usage?.inputTokens ?? 0,
       tokensOut: result.usage?.outputTokens ?? 0,
       countsTowardLimit: false,

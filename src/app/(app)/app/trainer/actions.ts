@@ -11,7 +11,7 @@ export async function resolveFlagAction(formData: FormData): Promise<void> {
   if (!id) return
 
   try {
-    await resolveFlag(actor, id)
+    await resolveFlag(actor, id, String(formData.get('note') ?? ''))
   } catch (error) {
     console.error('[trainer] не удалось разобрать жалобу', error)
   }

@@ -2,18 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChartColumn, Dumbbell, Home, MessageCircle, PersonStanding } from 'lucide-react'
+import { Dumbbell, Home, MessageCircle, PersonStanding, Settings } from 'lucide-react'
 
 const ITEMS = [
   { href: '/', label: 'Сегодня', icon: Home },
   { href: '/workouts', label: 'Тренировки', icon: Dumbbell },
   { href: '/exercises', label: 'Упражнения', icon: PersonStanding },
-  { href: '/progress', label: 'Прогресс', icon: ChartColumn },
+  { href: '/settings', label: 'Настройки', icon: Settings, also: ['/plan', '/progress', '/profile'] },
 ]
 
-function isActive(pathname: string, href: string): boolean {
+function isActive(pathname: string, href: string, also: string[] = []): boolean {
   if (href === '/') return pathname === '/'
-  return pathname === href || pathname.startsWith(`${href}/`)
+  return [href, ...also].some((path) => pathname === path || pathname.startsWith(`${path}/`))
 }
 
 /** Нижнее меню клиента (DESIGN.md §8.1). */
@@ -23,7 +23,7 @@ export function BottomNav() {
   return (
     <nav className="sticky bottom-0 z-20 mt-auto flex items-end justify-between border-t border-border bg-surface-1 px-4 pb-3 pt-2">
       {ITEMS.slice(0, 2).map((item) => (
-        <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
+        <NavItem key={item.href} {...item} active={isActive(pathname, item.href, 'also' in item ? item.also : [])} />
       ))}
 
       <Link
@@ -35,7 +35,7 @@ export function BottomNav() {
       </Link>
 
       {ITEMS.slice(2).map((item) => (
-        <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
+        <NavItem key={item.href} {...item} active={isActive(pathname, item.href, 'also' in item ? item.also : [])} />
       ))}
     </nav>
   )

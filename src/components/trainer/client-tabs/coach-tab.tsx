@@ -53,9 +53,16 @@ export function CoachTab({ card }: { card: ClientCard }) {
                 </p>
               ))}
 
-              <form action={resolveClientFlagAction}>
+              <form action={resolveClientFlagAction} className="flex flex-col gap-2">
                 <input type="hidden" name="id" value={flag.id} />
                 <input type="hidden" name="clientId" value={card.id} />
+                <input
+                  type="text"
+                  name="note"
+                  maxLength={300}
+                  placeholder="Что сказать МаксИИму: например, «спину можно, без становой»"
+                  className="h-10 rounded-control border border-border bg-surface-1 px-3 text-[14px] text-text placeholder:text-text-muted"
+                />
                 <button type="submit" className="h-10 rounded-control bg-surface-2 px-3 text-[15px] text-text">
                   Разобрался
                 </button>

@@ -288,6 +288,25 @@ test('finishSession ставит задачу session.summary', async () => {
   const [session] = await db.select().from(workoutSessions)
   expect(session?.finishedAt).toBeInstanceOf(Date)
 })
+test('finishSession сохраняет статус разминки', async () => {
+  await startSession(clientId, {
+    programDayId: dayId,
+    mode: 'free',
+    clientUuid: 's-warmup',
+    startedAt: new Date('2026-11-07T09:00:00Z'),
+  })
+
+  await finishSession(
+    clientId,
+    's-warmup',
+    { finishedAt: new Date('2026-11-07T10:00:00Z'), warmupStatus: 'skipped' },
+    { enqueue: async () => {} },
+  )
+
+  const [session] = await db.select().from(workoutSessions)
+  expect(session?.warmupStatus).toBe('skipped')
+})
+
 test('нет такого упражнения и кривые числа → rejected, остальные принимаются', async () => {
   await startSession(clientId, {
     programDayId: dayId,

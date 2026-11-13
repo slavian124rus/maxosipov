@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { users } from '@/modules/auth'
-import { exercises, machines } from '@/modules/catalog'
+import { exerciseAlternatives, exercises, machines } from '@/modules/catalog'
 import { gyms } from '@/modules/gym'
 import { recommend } from '@/modules/progression'
 import {
@@ -146,6 +146,19 @@ test('find_exercises понимает русское название мышцы
   expect(result.exercises.map((item) => item.id)).toContain(exerciseId)
 })
 
+test('find_exercises с replace: запасные упражнения тренера идут первыми и помечены', async () => {
+  await db.insert(exerciseAlternatives).values({ exerciseId, alternativeId: exerciseBId, sortOrder: 0 })
+  const program = await getProgramTree(programId)
+  const tools = createCoachTools({ userId: clientId, conversationId: null, program })
+
+  const result = (await run(tools.find_exercises, { muscle: 'широчайшие', replace: exerciseId })) as {
+    exercises: { id: string; trainerAlternative?: boolean }[]
+  }
+
+  expect(result.exercises[0]).toMatchObject({ id: exerciseBId, trainerAlternative: true })
+  expect(result.exercises.map((item) => item.id)).not.toContain(exerciseId)
+})
+
 test('propose_program_change с упражнением не из каталога — ошибка, предложение не создано', async () => {
   const program = await getProgramTree(programId)
   const tools = createCoachTools({ userId: clientId, conversationId: null, program })
@@ -210,13 +223,45 @@ test('draft_workout с упражнением не из каталога — о�
   expect(await db.select().from(aiProposals)).toHaveLength(0)
 })
 
-test('draft_workout создаёт предложение new_program', async () => {
+test('draft_workout, повторяющий текущую программу, отклоняется — это правка', async () => {
   const program = await getProgramTree(programId)
   const tools = createCoachTools({ userId: clientId, conversationId: null, program })
 
+  const result = (await run(tools.draft_workout, {
+    name: 'Спина',
+    days: [{ name: 'День 1', exercises: [{ exerciseId, sets: 4, repMin: 8, repMax: 10 }] }],
+  })) as { ok: boolean; error?: string }
+
+  expect(result.ok).toBe(false)
+  expect(result.error).toContain('propose_program_change')
+  expect(await db.select().from(aiProposals)).toHaveLength(0)
+})
+
+test('новое предложение делает прежнее ожидающее устаревшим', async () => {
+  const program = await getProgramTree(programId)
+  const tools = createCoachTools({ userId: clientId, conversationId: null, program })
+  const patch = {
+    ops: [{ op: 'set_sets_reps', programExerciseId, sets: 5 }],
+  }
+
+  await run(tools.propose_program_change, { patch })
+  await run(tools.propose_program_change, { patch })
+
+  const rows = await db.select().from(aiProposals)
+  expect(rows.map((row) => row.status).sort()).toEqual(['pending', 'superseded'])
+  expect(Array.isArray(rows[0]?.preview)).toBe(true)
+})
+
+test('draft_workout создаёт предложение new_program', async () => {
+  const program = await getProgramTree(programId)
+  const tools = createCoachTools({ userId: clientId, conversationId: null, program })
+  const otherId = await addExercise('Подтягивания в гравитроне', 'published')
+
   const result = await run(tools.draft_workout, {
     name: 'Спина и руки',
-    days: [{ name: 'День 1', exercises: [{ exerciseId, sets: 4, repMin: 8, repMax: 10 }] }],
+    days: [
+      { name: 'День 1', exercises: [{ exerciseId: otherId, sets: 4, repMin: 8, repMax: 10 }] },
+    ],
     rationale: 'Две тренировки в неделю',
   })
 

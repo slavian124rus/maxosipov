@@ -1,4 +1,4 @@
-import { integer, pgTable, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { integer, pgTable, primaryKey, real, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import type { MuscleCode, MuscleView } from './muscles'
 
 /** Справочник мышц: фиксированный список DESIGN.md §6.3, заполняется сидом. */
@@ -13,6 +13,8 @@ export type Muscle = typeof muscles.$inferSelect
 
 export type OverlayProfile = 'none' | 'pull_vertical' | 'pull_horizontal'
 export type ExerciseStatus = 'draft' | 'published'
+/** external — вес внешний; bodyweight — только свой вес; bodyweight_plus — свой вес + можно добавить. */
+export type LoadType = 'external' | 'bodyweight' | 'bodyweight_plus'
 
 /** Тренажёры зала. `weightStepKg` — шаг блина (5 кг у стойки, 2,5 у блочных). */
 export const machines = pgTable('machines', {
@@ -74,6 +76,7 @@ export const exercises = pgTable(
     tips: text('tips'),
     defaultRepMin: integer('default_rep_min').notNull().default(8),
     defaultRepMax: integer('default_rep_max').notNull().default(12),
+    loadType: text('load_type').$type<LoadType>().notNull().default('external'),
     status: text('status').$type<ExerciseStatus>().notNull().default('draft'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -84,3 +87,15 @@ export const exercises = pgTable(
 
 export type Exercise = typeof exercises.$inferSelect
 export type NewExercise = typeof exercises.$inferInsert
+
+/** Альтернативы упражнения на других тренажёрах: заполняет тренер. */
+export const exerciseAlternatives = pgTable(
+  'exercise_alternatives',
+  {
+    exerciseId: uuid('exercise_id').notNull(),
+    alternativeId: uuid('alternative_id').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.exerciseId, table.alternativeId] })],
+)

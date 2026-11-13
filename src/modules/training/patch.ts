@@ -192,6 +192,8 @@ export function applyPatch(
       const { item } = findExercise(next, op.programExerciseId)
       assertPublished(publishedExerciseIds, op.exerciseId)
       item.exerciseId = op.exerciseId
+      // Вес прежнего упражнения к новому не относится: его подберёт resolvePlanWeights.
+      item.targetWeightKg = null
     }
 
     if (op.op === 'set_sets_reps') {

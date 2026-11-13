@@ -9,9 +9,12 @@ import {
   getExercise,
   listMachines,
   publishExercise,
+  setAlternatives,
+  suggestAlternatives,
   unpublishExercise,
   updateExercise,
   updateMachine,
+  type AlternativeItem,
   type ExerciseDetail,
   type ExerciseInput,
   type Machine,
@@ -73,6 +76,7 @@ export async function saveExerciseAction(
     defaultRepMax: Number(text(formData.get('repMax')) || 12),
     overlayProfile: (text(formData.get('overlayProfile')) ||
       'none') as ExerciseInput['overlayProfile'],
+    loadType: (text(formData.get('loadType')) || 'external') as ExerciseInput['loadType'],
   }
 
   const id = text(formData.get('id'))
@@ -353,4 +357,30 @@ export async function archiveExerciseAction(
   revalidatePath('/exercises')
 
   return { error: null, archived: true }
+}
+
+export type AlternativesState = { error: string | null; saved: boolean }
+
+/** Сохраняет список «Можно заменить на»; `mirror=1` добавляет обратную связь. */
+export async function saveAlternativesAction(
+  exerciseId: string,
+  alternativeIds: string[],
+  mirror: boolean,
+): Promise<AlternativesState> {
+  const { actor } = await requireUser()
+
+  try {
+    await setAlternatives(actor, exerciseId, alternativeIds, { mirror })
+    revalidatePath(`/trainer/exercises/${exerciseId}`)
+    return { error: null, saved: true }
+  } catch (error) {
+    return { error: readableError(error, 'Не удалось сохранить'), saved: false }
+  }
+}
+
+/** Подбор по тем же основным мышцам на других тренажёрах. */
+export async function suggestAlternativesAction(exerciseId: string): Promise<AlternativeItem[]> {
+  const { actor } = await requireUser()
+  assertCan(actor, 'catalog.edit')
+  return suggestAlternatives(exerciseId, 6)
 }

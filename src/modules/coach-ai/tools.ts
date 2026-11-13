@@ -1,11 +1,10 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { tool, type ToolSet } from 'ai'
 import { z } from 'zod'
-import { exercises, machines, MUSCLES, type MuscleCode } from '@/modules/catalog'
+import { exercises, listAlternatives, machines, MUSCLES, type MuscleCode } from '@/modules/catalog'
 import { getGym } from '@/modules/gym'
 import { recommend, type Recommendation } from '@/modules/progression'
 import {
-  aiProposals,
   applyPatch,
   getHistoryForExercise,
   PatchError,
@@ -14,11 +13,15 @@ import {
   type ProgramTree,
 } from '@/modules/training'
 import { db } from '@/shared/db'
+import { checkDraftPainSafety, checkPainSafety, type PainState } from './pain'
+import { createProposal } from './proposals'
 
 export type CoachToolContext = {
   userId: string
   conversationId: string | null
   program: ProgramTree | null
+  /** Открытые жалобы на боль: ограничивают, что можно предлагать. */
+  pain?: Pick<PainState, 'zones'>
 }
 
 type CatalogRow = {
@@ -91,13 +94,17 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
   })
 
   const find_exercises = tool({
-    description: 'Поиск упражнений в каталоге зала по мышце, тренажёру или названию.',
+    description:
+      'Поиск упражнений в каталоге зала по мышце, тренажёру или названию. ' +
+      'Когда нужна замена упражнению (тренажёр занят, болит, нет такого), передай его id в replace: ' +
+      'запасные упражнения, которые указал тренер, придут первыми с пометкой trainerAlternative — предлагай их в первую очередь.',
     inputSchema: z.object({
       muscle: z.string().optional(),
       machine: z.string().optional(),
       query: z.string().optional(),
+      replace: z.string().optional(),
     }),
-    execute: async ({ muscle, machine, query }) => {
+    execute: async ({ muscle, machine, query, replace }) => {
       const gym = await gymPromise
       const rows = await catalogRows(gym.id)
       const text = query?.trim().toLowerCase()
@@ -118,13 +125,21 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
         return true
       })
 
+      const trainerPicks = replace ? await listAlternatives(replace) : []
+      const pickOrder = new Map(trainerPicks.map((alt, index) => [alt.id, index]))
+      // Запасные тренера ищем в каталоге целиком: фильтр по мышце мог бы их отсечь.
+      const picked = rows.filter((row) => pickOrder.has(row.id))
+      picked.sort((a, b) => pickOrder.get(a.id)! - pickOrder.get(b.id)!)
+      const others = found.filter((row) => row.id !== replace && !pickOrder.has(row.id))
+
       return {
-        exercises: found.slice(0, 30).map((row) => ({
+        exercises: [...picked, ...others].slice(0, 30).map((row) => ({
           id: row.id,
           name: row.name,
           primary: row.primary,
           secondary: row.secondary,
           machine: row.machine,
+          ...(pickOrder.has(row.id) ? { trainerAlternative: true } : {}),
         })),
       }
     },
@@ -157,7 +172,9 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
   })
   const draft_workout = tool({
     description:
-      'Черновик новой тренировки или программы. Создаёт предложение, клиент нажмёт «Принять».',
+      'Черновик НОВОЙ программы с нуля — только когда клиент прямо просит собрать новую программу. ' +
+      'Любое изменение текущей программы (замена, добавление, убрать, веса) — только через propose_program_change. ' +
+      'Создаёт предложение, клиент нажмёт «Принять». Отдых: тяжёлые базовые 120–180 с, гипертрофия 60–90 с, изоляция и пресс 45–60 с.',
     inputSchema: z.object({
       name: z.string().trim().min(1).max(80),
       days: z
@@ -172,6 +189,7 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
                     sets: z.number().int().min(1).max(10),
                     repMin: z.number().int().min(1).max(100),
                     repMax: z.number().int().min(1).max(100),
+                    restSec: z.number().int().min(15).max(300).optional(),
                   })
                   .refine((item) => item.repMin <= item.repMax, 'repMin не больше repMax'),
               )
@@ -191,21 +209,38 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
 
       if (ids.some((id) => !known.has(id))) return { ok: false as const, error: NOT_IN_CATALOG }
 
-      const payload = { name: input.name, days: input.days, rationale: input.rationale ?? null }
-      const [created] = await db
-        .insert(aiProposals)
-        .values({
-          userId: ctx.userId,
-          programId: ctx.program?.id ?? null,
-          kind: 'new_program',
-          diff: payload,
-          payload,
-          conversationId: ctx.conversationId,
-          rationale: input.rationale ?? null,
-        })
-        .returning({ id: aiProposals.id })
+      const painRows = new Map(rows.map((row) => [row.id, row.primary as string[]]))
+      const drafted = checkDraftPainSafety(ids, ctx.pain ?? { zones: [] }, (id) => painRows.get(id) ?? [])
+      if (drafted) return { ok: false as const, error: drafted }
 
-      return { ok: true as const, proposalId: created!.id }
+      // Правка текущей программы не должна пересобираться заново: так теряются веса.
+      if (ctx.program) {
+        const current = new Set(
+          ctx.program.days.flatMap((day) => day.exercises.map((item) => item.exerciseId)),
+        )
+        const unique = [...new Set(ids)]
+        const same = unique.filter((id) => current.has(id)).length
+
+        if (unique.length > 0 && same / unique.length >= 0.5) {
+          return {
+            ok: false as const,
+            error:
+              'Это правка текущей программы — используй propose_program_change, а не draft_workout',
+          }
+        }
+      }
+
+      const payload = { name: input.name, days: input.days, rationale: input.rationale ?? null }
+      const proposalId = await createProposal({
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        kind: 'new_program',
+        program: ctx.program,
+        payload,
+        rationale: input.rationale ?? null,
+      })
+
+      return { ok: true as const, proposalId }
     },
   })
 
@@ -224,6 +259,14 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
         return { ok: false as const, error: NOT_IN_CATALOG }
       }
 
+      const painRows = new Map(rows.map((row) => [row.id, row.primary as string[]]))
+      const unsafe = checkPainSafety(patch.ops, ctx.program, ctx.pain ?? { zones: [] }, (id) => {
+        const fromCatalog = painRows.get(id)
+        if (fromCatalog) return fromCatalog
+        return []
+      })
+      if (unsafe) return { ok: false as const, error: unsafe }
+
       try {
         // Проверяем патч на копии дерева — в БД ничего не пишем.
         applyPatch(ctx.program, patch, known)
@@ -232,20 +275,16 @@ export function createCoachTools(ctx: CoachToolContext): ToolSet {
         throw error
       }
 
-      const [created] = await db
-        .insert(aiProposals)
-        .values({
-          userId: ctx.userId,
-          programId: ctx.program.id,
-          kind: 'patch',
-          diff: patch,
-          payload: patch,
-          conversationId: ctx.conversationId,
-          rationale: rationale ?? null,
-        })
-        .returning({ id: aiProposals.id })
+      const proposalId = await createProposal({
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        kind: 'patch',
+        program: ctx.program,
+        payload: patch,
+        rationale: rationale ?? null,
+      })
 
-      return { ok: true as const, proposalId: created!.id }
+      return { ok: true as const, proposalId }
     },
   })
 

@@ -1,7 +1,7 @@
 export { MUSCLES, isMuscleCode, muscleName, muscleView, svgLayerId } from './muscles'
 export type { MuscleCode, MuscleDefinition, MuscleView } from './muscles'
 
-export { muscles, machines, machineZones, exercises } from './schema'
+export { muscles, machines, machineZones, exercises, exerciseAlternatives } from './schema'
 export type {
   Exercise,
   ExerciseStatus,
@@ -11,10 +11,14 @@ export type {
   NewExercise,
   NewMachine,
   NewMachineZone,
+  LoadType,
   OverlayProfile,
 } from './schema'
 
 export { slugify } from './slug'
+
+export { listAlternatives, setAlternatives, suggestAlternatives } from './alternatives'
+export type { AlternativeItem } from './alternatives'
 
 export {
   exerciseInputSchema,

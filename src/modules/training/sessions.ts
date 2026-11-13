@@ -6,7 +6,7 @@ import { ForbiddenError } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { dayKey, mondayKey } from '@/shared/dates'
 import { enqueueJob } from '@/shared/queue'
-import { nextWeights, setLogs, workoutSessions } from './schema'
+import { nextWeights, setLogs, workoutSessions, type WarmupStatus } from './schema'
 
 export type SyncSetItem = {
   clientUuid: string
@@ -180,7 +180,7 @@ export async function setExerciseFeeling(
 export async function finishSession(
   userId: string,
   sessionClientUuid: string,
-  input: { finishedAt: Date; comment?: string },
+  input: { finishedAt: Date; comment?: string; warmupStatus?: WarmupStatus },
   deps: { enqueue?: (name: string, data: object) => Promise<void> } = {},
 ): Promise<void> {
   const session = await findSessionByClientUuid(sessionClientUuid)
@@ -194,6 +194,7 @@ export async function finishSession(
     .set({
       finishedAt: input.finishedAt,
       comment: input.comment ?? session.comment,
+      warmupStatus: input.warmupStatus ?? session.warmupStatus,
       updatedAt: new Date(),
     })
     .where(eq(workoutSessions.id, session.id))

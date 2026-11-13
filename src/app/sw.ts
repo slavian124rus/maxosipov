@@ -3,6 +3,10 @@
 import { defaultCache } from '@serwist/turbopack/worker'
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
 import {
+  addSetFromNotification,
+  WORKOUT_ADD_SET_ACTION,
+} from '@/lib/offline/workout-notify'
+import {
   CacheFirst,
   ExpirationPlugin,
   RangeRequestsPlugin,
@@ -119,6 +123,25 @@ self.addEventListener('push', (event: PushEvent) => {
 })
 
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  const data = event.notification.data as { kind?: string; sessionClientUuid?: string } | undefined
+
+  // «+ Подход» в уведомлении тренировки: записываем подход и перерисовываем уведомление.
+  if (data?.kind === 'workout' && event.action === WORKOUT_ADD_SET_ACTION && data.sessionClientUuid) {
+    const sessionClientUuid = data.sessionClientUuid
+
+    event.waitUntil(
+      (async () => {
+        const added = await addSetFromNotification(self.registration, sessionClientUuid)
+        if (!added) return
+
+        // Открытый экран перечитывает подходы из IndexedDB.
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        for (const client of windows) client.postMessage({ type: 'workout-set-added' })
+      })(),
+    )
+    return
+  }
+
   event.notification.close()
 
   const url = (event.notification.data as { url?: string } | undefined)?.url ?? '/'

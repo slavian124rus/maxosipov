@@ -19,6 +19,8 @@ export const aiConversations = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull(),
+    title: text('title'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -41,6 +43,8 @@ export const aiMessages = pgTable(
     /** Тренер разобрал жалобу: из ленты «Сегодня» она исчезает. */
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     resolvedBy: uuid('resolved_by'),
+    /** Что Максим разрешил/велел после разбора жалобы — попадает в контекст МаксИИма. */
+    resolutionNote: text('resolution_note'),
     tokensIn: integer('tokens_in').notNull().default(0),
     tokensOut: integer('tokens_out').notNull().default(0),
     model: text('model'),

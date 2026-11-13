@@ -81,6 +81,7 @@ const EXERCISE: ExerciseDetail = {
   mistakes: ['Отрыв пяток'],
   tips: 'Колени по носкам',
   defaultRepMin: 10,
+  loadType: 'external',
   defaultRepMax: 12,
   overlayProfile: 'none',
   videoMp4Url: null,

@@ -1,14 +1,18 @@
 import { redirect } from 'next/navigation'
 import { requireClientPage } from '@/components/app/require-client-page'
+import { buildWorkoutExercise } from './build-exercise'
 import { WorkoutClient } from '@/components/workout/workout-client'
 import { assertClientAccess } from '@/modules/access'
-import { getExercise } from '@/modules/catalog'
+import { listAlternatives, listExercises } from '@/modules/catalog'
+import { loadPainState } from '@/modules/coach-ai'
 import { getGym } from '@/modules/gym'
 import {
   getActiveProgram,
-  getHistoryForExercise,
+  adjustWarmupForPain,
   getLastFinishedDayId,
-  getNextWeight,
+  listWarmupTemplates,
+  resolveDayFocus,
+  warmupSeconds,
   getOngoingSession,
   getRecommendations,
   pickWorkoutDay,
@@ -66,46 +70,59 @@ export default async function WorkoutPage({
   }
 
   const exercises = await Promise.all(
-    baseEntries.map(async (entry) => {
-      const detail = await getExercise(entry.exerciseId)
-      const nextWeight = await getNextWeight(user.id, entry.exerciseId)
-      const recommendation = recommendations[entry.exerciseId]
-      // История завершённых тренировок: по ней и по текущим подходам экран считает «В следующий раз»
-      const history = await getHistoryForExercise(user.id, entry.exerciseId, 6, { finishedOnly: true })
-
-      return {
-        programExerciseId: entry.programExerciseId,
-        exerciseId: entry.exerciseId,
-        name: detail?.name ?? 'Упражнение',
-        machineName: detail?.machineName ?? null,
-        slug: detail?.slug ?? '',
-        steps: detail?.steps ?? [],
-        mistakes: detail?.mistakes ?? [],
-        tips: detail?.tips ?? null,
-        sets: entry.sets,
-        repMin: entry.repMin,
-        repMax: entry.repMax,
-        restSec: entry.restSec,
-        stepKg: detail?.weightStepKg ?? 2.5,
-        // Пока видео нет, в тренировке показываем фото тренажёра вместо пустого превью.
-        posterUrl: detail?.posterUrl ?? detail?.photoUrl ?? null,
-        videoMp4Url: detail?.videoMp4Url ?? null,
-        videoWebmUrl: detail?.videoWebmUrl ?? null,
-        recommendation: recommendation
-          ? {
-              action: recommendation.action,
-              weightKg: recommendation.weightKg,
-              text: recommendation.text,
-            }
-          : null,
-        // Порядок важен: «на следующий раз» → рекомендация по истории → вес из программы.
-        // Последний — план тренера из анкеты: без него на первом подходе был бы 0 кг.
-        startWeightKg: nextWeight ?? recommendation?.weightKg ?? entry.targetWeightKg ?? 0,
-        planWeightKg: entry.targetWeightKg ?? null,
-        history: history.map((session) => ({ date: session.date.toISOString(), sets: session.sets })),
-      }
-    }),
+    baseEntries.map((entry) =>
+      buildWorkoutExercise(user.id, entry, recommendations[entry.exerciseId] ?? null),
+    ),
   )
+
+  // «Занято? Заменить»: список запасных упражнений по карточкам дня.
+  const alternativeLists = await Promise.all(
+    exercises.map((item) => listAlternatives(item.exerciseId)),
+  )
+  const alternatives = Object.fromEntries(
+    exercises.map((item, index) => [
+      item.programExerciseId,
+      alternativeLists[index]!.map((alt) => ({
+        id: alt.id,
+        name: alt.name,
+        machineName: alt.machineName,
+      })),
+    ]),
+  )
+
+  // Разминка под тип дня; при открытой жалобе на боль пункты на больную зону заменяем кодом.
+  const [catalog, templates, pain] = await Promise.all([
+    listExercises(),
+    listWarmupTemplates(gym.id),
+    loadPainState(user.id),
+  ])
+  const primaryById = new Map(catalog.map((item) => [item.id, item.primaryMuscles as string[]]))
+  const focus = resolveDayFocus(
+    null,
+    day.exercises.map((item) => primaryById.get(item.exerciseId) ?? []),
+  )
+  const chosen = templates.find((item) => item.focus === focus) ??
+    templates.find((item) => item.focus === 'full') ??
+    templates[0]
+  const warmupItems = chosen
+    ? adjustWarmupForPain(
+        chosen.items,
+        pain.zones,
+        templates.flatMap((item) => item.items),
+      )
+    : []
+  const warmup = chosen && warmupItems.length > 0
+    ? {
+        name: chosen.name,
+        minutes: Math.max(1, Math.round(warmupSeconds(warmupItems) / 60)),
+        items: warmupItems.map((item) => ({
+          title: item.title,
+          durationSec: item.durationSec,
+          reps: item.reps,
+          note: item.note,
+        })),
+      }
+    : null
 
   return (
     <WorkoutClient
@@ -114,6 +131,8 @@ export default async function WorkoutPage({
       dayName={day.name}
       mode={user.workoutMode === 'guided' ? 'guided' : 'free'}
       exercises={exercises}
+      alternatives={alternatives}
+      warmup={warmup}
       rules={gym.settings.progressionRules}
     />
   )

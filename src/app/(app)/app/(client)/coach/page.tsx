@@ -1,12 +1,13 @@
+import { redirect } from 'next/navigation'
 import { requireClientPage } from '@/components/app/require-client-page'
-import { ChatView } from '@/components/coach/chat-view'
+import { ConversationList } from '@/components/coach/conversation-list'
 import { assertClientAccess } from '@/modules/access'
-import { getExercise } from '@/modules/catalog'
-import { getChatHistory, listProposalCards } from '@/modules/coach-ai'
+import { listConversations } from '@/modules/coach-ai'
 
 // Экран зависит от сессии и подписки.
 export const instant = false
 
+/** Список чатов с МаксИИмом (DESIGN.md §8.6). Старые ссылки «?question=» открывают новый чат. */
 export default async function CoachPage({
   searchParams,
 }: {
@@ -15,25 +16,25 @@ export default async function CoachPage({
   const { user } = await requireClientPage('/coach')
   await assertClientAccess(user.id)
 
-  const { exercise: slug, question } = await searchParams
-  let prefill = question ?? null
-
-  if (slug) {
-    const exercise = await getExercise(slug)
-    if (exercise) prefill = `Расскажи про упражнение „${exercise.name}“`
+  const { exercise, question } = await searchParams
+  if (exercise || question) {
+    const query = new URLSearchParams()
+    if (exercise) query.set('exercise', exercise)
+    if (question) query.set('question', question)
+    redirect(`/coach/new?${query.toString()}`)
   }
 
-  const history = await getChatHistory(user.id)
-  const proposals = history.conversationId
-    ? await listProposalCards(user.id, history.conversationId)
-    : []
+  const conversations = await listConversations(user.id)
 
   return (
-    <ChatView
-      initialConversationId={history.conversationId}
-      initialMessages={history.messages}
-      initialProposals={proposals}
-      prefill={prefill}
+    <ConversationList
+      items={conversations.map((item) => ({
+        id: item.id,
+        title: item.title,
+        lastText: item.lastText,
+        lastAt: item.lastAt.toISOString(),
+        hasPending: item.hasPending,
+      }))}
     />
   )
 }

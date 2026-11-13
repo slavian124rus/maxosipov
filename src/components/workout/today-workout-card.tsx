@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { findActiveSession } from '@/lib/offline/queue'
 import { STALE_SESSION_MS } from '@/lib/offline/use-active-session'
+import { formatDuration } from '@/shared/scheme'
 import { DayPicker } from './day-picker'
 
-export type TodayDay = { id: string; name: string; exercises: number }
+export type TodayDay = { id: string; name: string; exercises: number; minutes?: number }
 
 /** Какой день продолжать: свежая незавершённая тренировка из памяти устройства. */
 export function resumeDayId(
@@ -78,7 +79,9 @@ export function TodayWorkoutCard({
       <p className="text-[15px] text-text-secondary">
         {activeDay
           ? 'Подходы уже записаны — продолжай с того же места'
-          : `Упражнений: ${shown.exercises}`}
+          : [`Упражнений: ${shown.exercises}`, formatDuration(shown.minutes ?? 0)]
+              .filter(Boolean)
+              .join(' · ')}
       </p>
       <Link
         href={`/workout?day=${shown.id}`}

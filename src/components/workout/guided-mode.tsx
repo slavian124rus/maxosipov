@@ -1,5 +1,6 @@
 'use client'
 
+import { SwapButton } from './swap-button'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ExerciseLogger } from './exercise-logger'
@@ -22,8 +23,11 @@ type Props = {
   logged: Record<string, LoggedSet[]>
   onLog: (exercise: WorkoutExercise, weightKg: number, reps: number) => void
   onFeeling: (exercise: WorkoutExercise, feeling: Feeling) => void
-  onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void
+  onNextWeight: (exercise: WorkoutExercise, weightKg: number) => void | Promise<void>
   nextRecommendations: Record<string, NextRecommendation>
+  /** Можно ли заменить упражнение (есть запасные и подходы ещё не записаны). */
+  canSwap?: (exercise: WorkoutExercise) => boolean
+  onSwap?: (exercise: WorkoutExercise) => void
 }
 
 /** Пошаговый режим: одно упражнение на экран, таймер отдыха (DESIGN.md §8.4). */
@@ -34,6 +38,8 @@ export function GuidedMode({
   onFeeling,
   onNextWeight,
   nextRecommendations,
+  canSwap,
+  onSwap,
 }: Props) {
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'idle' | 'logging' | 'rest'>('idle')
@@ -82,6 +88,7 @@ export function GuidedMode({
       <div className="flex flex-wrap gap-2">
         <HowToButton onClick={() => setHowTo(exercise)} />
       </div>
+      {onSwap && canSwap?.(exercise) ? <SwapButton onClick={() => onSwap(exercise)} /> : null}
 
       {exercise.recommendation ? (
         <p className="text-[15px] text-text-secondary">{exercise.recommendation.text}</p>
@@ -110,6 +117,7 @@ export function GuidedMode({
           stepKg={exercise.stepKg}
           initialWeightKg={done.at(-1)?.weightKg ?? exercise.startWeightKg}
           initialReps={done.at(-1)?.reps ?? exercise.repMax}
+          loadType={exercise.loadType}
           onLog={(weightKg, reps) => {
             onLog(exercise, weightKg, reps)
             setPhase('rest')

@@ -1,7 +1,7 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
 import type { StartWeightProfile } from '@/modules/progression'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 /** Упражнение программы в объёме, нужном для подбора весов. */
@@ -102,7 +102,7 @@ export function sanitizeWeightSuggestions(
 }
 
 export type WeightSuggestionDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   userId?: string
 }

@@ -10,7 +10,12 @@ export type GuardDecision = { redirect: string } | { allow: true }
 
 /** Разделы, которые остаются доступными без подписки (история для чтения). */
 function isReadOnlySection(path: string): boolean {
-  return path === '/progress' || path.startsWith('/progress/') || path === '/profile'
+  return (
+    path === '/progress' ||
+    path.startsWith('/progress/') ||
+    path === '/profile' ||
+    path === '/settings'
+  )
 }
 
 /**

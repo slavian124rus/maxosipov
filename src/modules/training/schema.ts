@@ -18,7 +18,9 @@ export type ProgramStatus = 'active' | 'archived'
 export type WorkoutMode = 'free' | 'guided'
 export type Feeling = 'easy' | 'good' | 'hard'
 export type ChangeActorKind = 'trainer' | 'client' | 'ai_proposal_accepted'
-export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'reverted'
+export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'reverted' | 'superseded'
+export type DayFocus = 'legs' | 'upper' | 'full'
+export type WarmupStatus = 'done' | 'skipped'
 export type ProposalKind = 'patch' | 'new_program'
 
 import type { ProgramAudience, ProgramGoal } from '@/shared/program-labels'
@@ -41,6 +43,9 @@ export const programs = pgTable(
     templateNumber: integer('template_number'),
     status: text('status').$type<ProgramStatus>().notNull().default('active'),
     sourceTemplateId: uuid('source_template_id'),
+    /** Когда клиент сам менял свой план; тренер видит метку, пока не нажмёт «Просмотрено». */
+    clientEditedAt: timestamp('client_edited_at', { withTimezone: true }),
+    clientEditSeenAt: timestamp('client_edit_seen_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -63,6 +68,8 @@ export const programDays = pgTable('program_days', {
     .references(() => programs.id, { onDelete: 'cascade' }),
   order: integer('order').notNull(),
   name: text('name').notNull(),
+  /** Тип дня для подбора разминки; пусто — вычисляется по мышцам. */
+  focus: text('focus').$type<DayFocus>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -96,6 +103,7 @@ export const workoutSessions = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     comment: text('comment'),
+    warmupStatus: text('warmup_status').$type<WarmupStatus>(),
     aiSummary: text('ai_summary'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -176,6 +184,10 @@ export const aiProposals = pgTable('ai_proposals', {
   diff: jsonb('diff').$type<unknown>().notNull(),
   /** Для `patch` — `ProgramPatch`; для `new_program` — черновик программы. */
   payload: jsonb('payload').$type<unknown>(),
+  /** `programs.updated_at` в момент создания: если программа изменилась — предложение устарело. */
+  baseProgramUpdatedAt: timestamp('base_program_updated_at', { withTimezone: true }),
+  /** Снимок строк «Что изменится» на момент создания — карточка не пересчитывается. */
+  preview: jsonb('preview').$type<unknown>(),
   conversationId: uuid('conversation_id'),
   rationale: text('rationale'),
   status: text('status').$type<ProposalStatus>().notNull().default('pending'),
@@ -192,3 +204,27 @@ export type ProgramExerciseRow = typeof programExercises.$inferSelect
 export type WorkoutSession = typeof workoutSessions.$inferSelect
 export type SetLog = typeof setLogs.$inferSelect
 export type ProgramChange = typeof programChanges.$inferSelect
+export type WarmupFocus = 'legs' | 'upper' | 'full'
+export type WarmupItem = {
+  title: string
+  exerciseId: string | null
+  durationSec: number | null
+  reps: number | null
+  note: string | null
+  /** Какие зоны тела нагружает пункт (для подстройки при боли). */
+  zones: string[]
+}
+
+/** Шаблоны разминки зала: тренер правит их в настройках. */
+export const warmupTemplates = pgTable('warmup_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gymId: uuid('gym_id').notNull(),
+  name: text('name').notNull(),
+  focus: text('focus').$type<WarmupFocus>().notNull(),
+  items: jsonb('items').$type<WarmupItem[]>().notNull().default([]),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type WarmupTemplate = typeof warmupTemplates.$inferSelect

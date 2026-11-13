@@ -1,6 +1,6 @@
 import { generateObject, type LanguageModel } from 'ai'
 import { z } from 'zod'
-import { getModelName, withFallback } from './provider'
+import { getModelName, withFallback, type ModelKind } from './provider'
 import { recordUsage } from './usage'
 
 export type ExerciseDraftInput = {
@@ -27,7 +27,7 @@ const draftSchema = z.object({
 })
 
 export type ExerciseDraftDeps = {
-  getModel?: (kind: 'main' | 'fast' | 'fallback') => LanguageModel
+  getModel?: (kind: ModelKind) => LanguageModel
   timeoutMs?: number
   /** Кто просит черновик — для учёта расходов. */
   userId?: string
@@ -69,13 +69,13 @@ export async function draftExerciseText(
         schema: draftSchema,
         prompt: `${INSTRUCTION}\n\n${context}`,
       }),
-    'main',
+    'exercises',
     { getModel: deps.getModel, timeoutMs: deps.timeoutMs ?? 30_000 },
   )
 
   if (deps.userId) {
     await recordUsage(deps.userId, {
-      model: getModelName('main'),
+      model: getModelName('exercises'),
       tokensIn: result.usage?.inputTokens ?? 0,
       tokensOut: result.usage?.outputTokens ?? 0,
       countsTowardLimit: false,

@@ -143,6 +143,15 @@ export function useActiveSession() {
     [flush, refreshPending],
   )
 
+  /** Разминка: статус хранится на устройстве и уходит вместе с завершением. */
+  const setWarmup = useCallback(async (warmupStatus: 'done' | 'skipped'): Promise<void> => {
+    const active = sessionRef.current
+    if (!active) return
+    await (await getOfflineDb()).activeSession.update(active.clientUuid, { warmupStatus })
+    sessionRef.current = { ...active, warmupStatus }
+    setSession(sessionRef.current)
+  }, [])
+
   /** Завершение фиксируется локально; на сервер уйдёт, когда доставлены все подходы. */
   const finish = useCallback(async (): Promise<void> => {
     const active = sessionRef.current
@@ -170,5 +179,5 @@ export function useActiveSession() {
     }
   }, [])
 
-  return { session, pending, startOrResume, logSet, setFeeling, finish, flush, precacheMedia }
+  return { session, pending, startOrResume, logSet, setFeeling, setWarmup, finish, flush, precacheMedia }
 }

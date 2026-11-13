@@ -5,6 +5,7 @@ import { addMeasurement } from '@/modules/body'
 import { requireUser } from '@/modules/auth'
 import { resolveFlag } from '@/modules/coach-ai'
 import { addNote, updateClientName } from '@/modules/trainer'
+import { markClientEditSeen } from '@/modules/training'
 import { formFailure } from '../form-errors'
 import { SAVED_FORM_STATE, type FormState } from '../form-state'
 
@@ -58,7 +59,7 @@ export async function resolveClientFlagAction(formData: FormData): Promise<void>
   if (!messageId) return
 
   try {
-    await resolveFlag(actor, messageId)
+    await resolveFlag(actor, messageId, String(formData.get('note') ?? ''))
   } catch (error) {
     console.error('[trainer] не удалось разобрать жалобу', error)
   }
@@ -94,4 +95,18 @@ export async function addTrainerMeasurementAction(formData: FormData): Promise<v
   }
 
   revalidatePath(`/trainer/clients/${clientId}`)
+}
+/** «Просмотрено»: тренер увидел, что клиент поменял свой план. */
+export async function markPlanSeenAction(programId: string, clientId: string): Promise<{ error: string | null }> {
+  const { actor } = await requireUser()
+
+  try {
+    await markClientEditSeen(actor, programId)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Не удалось отметить' }
+  }
+
+  revalidatePath(`/trainer/clients/${clientId}`)
+  revalidatePath('/trainer/clients')
+  return { error: null }
 }
