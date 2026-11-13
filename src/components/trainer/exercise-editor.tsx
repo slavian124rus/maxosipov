@@ -78,9 +78,12 @@ export function ExerciseEditor({
   const [tab, setTab] = useState<TabId>('text')
 
   const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [videoMediaId, setVideoMediaId] = useState<string | null>(
+  const [uploadedVideoId, setVideoMediaId] = useState<string | null>(
     exercise.videoMp4Url || exercise.videoStatus ? 'existing' : null,
   )
+  // «Убрать видео»: при сохранении видео отвязывается от карточки (файл остаётся в архиве).
+  const [videoRemoved, setVideoRemoved] = useState(false)
+  const videoMediaId = videoRemoved ? null : uploadedVideoId
   const [cropX, setCropX] = useState(0.5)
   // Замены хранятся здесь, а не в панели: уходят на сервер общей кнопкой «Сохранить».
   const [altItems, setAltItems] = useState<AlternativeOption[]>(alternatives?.initial ?? [])
@@ -130,14 +133,17 @@ export function ExerciseEditor({
   const checklist = publishChecklist({
     primaryMuscles: muscles.primary.length,
     steps: steps.filter((item) => item.trim()).length,
-    hasVideo: Boolean(videoMediaId) || exercise.hasVideo,
+    hasVideo: Boolean(videoMediaId) || (exercise.hasVideo && !videoRemoved),
   })
   const published = exercise.status === 'published'
 
   async function uploadVideo(file: File): Promise<void> {
     setVideoFile(file)
     const id = await upload.upload(file, 'exercise_video')
-    if (id) setVideoMediaId(id)
+    if (id) {
+      setVideoMediaId(id)
+      setVideoRemoved(false)
+    }
   }
 
   async function createDraft(): Promise<void> {
@@ -187,7 +193,7 @@ export function ExerciseEditor({
         tip: tips.trim() === '' ? null : tips,
         repMin: Number(repMin) || 0,
         repMax: Number(repMax) || 0,
-        hasVideo: Boolean(videoMediaId) || exercise.hasVideo,
+        hasVideo: Boolean(videoMediaId) || (exercise.hasVideo && !videoRemoved),
         hasPhoto: Boolean(exercise.photoUrl || exercise.thumbUrl),
       })
 
@@ -282,6 +288,12 @@ export function ExerciseEditor({
               webmUrl: exercise.videoWebmUrl,
               posterUrl: exercise.posterUrl,
             }}
+            removed={videoRemoved}
+            onRemove={() => {
+              setVideoRemoved(true)
+              setVideoFile(null)
+            }}
+            onRestore={() => setVideoRemoved(false)}
             onUpload={(file) => void uploadVideo(file)}
             onCropChange={setCropX}
           />

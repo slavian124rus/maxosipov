@@ -472,3 +472,27 @@ test('выбранный тип веса уходит в форму', () => {
   fireEvent.click(screen.getByRole('button', { name: /Свой вес \+ отягощение/ }))
   expect(container.querySelector('input[name="loadType"]')?.getAttribute('value')).toBe('bodyweight_plus')
 })
+
+test('«Убрать видео» отвязывает видео при сохранении, «Вернуть» отменяет', () => {
+  const { container } = render(
+    <ExerciseEditor
+      exercise={{ ...EXERCISE, hasVideo: true, videoStatus: 'ready', videoMp4Url: '/media/v.mp4' }}
+      machines={MACHINES}
+    />,
+  )
+  fireEvent.click(screen.getByRole('tab', { name: 'Видео' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Убрать видео' }))
+
+  expect(container.querySelector('input[name="keepVideo"]')?.getAttribute('value') ?? '').toBe('')
+  expect(container.querySelector('input[name="videoMediaId"]')?.getAttribute('value')).toBe('')
+  expect(screen.getByText(/Видео уберётся из карточки/)).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Вернуть видео' }))
+  expect(container.querySelector('input[name="keepVideo"]')?.getAttribute('value')).toBe('1')
+})
+
+test('у упражнения без видео кнопки «Убрать видео» нет', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Видео' }))
+  expect(screen.queryByRole('button', { name: 'Убрать видео' })).toBeNull()
+})

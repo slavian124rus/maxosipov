@@ -38,6 +38,9 @@ export function VideoPanel({
   videoMediaId,
   cropX,
   current = null,
+  removed = false,
+  onRemove,
+  onRestore,
   onUpload,
   onCropChange,
 }: {
@@ -47,6 +50,10 @@ export function VideoPanel({
   cropX: number
   /** Уже загруженное видео упражнения: для предпросмотра. */
   current?: CurrentVideo | null
+  /** Видео помечено «убрать»: уйдёт из карточки при сохранении. */
+  removed?: boolean
+  onRemove?: () => void
+  onRestore?: () => void
   onUpload: (file: File) => void
   onCropChange: (value: number) => void
 }) {
@@ -90,7 +97,34 @@ export function VideoPanel({
         </p>
       ) : null}
 
-      <VideoPreview file={videoFile} current={current} />
+      {videoMediaId && onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="min-h-12 rounded-card border border-danger/50 px-4 text-[15px] text-danger"
+        >
+          Убрать видео
+        </button>
+      ) : null}
+      {removed ? (
+        <div className="flex flex-col gap-2 rounded-card border border-border bg-surface-2 p-3">
+          <p className="text-[15px] text-text-secondary">
+            Видео уберётся из карточки после «Сохранить»: у клиентов будет фото тренажёра. Сам файл
+            остаётся в архиве.
+          </p>
+          {onRestore ? (
+            <button
+              type="button"
+              onClick={onRestore}
+              className="min-h-12 rounded-card border border-border px-4 text-[15px] text-text"
+            >
+              Вернуть видео
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <VideoPreview file={videoFile} current={current} />
+      )}
 
       <VideoCrop file={videoFile} value={cropX} onChange={onCropChange} />
     </div>
