@@ -423,9 +423,23 @@ export async function listProgramChanges(programId: string, limit = 30): Promise
     id: row.id,
     actorId: row.actorId,
     actorKind: row.actorKind,
-    diff: (row.diff as ProgramDiffLine[] | null) ?? [],
+    diff: readDiff(row.diff),
     createdAt: row.createdAt,
   }))
+}
+
+/**
+ * Старые записи принятых черновиков МаксИИма хранят в `diff` целую программу (объект), а не строки.
+ * Для истории превращаем такую запись в одну понятную строку.
+ */
+function readDiff(raw: unknown): ProgramDiffLine[] {
+  if (Array.isArray(raw)) return raw as ProgramDiffLine[]
+
+  const days = (raw as { days?: { name?: string }[] } | null)?.days
+  if (!Array.isArray(days)) return []
+
+  const names = days.map((day) => day.name).filter((name): name is string => Boolean(name))
+  return [{ kind: 'added', dayName: names[0] ?? '', text: `Программа составлена МаксИИмом: ${names.join(', ')}` }]
 }
 
 /** Авторство программ по id — тренеру нужно знать, чью программу менял МаксИИм. */

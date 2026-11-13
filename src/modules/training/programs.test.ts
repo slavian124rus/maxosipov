@@ -6,7 +6,7 @@ import { ForbiddenError, type Actor } from '@/modules/rbac'
 import { db } from '@/shared/db'
 import { users } from '@/shared/db/schema'
 import { closeDb, prepareTestDb, resetDb, seedDefaultRoles } from '../../../tests/db'
-import { applyProgramPatchAs, copyTemplateToClient, getActiveProgram } from './programs'
+import { applyProgramPatchAs, copyTemplateToClient, getActiveProgram, listProgramChanges } from './programs'
 import { programChanges, programDays, programExercises, programs } from './schema'
 
 let gymId: string
@@ -294,4 +294,23 @@ test('два параллельных патча не теряются', async (
   expect(ids).toContain(exerciseB)
   expect(ids).toContain(exerciseC)
   expect(ids).toHaveLength(3)
+})
+test('старая запись истории, где diff — объект черновика, читается как одна строка', async () => {
+  const program = await copyTemplateToClient(client, templateId, client.id, gymId)
+
+  // Раньше принятый черновик МаксИИма писал в diff целую программу, а не список строк.
+  await db.insert(programChanges).values({
+    programId: program.id,
+    actorId: null,
+    actorKind: 'ai_proposal_accepted',
+    diff: { days: [{ name: 'Ноги и пресс', exercises: [] }] },
+    before: {},
+    after: {},
+  })
+
+  const changes = await listProgramChanges(program.id)
+  const legacy = changes.find((change) => change.actorKind === 'ai_proposal_accepted')
+
+  expect(Array.isArray(legacy?.diff)).toBe(true)
+  expect(legacy?.diff.map((line) => line.text)).toEqual(['Программа составлена МаксИИмом: Ноги и пресс'])
 })
