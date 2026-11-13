@@ -447,3 +447,12 @@ test('в дереве выбора уже добавленная замена о
   const chosen = screen.getAllByRole('button', { name: /Жим ногами/ }).find((button) => (button as HTMLButtonElement).disabled)
   expect(chosen).toBeTruthy()
 })
+
+test('нижняя панель кнопок залипает снизу на тёмной непрозрачной подложке, а не просвечивает', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+
+  const footer = screen.getByRole('button', { name: 'Сохранить' }).parentElement!
+  expect(footer.className).toContain('sticky')
+  expect(footer.className).toContain('bg-bg')
+  expect(footer.className).not.toContain('bg-transparent')
+})

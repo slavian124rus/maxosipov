@@ -383,8 +383,8 @@ export function ExerciseEditor({
       {state.error ? <p className="text-[15px] text-danger">{state.error}</p> : null}
       {state.notice ? <p className="text-[15px] text-text-secondary">{state.notice}</p> : null}
 
-      {/* Футер прозрачный, как сам лист: фон окна просвечивает, ничего не «темнеет» полосой. */}
-      <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border/60 bg-transparent pt-3">
+      {/* Панель залипает снизу на тёмной подложке во всю ширину: на телефоне контент не должен просвечивать сквозь кнопки. */}
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-5 flex flex-wrap items-center gap-2 border-t border-border bg-bg px-4 pt-3 pb-4 shadow-[0_-10px_14px_-6px_rgba(0,0,0,0.6)] lg:-mx-5 lg:px-5">
         <Button
           type="submit"
           name="publish"
