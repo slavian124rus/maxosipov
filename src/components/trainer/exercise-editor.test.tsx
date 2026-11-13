@@ -20,7 +20,6 @@ vi.mock('@/app/(app)/app/trainer/exercises/actions', () => ({
   unpublishAction: async () => {},
   draftExerciseAction: async () => ({ draft: null, error: null }),
   archiveExerciseAction: async () => ({ error: server.archiveError, archived: server.archived }),
-  saveAlternativesAction: async () => ({ error: null }),
   suggestAlternativesAction: async () => [],
   reviewExerciseAction: async () => ({
     error: server.reviewError,
@@ -398,4 +397,53 @@ test('у упражнения с видео форма просит сервер
 test('у упражнения без видео признака «оставить видео» нет', () => {
   const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
   expect(container.querySelector('input[name="keepVideo"]')?.getAttribute('value') ?? '').toBe('')
+})
+
+const ALTS = {
+  initial: [{ id: 'ex-2', name: 'Жим ногами', machineName: 'Платформа' }],
+  catalog: [
+    { id: 'ex-2', name: 'Жим ногами', machineName: 'Платформа', machineId: 'm-p', machineZone: 'Ноги' },
+    { id: 'ex-3', name: 'Выпады', machineName: null, machineId: null, machineZone: null },
+  ],
+}
+
+test('вкладка «Замены» не имеет своей кнопки «Сохранить»: список уходит с общим сохранением', () => {
+  const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} alternatives={ALTS} />)
+
+  fireEvent.click(tab('Замены'))
+
+  // «Сохранить» остаётся одна — внизу окна.
+  expect(screen.getAllByRole('button', { name: 'Сохранить' })).toHaveLength(1)
+  expect(JSON.parse(container.querySelector('input[name="alternatives"]')!.getAttribute('value')!)).toEqual(['ex-2'])
+})
+
+test('добавление замены из дерева каталога попадает в поле формы', () => {
+  const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} alternatives={ALTS} />)
+
+  fireEvent.click(tab('Замены'))
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить из каталога' }))
+  // Зоны раскрыты сразу, тренажёры раскрываются по касанию (как в каталоге тренера).
+  expect(screen.getByRole('button', { name: /Платформа/ }).getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(screen.getByRole('button', { name: /Выпады/ }))
+
+  expect(JSON.parse(container.querySelector('input[name="alternatives"]')!.getAttribute('value')!)).toEqual([
+    'ex-2',
+    'ex-3',
+  ])
+})
+
+test('без вкладки «Замены» поле alternatives в форму не попадает', () => {
+  const { container } = render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} />)
+  expect(container.querySelector('input[name="alternatives"]')).toBeNull()
+})
+
+test('в дереве выбора уже добавленная замена отмечена и недоступна для повторного выбора', () => {
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} alternatives={ALTS} />)
+
+  fireEvent.click(tab('Замены'))
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить из каталога' }))
+  fireEvent.click(screen.getByRole('button', { name: /Платформа/ }))
+
+  const chosen = screen.getAllByRole('button', { name: /Жим ногами/ }).find((button) => (button as HTMLButtonElement).disabled)
+  expect(chosen).toBeTruthy()
 })

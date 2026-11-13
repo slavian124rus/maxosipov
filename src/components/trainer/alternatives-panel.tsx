@@ -3,39 +3,45 @@
 import { useState, useTransition } from 'react'
 import { ArrowDown, ArrowUp, Plus, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  saveAlternativesAction,
-  suggestAlternativesAction,
-} from '@/app/(app)/app/trainer/exercises/actions'
+import { CatalogPickerTree } from '@/components/trainer/catalog-picker-tree'
+import { suggestAlternativesAction } from '@/app/(app)/app/trainer/exercises/actions'
 
 export type AlternativeOption = {
   id: string
   name: string
   machineName: string | null
+  machineId?: string | null
+  machineZone?: string | null
 }
 
 /**
  * «Можно заменить на»: тренер сам решает, что клиенту предлагать, когда тренажёр занят.
+ * Список живёт в редакторе упражнения и сохраняется общей кнопкой «Сохранить» внизу окна.
  * «Подобрать» показывает кандидатов по тем же мышцам на других тренажёрах.
  */
 export function AlternativesPanel({
   exerciseId,
-  initial,
+  items,
+  onItems,
+  mirror,
+  onMirror,
   catalog,
 }: {
   exerciseId: string
-  initial: AlternativeOption[]
+  items: AlternativeOption[]
+  onItems: (items: AlternativeOption[]) => void
+  mirror: boolean
+  onMirror: (value: boolean) => void
   /** Все опубликованные упражнения для ручного добавления. */
   catalog: AlternativeOption[]
 }) {
-  const [items, setItems] = useState<AlternativeOption[]>(initial)
-  const [mirror, setMirror] = useState(true)
   const [suggested, setSuggested] = useState<AlternativeOption[]>([])
   const [message, setMessage] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const chosen = new Set(items.map((item) => item.id))
-  const rest = catalog.filter((item) => item.id !== exerciseId && !chosen.has(item.id))
+  const pickable = catalog.filter((item) => item.id !== exerciseId)
 
   function move(index: number, delta: number) {
     const target = index + delta
@@ -43,30 +49,20 @@ export function AlternativesPanel({
     const next = [...items]
     const [moved] = next.splice(index, 1)
     next.splice(target, 0, moved!)
-    setItems(next)
+    onItems(next)
   }
 
   function add(option: AlternativeOption) {
-    setItems((current) => [...current, option])
+    if (chosen.has(option.id)) return
+    onItems([...items, option])
     setSuggested((current) => current.filter((item) => item.id !== option.id))
-  }
-
-  function save() {
-    startTransition(async () => {
-      const result = await saveAlternativesAction(
-        exerciseId,
-        items.map((item) => item.id),
-        mirror,
-      )
-      setMessage(result.error ?? 'Сохранено')
-    })
   }
 
   function suggest() {
     startTransition(async () => {
       const found = await suggestAlternativesAction(exerciseId)
       setSuggested(found.filter((item) => !chosen.has(item.id)))
-      if (found.length === 0) setMessage('Подходящих упражнений на других тренажёрах не нашлось')
+      setMessage(found.length === 0 ? 'Подходящих упражнений на других тренажёрах не нашлось' : null)
     })
   }
 
@@ -75,7 +71,7 @@ export function AlternativesPanel({
       <div className="flex flex-col gap-1">
         <h3 className="text-[17px] font-semibold">Можно заменить на</h3>
         <p className="text-[13px] text-text-muted">
-          Эти упражнения клиент увидит первыми, когда тренажёр занят
+          Эти упражнения клиент увидит первыми, когда тренажёр занят. Список сохраняется кнопкой «Сохранить» внизу.
         </p>
       </div>
 
@@ -103,7 +99,7 @@ export function AlternativesPanel({
               <button
                 type="button"
                 aria-label="Убрать"
-                onClick={() => setItems(items.filter((current) => current.id !== item.id))}
+                onClick={() => onItems(items.filter((current) => current.id !== item.id))}
                 className="p-2"
               >
                 <X size={16} />
@@ -135,38 +131,23 @@ export function AlternativesPanel({
         </div>
       ) : null}
 
-      <select
-        aria-label="Добавить упражнение"
-        value=""
-        onChange={(event) => {
-          const option = rest.find((item) => item.id === event.target.value)
-          if (option) add(option)
-        }}
-        className="h-12 rounded-control border border-border bg-surface-1 px-3 text-[15px]"
-      >
-        <option value="">Добавить из каталога…</option>
-        {rest.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-            {item.machineName ? ` · ${item.machineName}` : ''}
-          </option>
-        ))}
-      </select>
-
-      <label className="flex items-center gap-2 text-[15px]">
-        <input type="checkbox" checked={mirror} onChange={(event) => setMirror(event.target.checked)} />
-        Предлагать и в обратную сторону
-      </label>
-
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" onClick={suggest} disabled={pending}>
           <Sparkles size={16} aria-hidden />
           Подобрать
         </Button>
-        <Button type="button" onClick={save} disabled={pending}>
-          Сохранить
+        <Button type="button" variant="secondary" onClick={() => setPicking((value) => !value)}>
+          {picking ? 'Скрыть каталог' : 'Добавить из каталога'}
         </Button>
       </div>
+
+      {picking ? <CatalogPickerTree items={pickable} chosenIds={chosen} onPick={add} /> : null}
+
+      <label className="flex items-center gap-2 text-[15px]">
+        <input type="checkbox" checked={mirror} onChange={(event) => onMirror(event.target.checked)} />
+        Предлагать и в обратную сторону
+      </label>
+
       {message ? <p className="text-[13px] text-text-secondary">{message}</p> : null}
     </section>
   )

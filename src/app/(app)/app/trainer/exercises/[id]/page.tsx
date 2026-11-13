@@ -50,6 +50,8 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
               id: item.id,
               name: item.name,
               machineName: item.machineName,
+              machineId: item.machineId,
+              machineZone: item.machineZone,
             })),
           }}
         />

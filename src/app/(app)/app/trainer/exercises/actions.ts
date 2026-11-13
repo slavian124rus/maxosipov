@@ -101,6 +101,13 @@ export async function saveExerciseAction(
       ? await updateExercise(actor, id, input)
       : await createExercise(actor, input)
 
+    // «Можно заменить на» едет вместе с общим сохранением, отдельной кнопки у списка нет.
+    if (id && formData.has('alternatives')) {
+      await setAlternatives(actor, exercise.id, jsonList(formData.get('alternatives')), {
+        mirror: text(formData.get('alternativesMirror')) === '1',
+      })
+    }
+
     if (publish) {
       await publishExercise(actor, exercise.id)
     }
@@ -126,10 +133,22 @@ export async function saveExerciseAction(
 export type DraftExerciseState = { draft: ExerciseDraft | null; error: string | null }
 
 /** В окне правки нужны только id, название и тренажёр. */
-type AlternativeChoice = { id: string; name: string; machineName: string | null }
+type AlternativeChoice = {
+  id: string
+  name: string
+  machineName: string | null
+  machineId?: string | null
+  machineZone?: string | null
+}
 
 function toAlternativeItem(item: AlternativeChoice): AlternativeChoice {
-  return { id: item.id, name: item.name, machineName: item.machineName }
+  return {
+    id: item.id,
+    name: item.name,
+    machineName: item.machineName,
+    machineId: item.machineId ?? null,
+    machineZone: item.machineZone ?? null,
+  }
 }
 
 export type ExerciseLoadState = {
@@ -376,25 +395,6 @@ export async function archiveExerciseAction(
   revalidatePath('/exercises')
 
   return { error: null, archived: true }
-}
-
-export type AlternativesState = { error: string | null; saved: boolean }
-
-/** Сохраняет список «Можно заменить на»; `mirror=1` добавляет обратную связь. */
-export async function saveAlternativesAction(
-  exerciseId: string,
-  alternativeIds: string[],
-  mirror: boolean,
-): Promise<AlternativesState> {
-  const { actor } = await requireUser()
-
-  try {
-    await setAlternatives(actor, exerciseId, alternativeIds, { mirror })
-    revalidatePath(`/trainer/exercises/${exerciseId}`)
-    return { error: null, saved: true }
-  } catch (error) {
-    return { error: readableError(error, 'Не удалось сохранить'), saved: false }
-  }
 }
 
 /** Подбор по тем же основным мышцам на других тренажёрах. */

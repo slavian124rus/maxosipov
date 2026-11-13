@@ -82,6 +82,9 @@ export function ExerciseEditor({
     exercise.videoMp4Url || exercise.videoStatus ? 'existing' : null,
   )
   const [cropX, setCropX] = useState(0.5)
+  // Замены хранятся здесь, а не в панели: уходят на сервер общей кнопкой «Сохранить».
+  const [altItems, setAltItems] = useState<AlternativeOption[]>(alternatives?.initial ?? [])
+  const [altMirror, setAltMirror] = useState(true)
   const [machineId, setMachineId] = useState<string>(exercise.machineId ?? '')
   const [muscles, setMuscles] = useState<MuscleState>({
     primary: exercise.primaryMuscles as MuscleCode[],
@@ -220,6 +223,12 @@ export function ExerciseEditor({
       />
       {/* Видео не менялось: просим сервер оставить привязанное, а не считать пустое поле «убрать». */}
       <input type="hidden" name="keepVideo" value={videoMediaId === 'existing' ? '1' : ''} />
+      {alternatives ? (
+        <>
+          <input type="hidden" name="alternatives" value={JSON.stringify(altItems.map((item) => item.id))} />
+          <input type="hidden" name="alternativesMirror" value={altMirror ? '1' : ''} />
+        </>
+      ) : null}
       <input type="hidden" name="machineId" value={machineId} />
       <input type="hidden" name="primary" value={muscles.primary.join(',')} />
       <input type="hidden" name="secondary" value={muscles.secondary.join(',')} />
@@ -317,7 +326,10 @@ export function ExerciseEditor({
         {tab === 'swap' && alternatives ? (
           <AlternativesPanel
             exerciseId={exercise.id}
-            initial={alternatives.initial}
+            items={altItems}
+            onItems={setAltItems}
+            mirror={altMirror}
+            onMirror={setAltMirror}
             catalog={alternatives.catalog}
           />
         ) : null}
