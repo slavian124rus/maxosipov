@@ -12,6 +12,26 @@ export type UploadState = {
 }
 
 const MAX_ATTEMPTS = 3
+const NETWORK_ERROR = 'Нет связи с сервером. Проверь интернет и попробуй ещё раз'
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Запрос с повтором при обрыве сети («Failed to fetch»): после сворачивания приложения
+ * или камеры соединение часто «протухшее», со второй попытки оно проходит.
+ */
+async function fetchRetry(input: string, init?: RequestInit): Promise<Response> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      lastError = error
+      await pause(800 * (attempt + 1))
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(NETWORK_ERROR)
+}
 
 /**
  * Кусочная загрузка: 5 МБ на кусок, 3 попытки на кусок,
@@ -29,7 +49,7 @@ export function useChunkedUpload() {
     setState({ progress: 0, uploading: true, error: null, mediaId: null })
 
     try {
-      const created = await fetch('/api/media', {
+      const created = await fetchRetry('/api/media', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ kind, fileName: file.name, sizeBytes: file.size, mime: file.type }),
@@ -49,7 +69,7 @@ export function useChunkedUpload() {
       const { id, chunkSize, totalChunks } = createdBody
 
       // Продолжаем с недостающих кусков, если загрузка уже начиналась.
-      const statusResponse = await fetch(`/api/media/${id}`)
+      const statusResponse = await fetchRetry(`/api/media/${id}`)
       const statusBody = (await statusResponse.json()) as { received_chunks?: number[] }
       const done = new Set(statusBody.received_chunks ?? [])
 
@@ -63,11 +83,16 @@ export function useChunkedUpload() {
 
         let uploaded = false
         for (let attempt = 0; attempt < MAX_ATTEMPTS && !uploaded; attempt += 1) {
-          const response = await fetch(`/api/media/${id}/chunk?index=${index}`, {
-            method: 'PUT',
-            body: chunk,
-          })
-          uploaded = response.ok
+          try {
+            const response = await fetch(`/api/media/${id}/chunk?index=${index}`, {
+              method: 'PUT',
+              body: chunk,
+            })
+            uploaded = response.ok
+          } catch {
+            // Обрыв сети: подождём и повторим этот же кусок.
+          }
+          if (!uploaded) await pause(800 * (attempt + 1))
         }
 
         if (!uploaded) throw new Error('Загрузка прервалась — попробуй ещё раз')
@@ -82,14 +107,15 @@ export function useChunkedUpload() {
         })
       }
 
-      const completed = await fetch(`/api/media/${id}/complete`, { method: 'POST' })
+      const completed = await fetchRetry(`/api/media/${id}/complete`, { method: 'POST' })
       const completedBody = (await completed.json()) as { error?: string }
       if (!completed.ok) throw new Error(completedBody.error ?? 'Не удалось завершить загрузку')
 
       setState({ progress: 100, uploading: false, error: null, mediaId: id })
       return id
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Загрузка не удалась'
+      const raw = error instanceof Error ? error.message : 'Загрузка не удалась'
+      const message = error instanceof TypeError ? NETWORK_ERROR : raw
       setState({ progress: 0, uploading: false, error: message, mediaId: null })
       return null
     }

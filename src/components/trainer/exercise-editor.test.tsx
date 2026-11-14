@@ -534,3 +534,15 @@ test('«Закрыть» закрывает окно, а не просто об�
   expect(onClose).toHaveBeenCalledTimes(1)
   expect(onSaved).not.toHaveBeenCalled()
 })
+
+test('после успешного сохранения дерево обновляется (onSaved), окно остаётся открытым', async () => {
+  server.saveId = 'ex-1'
+  const onSaved = vi.fn()
+  const onClose = vi.fn()
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} onSaved={onSaved} onClose={onClose} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
+  expect(onClose).not.toHaveBeenCalled()
+})

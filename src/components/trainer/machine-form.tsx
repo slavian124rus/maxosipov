@@ -239,18 +239,40 @@ export function MachineForm({
           </p>
         ) : null}
 
-        <label
-          htmlFor="machine-photo"
-          className={`inline-flex min-h-12 cursor-pointer items-center justify-center rounded-control border border-border bg-surface-2 px-4 text-[15px] text-text ${
-            upload.uploading ? 'pointer-events-none opacity-60' : ''
-          }`}
-        >
-          {upload.uploading
-            ? `Загружаем… ${upload.progress}%`
-            : preview
-              ? 'Заменить фото'
-              : 'Загрузить фото'}
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label
+            htmlFor="machine-photo-camera"
+            className={`inline-flex min-h-12 cursor-pointer items-center justify-center rounded-control bg-accent px-4 text-[15px] font-medium text-white ${
+              upload.uploading ? 'pointer-events-none opacity-60' : ''
+            }`}
+          >
+            Сделать фото
+          </label>
+          <label
+            htmlFor="machine-photo"
+            className={`inline-flex min-h-12 cursor-pointer items-center justify-center rounded-control border border-border bg-surface-2 px-4 text-[15px] text-text ${
+              upload.uploading ? 'pointer-events-none opacity-60' : ''
+            }`}
+          >
+            {preview ? 'Заменить фото' : 'Загрузить фото'}
+          </label>
+        </div>
+        {upload.uploading ? (
+          <p className="text-[13px] text-text-secondary">Загружаем… {upload.progress}%</p>
+        ) : null}
+        <input
+          id="machine-photo-camera"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={upload.uploading}
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void uploadPhoto(file)
+            event.target.value = ''
+          }}
+        />
         <input
           id="machine-photo"
           type="file"

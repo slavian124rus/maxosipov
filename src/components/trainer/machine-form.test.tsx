@@ -117,3 +117,14 @@ test('сервер отказал в удалении: причина видна
   server.deleteError = null
 })
 
+
+test('у фото тренажёра две кнопки: «Сделать фото» с камерой и «Загрузить»', () => {
+  const { container } = render(<MachineForm zones={["Ноги"]} />)
+  expect(screen.getByText('Сделать фото')).toBeTruthy()
+  expect(screen.getByText('Загрузить фото')).toBeTruthy()
+
+  const camera = container.querySelector('input[capture="environment"]')
+  expect(camera?.getAttribute('accept')).toContain('image/')
+  const gallery = container.querySelector('input#machine-photo')
+  expect(gallery?.hasAttribute('capture')).toBe(false)
+})

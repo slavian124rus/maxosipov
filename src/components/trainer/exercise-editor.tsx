@@ -134,6 +134,7 @@ export function ExerciseEditor({
     } else {
       toast.success('Сохранено', { description: name })
     }
+    onSaved?.()
     // Название в подписи не должно перезапускать эффект — он срабатывает на новый результат.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
