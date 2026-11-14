@@ -65,6 +65,7 @@ export function ExerciseEditor({
   machines,
   alternatives,
   onSaved,
+  onClose,
   onDeleted,
 }: {
   exercise: ExerciseDetail
@@ -72,6 +73,8 @@ export function ExerciseEditor({
   /** «Можно заменить на»: заданные тренером и весь каталог для добавления. Нет — вкладки нет. */
   alternatives?: { initial: AlternativeOption[]; catalog: AlternativeOption[] }
   onSaved?: () => void
+  /** «Закрыть»: закрывает окно правки. */
+  onClose?: () => void
   /** Упражнение удалено: окно можно закрыть, дерево обновится. */
   onDeleted?: () => void
 }) {
@@ -438,8 +441,8 @@ export function ExerciseEditor({
             Вернуть в черновики
           </Button>
         ) : null}
-        {onSaved ? (
-          <Button type="button" variant="ghost" onClick={onSaved} className="ml-auto">
+        {onClose ? (
+          <Button type="button" variant="ghost" onClick={onClose} className="ml-auto">
             Закрыть
           </Button>
         ) : null}

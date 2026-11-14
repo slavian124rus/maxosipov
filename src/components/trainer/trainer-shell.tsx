@@ -91,7 +91,7 @@ export function TrainerShell({ items, gymName, user, clientAppUrl, children }: P
       </div>
 
       {/* Всплывающие уведомления кабинета: «Сохранено», «Опубликовано», «Удалено» (DESIGN.md §9.3). */}
-      <Toaster position="bottom-center" theme="dark" />
+      <Toaster position="top-center" theme="dark" />
     </div>
   )
 }

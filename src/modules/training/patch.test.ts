@@ -152,6 +152,25 @@ test('add_day и rename_day', () => {
   expect(renamed.days[1]?.name).toBe('Ноги')
 })
 
+test('add_day с заданным dayId: в новый день можно сразу добавлять упражнения в том же патче', () => {
+  const NEW_DAY = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const next = applyPatch(
+    tree(),
+    {
+      ops: [
+        { op: 'delete_day', dayId: DAY2 },
+        { op: 'add_day', name: 'Плечи и бицепс', dayId: NEW_DAY },
+        { op: 'add_exercise', dayId: NEW_DAY, exerciseId: A, sets: 4, repMin: 8, repMax: 12 },
+        { op: 'add_exercise', dayId: NEW_DAY, exerciseId: B, sets: 3, repMin: 10, repMax: 12 },
+      ],
+    },
+    published,
+  )
+  expect(next.days.map((day) => day.name)).toEqual(['День A — спина и бицепс', 'Плечи и бицепс'])
+  expect(next.days[1]?.id).toBe(NEW_DAY)
+  expect(next.days[1]?.exercises).toHaveLength(2)
+})
+
 test('исходное дерево не меняется', () => {
   const before = tree()
   applyPatch(before, { ops: [{ op: 'remove_exercise', programExerciseId: PE1 }] }, published)

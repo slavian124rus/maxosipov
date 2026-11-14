@@ -525,3 +525,12 @@ test('видео в обработке само становится плеер�
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
+
+test('«Закрыть» закрывает окно, а не просто обновляет дерево', () => {
+  const onSaved = vi.fn()
+  const onClose = vi.fn()
+  render(<ExerciseEditor exercise={EXERCISE} machines={MACHINES} onSaved={onSaved} onClose={onClose} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+  expect(onClose).toHaveBeenCalledTimes(1)
+  expect(onSaved).not.toHaveBeenCalled()
+})

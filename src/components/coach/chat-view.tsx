@@ -1,5 +1,6 @@
 'use client'
 
+import { recoverReply } from '@/components/coach/recover-reply'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -174,6 +175,9 @@ export function ChatView({
     ])
     setAtBottom(true)
 
+    let knownConversation = conversationId
+    let partial = ''
+
     try {
       const response = await fetch('/api/coach/chat', {
         method: 'POST',
@@ -182,6 +186,7 @@ export function ChatView({
       })
 
       const nextConversationId = response.headers.get('x-coach-conversation-id') ?? conversationId
+      knownConversation = nextConversationId
       if (nextConversationId && nextConversationId !== conversationId) {
         setConversationId(nextConversationId)
         // Новый чат получил id: адрес меняем без перезагрузки, чтобы «назад» и обновление вели в этот чат.
@@ -210,12 +215,33 @@ export function ChatView({
         const chunk = await reader.read()
         if (chunk.done) break
         answer += decoder.decode(chunk.value, { stream: true })
+        partial = answer
         replaceLast({ role: 'assistant', content: answer })
       }
 
       replaceLast({ role: 'assistant', content: answer })
       await loadProposals(nextConversationId)
     } catch {
+      // Поток оборвался (заблокировали телефон, свернули приложение): ответ сервер всё равно допишет — забираем его.
+      if (knownConversation) {
+        replaceLast({
+          role: 'assistant',
+          content: partial || 'Связь прервалась — дожидаюсь ответа…',
+          createdAt: new Date().toISOString(),
+        })
+        const recovered = await recoverReply(async () => {
+          const response = await fetch(`/api/coach/messages?conversationId=${knownConversation}`)
+          if (!response.ok) return null
+          return ((await response.json()) as { messages: { role: string; content: string }[] }).messages
+        }, text)
+
+        if (recovered) {
+          replaceLast({ role: 'assistant', content: recovered, createdAt: new Date().toISOString() })
+          await loadProposals(knownConversation)
+          setStreaming(false)
+          return
+        }
+      }
       replaceLast({ role: 'assistant', content: 'Нет сети. Попробуй ещё раз' })
     } finally {
       setStreaming(false)

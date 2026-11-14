@@ -81,6 +81,8 @@ const opSchema = z.discriminatedUnion('op', [
     op: z.literal('add_day'),
     name: z.string().trim().min(1).max(80),
     afterDayId: id.optional(),
+    /** Свой id нового дня: так упражнения можно добавить в него в том же патче. */
+    dayId: id.optional(),
   }),
   z.object({ op: z.literal('rename_day'), dayId: id, name: z.string().trim().min(1).max(80) }),
   /**
@@ -230,8 +232,12 @@ export function applyPatch(
     }
 
     if (op.op === 'add_day') {
+      if (op.dayId && next.days.some((day) => day.id === op.dayId)) {
+        throw new PatchError('День с таким id уже есть')
+      }
+
       const created: ProgramTreeDay = {
-        id: randomUUID(),
+        id: op.dayId ?? randomUUID(),
         order: next.days.length + 1,
         name: op.name,
         exercises: [],

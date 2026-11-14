@@ -100,12 +100,12 @@ export function buildContextBlock(data: ContextData, timeZone = 'Asia/Krasnoyars
   if (data.program && data.program.days.length > 0) {
     lines.push(`«${data.program.name}»`)
     for (const day of data.program.days) {
-      lines.push(`- ${day.name}`)
+      lines.push(`- ${day.name} (dayId=${day.id})`)
       for (const item of day.exercises) {
         const name = data.exerciseNames[item.exerciseId] ?? 'Упражнение'
         const target = item.targetWeightKg === null ? '' : `, вес ${weight(item.targetWeightKg)} кг`
         lines.push(
-          `  · ${name}: ${item.sets} подхода по ${item.repMin}–${item.repMax} повторений${target}`,
+          `  · ${name}: ${item.sets} подхода по ${item.repMin}–${item.repMax} повторений${target} (programExerciseId=${item.id}, exerciseId=${item.exerciseId})`,
         )
       }
     }

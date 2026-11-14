@@ -54,6 +54,15 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
           <ArrowLeft size={22} />
         </Link>
         <h1 className="text-[20px] font-semibold">МаксИИм</h1>
+        {/* Кнопка в шапке: внизу её закрывала нижняя навигация и панель браузера. */}
+        <Link
+          href="/coach/new"
+          aria-label="Новый чат"
+          className="ml-auto flex h-11 items-center gap-2 rounded-full bg-accent px-4 text-[15px] font-medium text-white"
+        >
+          <Pencil size={18} aria-hidden />
+          Новый чат
+        </Link>
       </header>
 
       <div className="px-4 pt-3">
@@ -119,13 +128,6 @@ export function ConversationList({ items }: { items: ConversationRow[] }) {
         ))}
       </ul>
 
-      <Link
-        href="/coach/new"
-        aria-label="Новый чат"
-        className="fixed right-4 bottom-[max(env(safe-area-inset-bottom),20px)] z-20 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent text-white shadow-lg"
-      >
-        <Pencil size={22} />
-      </Link>
     </div>
   )
 }

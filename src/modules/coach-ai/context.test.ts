@@ -154,6 +154,16 @@ test('контекст без телефона, имени и служебных
   expect(text).not.toContain('Ограничения')
 })
 
+test('в программе у дней и упражнений есть id — по ним МаксИИм собирает правки', async () => {
+  const data = await loadContextData(clientId)
+  const text = buildContextBlock(data)
+  const day = data.program!.days[0]!
+
+  expect(text).toContain(`dayId=${day.id}`)
+  expect(text).toContain(`programExerciseId=${day.exercises[0]!.id}`)
+  expect(text).toContain(`exerciseId=${day.exercises[0]!.exerciseId}`)
+})
+
 test('каталог содержит только опубликованные упражнения', async () => {
   const data = await loadContextData(clientId)
   const text = buildContextBlock(data)

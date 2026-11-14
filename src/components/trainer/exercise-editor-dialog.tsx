@@ -49,6 +49,7 @@ export function ExerciseEditorDialog({
             key={exerciseId}
             exerciseId={exerciseId}
             onSaved={afterSave}
+            onClose={onClose}
             onDeleted={afterDelete}
           />
         ) : null}
@@ -61,10 +62,12 @@ export function ExerciseEditorDialog({
 function ExerciseLoader({
   exerciseId,
   onSaved,
+  onClose,
   onDeleted,
 }: {
   exerciseId: string
   onSaved: () => void
+  onClose: () => void
   onDeleted: () => void
 }) {
   const [data, setData] = useState<ExerciseLoadState | null>(null)
@@ -109,6 +112,7 @@ function ExerciseLoader({
             machines={data.machines}
             alternatives={{ initial: data.alternatives ?? [], catalog: data.catalog ?? [] }}
             onSaved={onSaved}
+            onClose={onClose}
             onDeleted={onDeleted}
           />
         )}
