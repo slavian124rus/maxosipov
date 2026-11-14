@@ -1,5 +1,6 @@
 import { getExercise } from '@/modules/catalog'
 import { getHistoryForExercise, getNextWeight, lastWorkingWeights } from '@/modules/training'
+import { alignSetWeights } from '@/shared/set-weights'
 import type { WorkoutExercise } from '@/components/workout/free-mode'
 
 export type WorkoutEntry = {
@@ -10,6 +11,8 @@ export type WorkoutEntry = {
   repMax: number
   restSec: number
   targetWeightKg: number | null
+  /** Вес по подходам из программы; `null` — один вес на все. */
+  setWeights?: number[] | null
 }
 
 type Recommendation = { action: string; weightKg: number | null; text: string }
@@ -32,6 +35,13 @@ export async function buildWorkoutExercise(
     lastWorkingWeights(userId, [entry.exerciseId]),
   ])
   const bodyweight = detail?.loadType === 'bodyweight'
+  const startWeightKg = bodyweight
+    ? 0
+    : (nextWeight ??
+      recommendation?.weightKg ??
+      entry.targetWeightKg ??
+      lastWeights[entry.exerciseId] ??
+      0)
 
   return {
     programExerciseId: entry.programExerciseId,
@@ -53,13 +63,9 @@ export async function buildWorkoutExercise(
     videoMp4Url: detail?.videoMp4Url ?? null,
     videoWebmUrl: detail?.videoWebmUrl ?? null,
     recommendation: recommendation && !bodyweight ? recommendation : null,
-    startWeightKg: bodyweight
-      ? 0
-      : (nextWeight ??
-        recommendation?.weightKg ??
-        entry.targetWeightKg ??
-        lastWeights[entry.exerciseId] ??
-        0),
+    startWeightKg,
+    // Рисунок «15/20/20/20» сохраняется, а рабочий вес ведёт прогрессия: план сдвигается к стартовому весу.
+    planSetWeights: bodyweight ? null : alignSetWeights(entry.setWeights, startWeightKg),
     planWeightKg: bodyweight ? null : (entry.targetWeightKg ?? null),
     history: history.map((session) => ({ date: session.date.toISOString(), sets: session.sets })),
   }

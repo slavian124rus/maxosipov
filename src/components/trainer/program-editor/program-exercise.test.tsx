@@ -59,6 +59,7 @@ const ITEM: ProgramTreeExercise = {
   repMax: 12,
   restSec: 90,
   targetWeightKg: 40,
+  setWeights: null,
   note: null,
 }
 
@@ -177,3 +178,52 @@ test('ошибка сервера показывается и тостом, и �
   expect(screen.getByRole('alert').textContent).toBe('Нет прав на программу')
 })
 
+
+test('«По подходам»: у каждого подхода своё поле веса, патч set_set_weights', async () => {
+  renderEditor()
+
+  fireEvent.click(screen.getByRole('button', { name: 'По подходам' }))
+  expect(screen.getByLabelText('Вес подхода 1')).toBeTruthy()
+  expect(screen.getByLabelText('Вес подхода 3')).toBeTruthy()
+  expect((screen.getByLabelText('Вес подхода 2') as HTMLInputElement).value).toBe('40')
+
+  fireEvent.change(screen.getByLabelText('Вес подхода 1'), { target: { value: '30' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  await vi.waitFor(() => expect(server.patches).toHaveLength(1))
+  expect(server.patches[0]).toEqual({
+    ops: [{ op: 'set_set_weights', programExerciseId: 'pe-1', weights: [30, 40, 40] }],
+  })
+})
+
+test('«По подходам»: число полей следует за числом подходов', () => {
+  renderEditor()
+
+  fireEvent.click(screen.getByRole('button', { name: 'По подходам' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Подходы больше' }))
+  expect(screen.getByLabelText('Вес подхода 4')).toBeTruthy()
+})
+
+test('«Один вес» после «По подходам» возвращает общий вес и очищает подходы', async () => {
+  renderEditor({ ...ITEM, targetWeightKg: 20, setWeights: [15, 20, 20] })
+
+  expect((screen.getByLabelText('Вес подхода 1') as HTMLInputElement).value).toBe('15')
+  fireEvent.click(screen.getByRole('button', { name: 'Один вес' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  await vi.waitFor(() => expect(server.patches).toHaveLength(1))
+  expect(server.patches[0]).toEqual({
+    ops: [{ op: 'set_set_weights', programExerciseId: 'pe-1', weights: null }],
+  })
+})
+
+test('пустой вес подхода не сохраняется: ошибка вместо отправки', () => {
+  renderEditor()
+
+  fireEvent.click(screen.getByRole('button', { name: 'По подходам' }))
+  fireEvent.change(screen.getByLabelText('Вес подхода 2'), { target: { value: '' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+
+  expect(server.patches).toHaveLength(0)
+  expect(screen.getByRole('alert').textContent).toContain('вес каждого подхода')
+})

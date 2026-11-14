@@ -1,0 +1,1 @@
+ALTER TABLE "program_exercises" ADD COLUMN "set_weights" jsonb;

@@ -86,6 +86,8 @@ export const programExercises = pgTable('program_exercises', {
   repMax: integer('rep_max').notNull().default(12),
   restSec: integer('rest_sec').notNull().default(90),
   targetWeightKg: doublePrecision('target_weight_kg'),
+  /** Вес по подходам (15, 20, 20…); `null` — один `targetWeightKg` на все подходы. */
+  setWeights: jsonb('set_weights').$type<number[] | null>(),
   note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

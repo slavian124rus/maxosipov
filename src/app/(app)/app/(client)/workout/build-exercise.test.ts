@@ -75,3 +75,30 @@ test('упражнение-черновик из программы клиент
   expect(card.name).toBe('Тяга верхнего блока обратным хватом')
   expect(card.steps).toEqual(['Шаг'])
 })
+
+test('вес по подходам из программы доходит до тренировки, рисунок сохраняется', async () => {
+  const card = await buildWorkoutExercise(userId, {
+    programExerciseId: 'pe-1',
+    exerciseId,
+    sets: 4,
+    repMin: 10,
+    repMax: 12,
+    restSec: 90,
+    targetWeightKg: 20,
+    setWeights: [15, 20, 20, 20],
+  })
+  expect(card.planSetWeights).toEqual([15, 20, 20, 20])
+})
+
+test('без веса по подходам план по подходам пустой', async () => {
+  const card = await buildWorkoutExercise(userId, {
+    programExerciseId: 'pe-1',
+    exerciseId,
+    sets: 3,
+    repMin: 10,
+    repMax: 12,
+    restSec: 90,
+    targetWeightKg: 20,
+  })
+  expect(card.planSetWeights).toBeNull()
+})

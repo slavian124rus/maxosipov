@@ -38,6 +38,13 @@ function weightToText(value: number | null): string {
   return value === null ? '' : String(value)
 }
 
+/** Подгоняет список весов под число подходов: недостающие повторяют последний. */
+function fitTexts(values: string[], count: number): string[] {
+  if (values.length >= count) return values.slice(0, count)
+  const last = values[values.length - 1] ?? ''
+  return [...values, ...Array<string>(count - values.length).fill(last)]
+}
+
 function parseWeight(text: string): number | null {
   const parsed = Number(text.trim().replace(',', '.'))
   return text.trim() === '' || !Number.isFinite(parsed) ? null : parsed
@@ -61,13 +68,16 @@ export function ProgramExerciseEditor({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
-  const [saved, setSaved] = useState<Scheme & { weight: string; note: string }>({
+  const initialWeights = item.setWeights?.map(String) ?? null
+  const [saved, setSaved] = useState<Scheme & { weight: string; note: string; perSet: boolean; weights: string }>({
     sets: item.sets,
     repMin: item.repMin,
     repMax: item.repMax,
     restSec: item.restSec,
     weight: weightToText(item.targetWeightKg),
     note: item.note ?? '',
+    perSet: initialWeights !== null,
+    weights: (initialWeights ?? []).join('|'),
   })
 
   const [sets, setSets] = useState(item.sets)
@@ -75,6 +85,12 @@ export function ProgramExerciseEditor({
   const [repMax, setRepMax] = useState(item.repMax)
   const [restSec, setRestSec] = useState(item.restSec)
   const [weight, setWeight] = useState(weightToText(item.targetWeightKg))
+  // «Один вес на все подходы» или свой вес у каждого подхода (15, 20, 20…).
+  const [perSet, setPerSet] = useState(initialWeights !== null)
+  const [weightList, setWeightList] = useState<string[]>(
+    initialWeights ?? Array<string>(item.sets).fill(weightToText(item.targetWeightKg)),
+  )
+  const shownWeights = fitTexts(weightList, sets)
   const [note, setNote] = useState(item.note ?? '')
 
   const [replacing, setReplacing] = useState(false)
@@ -87,6 +103,8 @@ export function ProgramExerciseEditor({
     repMax !== saved.repMax ||
     restSec !== saved.restSec ||
     weight !== saved.weight ||
+    perSet !== saved.perSet ||
+    (perSet && shownWeights.join('|') !== saved.weights) ||
     note !== saved.note
 
   function send(patch: ProgramPatch, after?: () => void): void {
@@ -113,9 +131,20 @@ export function ProgramExerciseEditor({
       ops.push({ op: 'set_sets_reps', programExerciseId: item.id, sets, repMin, repMax, restSec })
     }
 
-    const weightKg = parseWeight(weight)
-    if (weight !== saved.weight) {
-      ops.push({ op: 'set_target_weight', programExerciseId: item.id, weightKg })
+    if (perSet) {
+      const parsed = shownWeights.map(parseWeight)
+      if (parsed.some((value) => value === null)) {
+        setError('Укажи вес каждого подхода')
+        return
+      }
+      if (!saved.perSet || shownWeights.join('|') !== saved.weights || sets !== saved.sets) {
+        ops.push({ op: 'set_set_weights', programExerciseId: item.id, weights: parsed as number[] })
+      }
+    } else if (saved.perSet && weight === saved.weight) {
+      // Вернулись к одному весу: рабочий вес остаётся прежним, веса по подходам очищаются.
+      ops.push({ op: 'set_set_weights', programExerciseId: item.id, weights: null })
+    } else if (weight !== saved.weight || saved.perSet) {
+      ops.push({ op: 'set_target_weight', programExerciseId: item.id, weightKg: parseWeight(weight) })
     }
 
     if (note !== saved.note) {
@@ -125,7 +154,16 @@ export function ProgramExerciseEditor({
     if (ops.length === 0) return
 
     send({ ops }, () => {
-      setSaved({ sets, repMin, repMax, restSec, weight, note })
+      setSaved({
+        sets,
+        repMin,
+        repMax,
+        restSec,
+        weight,
+        note,
+        perSet,
+        weights: perSet ? shownWeights.join('|') : '',
+      })
       toast.success('Сохранено', { description: `${exerciseName}: ${formatScheme(sets, repMin, repMax)}` })
     })
   }
@@ -175,21 +213,72 @@ export function ProgramExerciseEditor({
         />
       </section>
 
-      <section className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-4 py-4">
-        <label htmlFor="exercise-weight" className="text-[17px] font-semibold">
-          Целевой вес
-        </label>
+      <section className="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4">
+        <h2 className="text-[17px] font-semibold">Целевой вес</h2>
         <p className="text-[13px] text-text-muted">
           Ориентир для клиента. Пустое поле — вес подбирается по прогрессии
         </p>
-        <input
-          id="exercise-weight"
-          inputMode="decimal"
-          value={weight}
-          onChange={(event) => setWeight(event.target.value)}
-          placeholder="Например, 32,5"
-          className="h-12 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
-        />
+
+        <div role="group" aria-label="Как задан вес" className="grid grid-cols-2 gap-2">
+          {[
+            { value: false, label: 'Один вес' },
+            { value: true, label: 'По подходам' },
+          ].map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              aria-pressed={perSet === option.value}
+              onClick={() => {
+                if (option.value === perSet) return
+                if (option.value) setWeightList(Array<string>(sets).fill(weight))
+                setPerSet(option.value)
+              }}
+              className={`min-h-12 rounded-control border px-3 text-[15px] ${
+                perSet === option.value
+                  ? 'border-accent bg-surface-2 text-text'
+                  : 'border-border bg-bg text-text-secondary'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {perSet ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-[13px] text-text-muted">
+              Например, 1-й подход 15 кг, остальные по 20. Рабочим считается самый тяжёлый.
+            </p>
+            {shownWeights.map((value, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <label htmlFor={`set-weight-${index}`} className="w-24 shrink-0 text-[15px] text-text-secondary">
+                  Подход {index + 1}
+                </label>
+                <input
+                  id={`set-weight-${index}`}
+                  aria-label={`Вес подхода ${index + 1}`}
+                  inputMode="decimal"
+                  value={value}
+                  onChange={(event) =>
+                    setWeightList(shownWeights.map((current, at) => (at === index ? event.target.value : current)))
+                  }
+                  placeholder="кг"
+                  className="h-12 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <input
+            id="exercise-weight"
+            aria-label="Целевой вес"
+            inputMode="decimal"
+            value={weight}
+            onChange={(event) => setWeight(event.target.value)}
+            placeholder="Например, 32,5"
+            className="h-12 w-full min-w-0 rounded-control border border-border bg-bg px-3 text-[15px] text-text"
+          />
+        )}
       </section>
 
       <section className="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-4 py-4">

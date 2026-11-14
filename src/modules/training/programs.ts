@@ -95,6 +95,7 @@ export async function getProgramTree(programId: string, executor: Executor = db)
           repMax: item.repMax,
           restSec: item.restSec,
           targetWeightKg: item.targetWeightKg,
+          setWeights: item.setWeights ?? null,
           note: item.note,
         })),
     })),
@@ -208,6 +209,7 @@ export async function applyProgramPatchAs(
           repMax: item.repMax,
           restSec: item.restSec,
           targetWeightKg: item.targetWeightKg,
+          setWeights: item.setWeights ?? null,
           note: item.note,
           updatedAt: new Date(),
         }
@@ -357,6 +359,7 @@ export async function copyTemplateToClient(
         restSec: item.restSec,
         // Вес из шаблона (если тренер его задал) важнее расчётного по анкете.
         targetWeightKg: item.targetWeightKg ?? weights[item.exerciseId] ?? null,
+        setWeights: item.setWeights ?? null,
         note: item.note,
       }))
 

@@ -213,7 +213,7 @@
   Подписи и типы шаблонов — в `shared/program-labels.ts`, чтобы их могли импортировать клиентские
   компоненты (из `modules/training` тянется БД и `next/headers`).
 - `program_days`: program_id, order, name (например «День A — спина и бицепс»).
-- `program_exercises`: day_id, order, exercise_id, sets, rep_min, rep_max, rest_sec, target_weight_kg (nullable), note.
+- `program_exercises`: day_id, order, exercise_id, sets, rep_min, rep_max, rest_sec, target_weight_kg (nullable), set_weights (jsonb, nullable: вес по подходам, например [15, 20, 20, 20]; `target_weight_kg` тогда — самый тяжёлый подход, рабочий вес для прогрессии), note.
 - `workout_sessions`: user_id, program_day_id (nullable — свободная тренировка), mode (`free` | `guided`), started_at, finished_at, comment, ai_summary.
 - `set_logs`: session_id, exercise_id, set_index, weight_kg, reps, feeling (`easy` | `good` | `hard`), started_at, finished_at, logged_offline (bool), client_uuid (для идемпотентной синхронизации).
 - `program_changes`: program_id, actor_id, actor_kind (`trainer` | `client` | `ai_proposal_accepted`), diff (json), created_at — история изменений, видна клиенту и тренеру.
@@ -321,7 +321,7 @@ users.assign_roles          roles.manage                 analytics.view
 | `propose_program_change(patch)` | изменение текущей программы | создаёт `ai_proposals` (pending) |
 
 `ProgramPatch` — Zod-схема операций: `add_exercise`, `remove_exercise`, `replace_exercise`, `set_sets_reps`,
-`set_target_weight`, `set_note`, `reorder`, `add_day`, `rename_day`, `delete_day`. Каждый `exerciseId` проверяется на существование
+`set_target_weight`, `set_set_weights` (веса по подходам; `null` — один вес на все; число весов = числу подходов, при смене `sets` веса подгоняются; `set_target_weight` и `replace_exercise` их сбрасывают), `set_note`, `reorder`, `add_day`, `rename_day`, `delete_day`. Каждый `exerciseId` проверяется на существование
 в каталоге и статус `published`. Невалидный патч отклоняется до показа клиенту.
 `delete_day` удаляет день вместе с упражнениями: `program_exercises.day_id` — внешний ключ с `on delete cascade`,
 а `workout_sessions.program_day_id` — просто uuid без ссылки, поэтому уже выполненные тренировки не рушатся.
@@ -449,7 +449,7 @@ dropPercent        = 10    # на сколько снижать
   (`id | название | тренажёр | шаг | подходы×повторения | мышцы`), ответ чистится
   `sanitizeWeightSuggestions` (только известные упражнения, вес кратен шагу, 0…250). Модель недоступна —
   `previewClientWeightsAction` возвращает расчёт по анкете и честно помечает источник `profile`.
-- Тренировка берёт вес в порядке: `next_weights` → рекомендация по истории → `target_weight_kg` → 0.
+- Тренировка берёт вес в порядке: `next_weights` → рекомендация по истории → `target_weight_kg` → 0. Если у упражнения задан `set_weights`, вес каждого подхода берётся из него по номеру подхода, а рисунок («15/20/20/20») сдвигается вслед за рабочим весом, который ведёт прогрессия.
   Раньше третьего шага не было, поэтому у клиента без истории в степпере стоял 0 кг.
 
 ## 11. Тренировка, офлайн и синхронизация
@@ -611,3 +611,11 @@ BACKUP_S3_ENDPOINT  BACKUP_S3_BUCKET  BACKUP_S3_KEY  BACKUP_S3_SECRET  RESTIC_PA
   Максим меняет программу клиента; истечение подписки → экран «Продлить у Максима».
 - **Промпты МаксИИма:** набор эталонных диалогов (боль, просьба о препаратах, просьба о весе, упражнение не из каталога),
   проверяется перед сменой модели.
+
+
+## Устойчивость к обрывам связи (клиентское приложение)
+
+- Чат МаксИИма: если поток ответа оборвался (телефон заблокировали), клиент опрашивает `GET /api/coach/messages?conversationId=` и забирает ответ, который сервер дописал и сохранил сам; «Нет сети» показывается, только если ответа нет.
+- Контекст МаксИИма содержит `dayId` / `programExerciseId` / `exerciseId` программы клиента: по ним он собирает `propose_program_change`.
+- Загрузка файлов (`use-chunked-upload`): каждый запрос повторяется при обрыве сети; сообщение для человека — «Нет связи с сервером…», а не «Failed to fetch».
+- `GET /api/media/:id` отдаёт `playback` (подписанные ссылки), когда видео готово: окно упражнения само переключается с лоадера на плеер.

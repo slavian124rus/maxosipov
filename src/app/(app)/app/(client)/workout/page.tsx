@@ -54,6 +54,7 @@ export default async function WorkoutPage({
     restSec: item.restSec,
     // Вес из программы клиента: его подставили по анкете при выдаче шаблона.
     targetWeightKg: item.targetWeightKg,
+    setWeights: item.setWeights,
   }))
 
   // «В тренировку» с карточки упражнения: добавляем его в конец дня, если его там нет.
@@ -66,6 +67,7 @@ export default async function WorkoutPage({
       repMax: 12,
       restSec: 90,
       targetWeightKg: null,
+      setWeights: null,
     })
   }
 

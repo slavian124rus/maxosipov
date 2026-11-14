@@ -98,6 +98,7 @@ export async function revertChange(actor: Actor, changeId: string): Promise<Prog
             repMax: item.repMax,
             restSec: item.restSec,
             targetWeightKg: item.targetWeightKg,
+            setWeights: item.setWeights ?? null,
             note: item.note,
           })),
         )
@@ -220,6 +221,7 @@ export async function saveAsTemplate(
             repMax: item.repMax,
             restSec: item.restSec,
             targetWeightKg: item.targetWeightKg,
+            setWeights: item.setWeights ?? null,
             note: item.note,
           })),
         )

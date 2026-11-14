@@ -34,6 +34,7 @@ function tree(): ProgramTree {
             repMax: 12,
             restSec: 90,
             targetWeightKg: null,
+            setWeights: null,
             note: null,
           },
           {
@@ -45,6 +46,7 @@ function tree(): ProgramTree {
             repMax: 12,
             restSec: 90,
             targetWeightKg: null,
+            setWeights: null,
             note: null,
           },
         ],
@@ -293,4 +295,76 @@ test('diffPrograms: перестановка отмечается как moved',
   )
   const lines = diffPrograms(before, after, (id) => (id === A ? 'Жим' : 'Тяга'))
   expect(lines.some((line) => line.kind === 'moved')).toBe(true)
+})
+test('set_set_weights: разный вес по подходам, рабочий вес — максимальный', () => {
+  const next = applyPatch(
+    tree(),
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20, 20] }] },
+    published,
+  )
+  const item = next.days[0]!.exercises[0]!
+  expect(item.setWeights).toEqual([15, 20, 20])
+  expect(item.targetWeightKg).toBe(20)
+})
+
+test('set_set_weights: число весов должно совпадать с числом подходов', () => {
+  expect(() =>
+    applyPatch(
+      tree(),
+      { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20] }] },
+      published,
+    ),
+  ).toThrow(PatchError)
+})
+
+test('set_set_weights: null возвращает один вес на все подходы и сохраняет рабочий вес', () => {
+  const withWeights = applyPatch(
+    tree(),
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20, 20] }] },
+    published,
+  )
+  const cleared = applyPatch(
+    withWeights,
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: null }] },
+    published,
+  )
+  expect(cleared.days[0]!.exercises[0]!.setWeights).toBeNull()
+  expect(cleared.days[0]!.exercises[0]!.targetWeightKg).toBe(20)
+})
+
+test('set_target_weight сбрасывает веса по подходам: вес снова один на все', () => {
+  const withWeights = applyPatch(
+    tree(),
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20, 20] }] },
+    published,
+  )
+  const uniform = applyPatch(
+    withWeights,
+    { ops: [{ op: 'set_target_weight', programExerciseId: PE1, weightKg: 25 }] },
+    published,
+  )
+  expect(uniform.days[0]!.exercises[0]!.setWeights).toBeNull()
+  expect(uniform.days[0]!.exercises[0]!.targetWeightKg).toBe(25)
+})
+
+test('смена числа подходов подгоняет веса по подходам: лишние отрезаются, недостающие повторяют последний', () => {
+  const withWeights = applyPatch(
+    tree(),
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20, 20] }] },
+    published,
+  )
+  const fewer = applyPatch(withWeights, { ops: [{ op: 'set_sets_reps', programExerciseId: PE1, sets: 2 }] }, published)
+  expect(fewer.days[0]!.exercises[0]!.setWeights).toEqual([15, 20])
+  const more = applyPatch(withWeights, { ops: [{ op: 'set_sets_reps', programExerciseId: PE1, sets: 4 }] }, published)
+  expect(more.days[0]!.exercises[0]!.setWeights).toEqual([15, 20, 20, 20])
+})
+
+test('дифф показывает смену весов по подходам', () => {
+  const after = applyPatch(
+    tree(),
+    { ops: [{ op: 'set_set_weights', programExerciseId: PE1, weights: [15, 20, 20] }] },
+    published,
+  )
+  const lines = diffPrograms(tree(), after, () => 'Тяга')
+  expect(lines.some((line) => line.text.includes('15') && line.text.includes('20'))).toBe(true)
 })

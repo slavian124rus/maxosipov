@@ -1,5 +1,6 @@
 'use client'
 
+import { initialSetWeight, setWeightsLabel } from '@/shared/set-weights'
 import { SwapButton } from './swap-button'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -61,7 +62,11 @@ export function GuidedMode({
         </span>
         <span>
           {formatScheme(exercise.sets, exercise.repMin, exercise.repMax)}
-          {exercise.planWeightKg ? ` · план ${formatWeight(exercise.planWeightKg)}` : ''}
+          {exercise.planSetWeights && exercise.planSetWeights.length > 1
+            ? ` · план ${setWeightsLabel(exercise.planSetWeights)}`
+            : exercise.planWeightKg
+              ? ` · план ${formatWeight(exercise.planWeightKg)}`
+              : ''}
         </span>
       </div>
 
@@ -115,7 +120,7 @@ export function GuidedMode({
         <ExerciseLogger
           setNumber={done.length + 1}
           stepKg={exercise.stepKg}
-          initialWeightKg={done.at(-1)?.weightKg ?? exercise.startWeightKg}
+          initialWeightKg={initialSetWeight(exercise.planSetWeights, done.length, done.at(-1)?.weightKg ?? null, exercise.startWeightKg)}
           initialReps={done.at(-1)?.reps ?? exercise.repMax}
           loadType={exercise.loadType}
           onLog={(weightKg, reps) => {

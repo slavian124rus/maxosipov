@@ -1,5 +1,6 @@
 'use client'
 
+import { setWeightsLabel } from '@/shared/set-weights'
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -63,6 +64,7 @@ function SortableExercise({
   scheme,
   note,
   targetWeightKg,
+  setWeights,
 }: {
   id: string
   href: string
@@ -71,6 +73,7 @@ function SortableExercise({
   scheme: string
   note: string | null
   targetWeightKg: number | null
+  setWeights: number[] | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
@@ -100,7 +103,11 @@ function SortableExercise({
         <span className="text-[15px] text-text">{name}</span>
         <span className="text-[13px] text-text-muted">
           {machineName ?? 'Свободные веса'}
-          {targetWeightKg !== null ? ` · ${targetWeightKg} кг` : ''}
+          {setWeights && setWeights.length > 0
+            ? ` · ${setWeightsLabel(setWeights)}`
+            : targetWeightKg !== null
+              ? ` · ${targetWeightKg} кг`
+              : ''}
         </span>
         {note ? <span className="text-[13px] text-text-secondary">{note}</span> : null}
         <span className="mt-0.5 w-fit rounded-control bg-surface-2 px-2.5 py-1 text-[13px] text-text">
@@ -350,6 +357,7 @@ export function ProgramEditor({ program, catalog, clientId = null }: Props) {
                   scheme={formatScheme(item.sets, item.repMin, item.repMax)}
                   note={item.note}
                   targetWeightKg={item.targetWeightKg}
+                  setWeights={item.setWeights}
                 />
               )
             })}

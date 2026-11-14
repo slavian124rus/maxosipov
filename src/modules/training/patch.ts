@@ -10,6 +10,8 @@ export type ProgramTreeExercise = {
   repMax: number
   restSec: number
   targetWeightKg: number | null
+  /** Вес по подходам (1-й подход 15, остальные по 20); `null` — один вес на все подходы. */
+  setWeights: number[] | null
   note: string | null
 }
 
@@ -72,6 +74,12 @@ const opSchema = z.discriminatedUnion('op', [
     weightKg: z.number().min(0).max(1000).nullable(),
   }),
   z.object({
+    op: z.literal('set_set_weights'),
+    programExerciseId: id,
+    /** По одному весу на подход; `null` — вернуть один вес на все подходы. */
+    weights: z.array(z.number().min(0).max(1000)).min(1).max(10).nullable(),
+  }),
+  z.object({
     op: z.literal('set_note'),
     programExerciseId: id,
     note: z.string().trim().max(200).nullable(),
@@ -120,6 +128,13 @@ function reindex(tree: ProgramTree): void {
       item.order = index + 1
     })
   })
+}
+
+/** Подгоняет веса под число подходов: лишние отрезает, недостающие повторяют последний. */
+function fitWeights(weights: number[], sets: number): number[] {
+  if (weights.length === sets) return weights
+  if (weights.length > sets) return weights.slice(0, sets)
+  return [...weights, ...Array(sets - weights.length).fill(weights[weights.length - 1])]
 }
 
 function findDay(tree: ProgramTree, dayId: string): ProgramTreeDay {
@@ -174,6 +189,7 @@ export function applyPatch(
         repMax: op.repMax,
         restSec: op.restSec ?? 90,
         targetWeightKg: null,
+        setWeights: null,
         note: null,
       }
 
@@ -196,6 +212,7 @@ export function applyPatch(
       item.exerciseId = op.exerciseId
       // Вес прежнего упражнения к новому не относится: его подберёт resolvePlanWeights.
       item.targetWeightKg = null
+      item.setWeights = null
     }
 
     if (op.op === 'set_sets_reps') {
@@ -207,11 +224,28 @@ export function applyPatch(
       item.repMax = repMax
       if (op.sets !== undefined) item.sets = op.sets
       if (op.restSec !== undefined) item.restSec = op.restSec
+      if (item.setWeights) item.setWeights = fitWeights(item.setWeights, item.sets)
     }
 
     if (op.op === 'set_target_weight') {
       const { item } = findExercise(next, op.programExerciseId)
       item.targetWeightKg = op.weightKg
+      item.setWeights = null
+    }
+
+    if (op.op === 'set_set_weights') {
+      const { item } = findExercise(next, op.programExerciseId)
+
+      if (op.weights === null) {
+        item.setWeights = null
+      } else {
+        if (op.weights.length !== item.sets) {
+          throw new PatchError(`Весов ${op.weights.length}, а подходов ${item.sets}: нужно по одному на подход`)
+        }
+        item.setWeights = op.weights
+        // Рабочий вес для прогрессии и плана — самый тяжёлый подход.
+        item.targetWeightKg = Math.max(...op.weights)
+      }
     }
 
     if (op.op === 'set_note') {
@@ -264,6 +298,11 @@ export function applyPatch(
 
   reindex(next)
   return next
+}
+
+/** «15 · 20 · 20 · 20 кг»; пусто — один вес на все подходы. */
+export function weightsLabel(weights: number[] | null | undefined): string {
+  return weights && weights.length > 0 ? `${weights.join(' · ')} кг` : ''
 }
 
 export type ProgramDiffLine = {
@@ -322,6 +361,12 @@ export function diffPrograms(
           kind: 'changed',
           dayName: day.name,
           text: `${name}: ${beforeScheme} → ${afterScheme}`,
+        })
+      } else if (weightsLabel(previous.setWeights) !== weightsLabel(item.setWeights)) {
+        lines.push({
+          kind: 'changed',
+          dayName: day.name,
+          text: `${name}: вес по подходам ${weightsLabel(item.setWeights) || 'один на все'}`,
         })
       } else if (previous.order !== item.order) {
         lines.push({ kind: 'moved', dayName: day.name, text: `${name}: переставлено` })

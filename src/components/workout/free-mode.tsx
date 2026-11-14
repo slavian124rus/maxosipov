@@ -1,5 +1,6 @@
 'use client'
 
+import { initialSetWeight, setWeightsLabel } from '@/shared/set-weights'
 import { SwapButton } from './swap-button'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,8 @@ export type WorkoutExercise = {
   videoWebmUrl: string | null
   recommendation: { action: string; weightKg: number | null; text: string } | null
   startWeightKg: number
+  /** Вес по подходам (15, 20, 20…) в порядке подходов; `null` — один вес на все. */
+  planSetWeights?: number[] | null
   /** План тренера из программы (вес по анкете). `null` — вес не задан. */
   planWeightKg: number | null
   /** Для окна «Как делать»: slug карточки, шаги, ошибки и совет. */
@@ -132,8 +135,10 @@ export function FreeMode({
                   {formatScheme(exercise.sets, exercise.repMin, exercise.repMax, exercise.restSec)}
                   {exercise.loadType === 'bodyweight'
                     ? ' · свой вес'
-                    : exercise.planWeightKg
-                      ? ` · план ${formatWeight(exercise.planWeightKg)}`
+                    : exercise.planSetWeights && exercise.planSetWeights.length > 1
+                      ? ` · план ${setWeightsLabel(exercise.planSetWeights)}`
+                      : exercise.planWeightKg
+                        ? ` · план ${formatWeight(exercise.planWeightKg)}`
                       : ''}
                 </span>
                 {exercise.recommendation ? (
@@ -195,7 +200,7 @@ export function FreeMode({
                 <ExerciseLogger
                   setNumber={done.length + 1}
                   stepKg={exercise.stepKg}
-                  initialWeightKg={done.at(-1)?.weightKg ?? exercise.startWeightKg}
+                  initialWeightKg={initialSetWeight(exercise.planSetWeights, done.length, done.at(-1)?.weightKg ?? null, exercise.startWeightKg)}
                   initialReps={done.at(-1)?.reps ?? exercise.repMax}
                   onLog={(weightKg, reps) => {
                     onLog(exercise, weightKg, reps)

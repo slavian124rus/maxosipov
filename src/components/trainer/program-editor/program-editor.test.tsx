@@ -79,6 +79,7 @@ const PROGRAM: ProgramTree = {
           repMax: 12,
           restSec: 90,
           targetWeightKg: 40,
+          setWeights: null,
           note: null,
         },
       ],

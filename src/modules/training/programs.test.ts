@@ -314,3 +314,34 @@ test('старая запись истории, где diff — объект ч�
   expect(Array.isArray(legacy?.diff)).toBe(true)
   expect(legacy?.diff.map((line) => line.text)).toEqual(['Программа составлена МаксИИмом: Ноги и пресс'])
 })
+
+test('веса по подходам сохраняются в базе, читаются и переходят в копию шаблона', async () => {
+  const program = await copyTemplateToClient(client, templateId, client.id, gymId)
+  const itemId = program.days[0]!.exercises[0]!.id
+  const sets = program.days[0]!.exercises[0]!.sets
+  const weights = Array.from({ length: sets }, (_, index) => (index === 0 ? 15 : 20))
+
+  await applyProgramPatchAs(
+    client,
+    program.id,
+    { ops: [{ op: 'set_set_weights', programExerciseId: itemId, weights }] },
+    'client',
+  )
+
+  const [row] = await db.select().from(programExercises).where(eq(programExercises.id, itemId))
+  expect(row?.setWeights).toEqual(weights)
+  expect(row?.targetWeightKg).toBe(20)
+
+  const active = await getActiveProgram(client.id)
+  expect(active?.days[0]?.exercises[0]?.setWeights).toEqual(weights)
+
+  const changes = await listProgramChanges(program.id)
+  expect(changes.length).toBeGreaterThan(0)
+
+  // Шаблон с весами по подходам при выдаче клиенту не теряет их.
+  await db.update(programExercises).set({ setWeights: weights, targetWeightKg: 20 }).where(
+    eq(programExercises.dayId, (await db.select().from(programDays).where(eq(programDays.programId, templateId)).limit(1))[0]!.id),
+  )
+  const copy = await copyTemplateToClient(client, templateId, client.id, gymId)
+  expect(copy.days[0]?.exercises[0]?.setWeights).toEqual(weights)
+})
