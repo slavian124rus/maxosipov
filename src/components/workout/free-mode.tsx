@@ -1,5 +1,6 @@
 'use client'
 
+import { clearRest, startRest, useRest } from '@/lib/rest-store'
 import { initialSetWeight, setWeightsLabel } from '@/shared/set-weights'
 import { SwapButton } from './swap-button'
 import { useState } from 'react'
@@ -82,7 +83,8 @@ export function FreeMode({
   /** Открытая карточка «Как делать»: техника без ухода со страницы тренировки. */
   const [howTo, setHowTo] = useState<WorkoutExercise | null>(null)
   /** Отдых после подхода: таймер показывается под логгером, пока не истечёт или не пропущен. */
-  const [resting, setResting] = useState<{ id: string; run: number } | null>(null)
+  // Отдых хранится в памяти устройства: переход на другую страницу его не сбивает.
+  const resting = useRest()
 
   /** После решения про вес открываем следующее незавершённое упражнение. */
   function advanceFrom(exercise: WorkoutExercise): void {
@@ -205,7 +207,7 @@ export function FreeMode({
                   onLog={(weightKg, reps) => {
                     onLog(exercise, weightKg, reps)
                     if (done.length + 1 < exercise.sets && exercise.restSec > 0) {
-                      setResting({ id: exercise.programExerciseId, run: Date.now() })
+                      startRest(exercise.programExerciseId, exercise.restSec)
                     }
                   }}
                   loadType={exercise.loadType}
@@ -213,11 +215,10 @@ export function FreeMode({
 
                 {resting?.id === exercise.programExerciseId ? (
                   <RestTimer
-                    key={resting.run}
+                    rest={resting}
                     compact
-                    seconds={exercise.restSec}
-                    onDone={() => setResting(null)}
-                    onSkip={() => setResting(null)}
+                    onDone={clearRest}
+                    onSkip={clearRest}
                   />
                 ) : null}
 

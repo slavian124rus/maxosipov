@@ -1,5 +1,6 @@
 'use client'
 
+import { clearRest, startRest, useRest } from '@/lib/rest-store'
 import { initialSetWeight, setWeightsLabel } from '@/shared/set-weights'
 import { SwapButton } from './swap-button'
 import { useState } from 'react'
@@ -43,12 +44,15 @@ export function GuidedMode({
   onSwap,
 }: Props) {
   const [index, setIndex] = useState(0)
-  const [phase, setPhase] = useState<'idle' | 'logging' | 'rest'>('idle')
+  const rest = useRest()
+  const [phase, setPhase] = useState<'idle' | 'logging'>('idle')
   /** Открытая карточка «Как делать» — техника, не выходя из пошагового режима. */
   const [howTo, setHowTo] = useState<WorkoutExercise | null>(null)
 
   const exercise = exercises[index]
   if (!exercise) return <p className="text-[15px] text-text-secondary">Упражнений нет</p>
+
+  const resting = rest?.id === exercise.programExerciseId
 
   const done = logged[exercise.programExerciseId] ?? []
   const complete = done.length >= exercise.sets
@@ -110,7 +114,7 @@ export function GuidedMode({
         ))}
       </div>
 
-      {!complete && phase === 'idle' ? (
+      {!complete && phase === 'idle' && !resting ? (
         <Button type="button" onClick={() => setPhase('logging')}>
           Старт подхода
         </Button>
@@ -125,17 +129,14 @@ export function GuidedMode({
           loadType={exercise.loadType}
           onLog={(weightKg, reps) => {
             onLog(exercise, weightKg, reps)
-            setPhase('rest')
+            if (done.length + 1 < exercise.sets && exercise.restSec > 0) startRest(exercise.programExerciseId, exercise.restSec)
+            setPhase('idle')
           }}
         />
       ) : null}
 
-      {!complete && phase === 'rest' ? (
-        <RestTimer
-          seconds={exercise.restSec}
-          onDone={() => setPhase('idle')}
-          onSkip={() => setPhase('idle')}
-        />
+      {!complete && resting && rest ? (
+        <RestTimer rest={rest} onDone={clearRest} onSkip={clearRest} />
       ) : null}
 
       {complete ? (

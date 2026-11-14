@@ -1,32 +1,37 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { addRest, remainingSeconds, type Rest } from '@/lib/rest-store'
 import { Button } from '@/components/ui/button'
 
 type Props = {
-  seconds: number
+  /** Идущий отдых из памяти устройства: переживает уход со страницы. */
+  rest: Rest
   onDone: () => void
   onSkip: () => void
   /** Компактная полоса для свободного режима: под логгером, без большого кольца. */
   compact?: boolean
 }
 
-/** Таймер отдыха: крупные цифры, кольцо прогресса, вибрация в конце. */
-export function RestTimer({ seconds, onDone, onSkip, compact = false }: Props) {
-  const [left, setLeft] = useState(seconds)
+/** Таймер отдыха: считает по часам (а не по тикам), поэтому не сбивается ни при уходе со страницы, ни в фоне. */
+export function RestTimer({ rest, onDone, onSkip, compact = false }: Props) {
+  const [now, setNow] = useState(() => Date.now())
+  const left = remainingSeconds(rest, now)
+  const seconds = rest.seconds
 
   useEffect(() => {
-    if (left <= 0) {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200])
-      }
-      onDone()
-      return
-    }
+    const timer = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(timer)
+  }, [])
 
-    const timer = setTimeout(() => setLeft((value) => value - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [left, onDone])
+  const finished = left <= 0
+  useEffect(() => {
+    if (!finished) return
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200])
+    }
+    onDone()
+  }, [finished, onDone])
 
   const progress = seconds > 0 ? (seconds - left) / seconds : 1
   const minutes = Math.floor(left / 60)
@@ -72,7 +77,7 @@ export function RestTimer({ seconds, onDone, onSkip, compact = false }: Props) {
       </div>
 
       <div className="flex w-full gap-2">
-        <Button type="button" variant="secondary" className="flex-1" onClick={() => setLeft(left + 30)}>
+        <Button type="button" variant="secondary" className="flex-1" onClick={() => addRest(30)}>
           +30 с
         </Button>
         <Button type="button" variant="ghost" className="flex-1" onClick={onSkip}>
